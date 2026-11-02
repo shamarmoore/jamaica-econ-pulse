@@ -12,9 +12,9 @@ export async function getText(url, timeoutMs = 25000) {
 }
 
 async function getTextOnce(url, timeoutMs) {
-  const isNode = typeof process !== 'undefined' && process.versions && process.versions.node;
+  // Native HTTP on the phone honours User-Agent (some sites refuse the default Android one); browsers ignore it.
   const req = fetch(url, {
-    headers: isNode ? { 'User-Agent': UA, 'Accept': 'text/html,application/xhtml+xml,application/xml,application/json,text/csv,*/*' } : { 'Accept': '*/*' },
+    headers: { 'User-Agent': UA, 'Accept': 'text/html,application/xhtml+xml,application/xml,application/json,text/csv,*/*', 'Accept-Language': 'en-US,en;q=0.9' },
   }).then(async (r) => {
     if (!r.ok) throw new Error(`HTTP ${r.status}`);
     return r.text();
