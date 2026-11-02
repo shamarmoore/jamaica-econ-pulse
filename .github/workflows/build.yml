@@ -1,0 +1,61 @@
+name: Build APK & check sources
+
+on:
+  push:
+    branches: [main]
+  workflow_dispatch:
+  schedule:
+    - cron: '17 11 * * 1'   # every Monday: re-check that every source still parses
+
+jobs:
+  sources:
+    name: Check data sources
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with: { node-version: 22 }
+      - run: node scripts/smoke.mjs
+      - uses: actions/upload-artifact@v4
+        with: { name: smoke-cache, path: smoke-cache.json, retention-days: 7 }
+
+  apk:
+    name: Build signed APK
+    if: github.event_name != 'schedule'
+    runs-on: ubuntu-latest
+    permissions:
+      contents: write
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with: { node-version: 22, cache: npm }
+      - uses: actions/setup-java@v4
+        with: { distribution: temurin, java-version: 21 }
+      - uses: android-actions/setup-android@v3
+      - run: npm ci
+      - run: npx cap sync android
+      - name: Restore signing key
+        env: { KEYSTORE_B64: '${{ secrets.KEYSTORE_B64 }}' }
+        run: |
+          if [ -n "$KEYSTORE_B64" ]; then echo "$KEYSTORE_B64" | base64 -d > "$RUNNER_TEMP/release.jks"; echo "KEYSTORE_PATH=$RUNNER_TEMP/release.jks" >> $GITHUB_ENV; fi
+      - name: Gradle build
+        working-directory: android
+        env:
+          VERSION_CODE: ${{ github.run_number }}
+          KEYSTORE_PASSWORD: ${{ secrets.KEYSTORE_PASSWORD }}
+          KEY_ALIAS: ${{ secrets.KEY_ALIAS }}
+          KEY_PASSWORD: ${{ secrets.KEY_PASSWORD }}
+        run: chmod +x gradlew && ./gradlew assembleRelease --no-daemon
+      - name: Collect APK
+        run: |
+          mkdir -p out
+          cp android/app/build/outputs/apk/release/app-release*.apk out/JA-Econ-Pulse-1.0.${{ github.run_number }}.apk
+          ls -la out
+      - uses: actions/upload-artifact@v4
+        with: { name: apk, path: out/*.apk }
+      - name: Publish release
+        env: { GH_TOKEN: '${{ github.token }}' }
+        run: |
+          gh release create "v1.0.${{ github.run_number }}" out/*.apk \
+            --title "JA Econ Pulse 1.0.${{ github.run_number }}" \
+            --notes "Install the APK on your Android phone. The app fetches all data itself."

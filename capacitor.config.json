@@ -1,0 +1,7 @@
+{
+  "appId": "com.econpulse.jamaica",
+  "appName": "JA Econ Pulse",
+  "webDir": "www",
+  "plugins": { "CapacitorHttp": { "enabled": true } },
+  "android": { "backgroundColor": "#F3EEE3" }
+}
