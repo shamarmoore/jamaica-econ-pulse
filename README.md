@@ -23,6 +23,6 @@ Every push to `main` runs `.github/workflows/build.yml`:
 1. **Check data sources** runs every scraper against the live sites and posts a pass/fail table in the run summary. It also runs every Monday, so if a site changes its layout you'll see a red row.
 2. **Build signed APK** produces `JA-Econ-Pulse-1.0.N.apk` and attaches it to a GitHub Release.
 
-The signing key comes from the repo secrets `KEYSTORE_B64`, `KEYSTORE_PASSWORD`, `KEY_ALIAS` and `KEY_PASSWORD`. Every build uses the same key, so new APKs install over old ones and your cached data is kept.
+By default the APK is signed with the fixed debug key in `android/app/debug.keystore`. That key isn't secret, but because every build uses it, new APKs install over old ones and your cached data is kept. If you later add the repo secrets `KEYSTORE_B64`, `KEYSTORE_PASSWORD`, `KEY_ALIAS` and `KEY_PASSWORD`, the build switches to a signed release build. You'd have to uninstall once when you switch.
 
 Local preview: `cd www && python3 -m http.server`, then open it in a browser. Some sources block browser requests (CORS), so they will only load inside the app.

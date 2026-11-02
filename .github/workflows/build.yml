@@ -45,11 +45,14 @@ jobs:
           KEYSTORE_PASSWORD: ${{ secrets.KEYSTORE_PASSWORD }}
           KEY_ALIAS: ${{ secrets.KEY_ALIAS }}
           KEY_PASSWORD: ${{ secrets.KEY_PASSWORD }}
-        run: chmod +x gradlew && ./gradlew assembleRelease --no-daemon
+        run: |
+          chmod +x gradlew
+          if [ -n "$KEYSTORE_PATH" ]; then ./gradlew assembleRelease --no-daemon; else ./gradlew assembleDebug --no-daemon; fi
       - name: Collect APK
         run: |
           mkdir -p out
-          cp android/app/build/outputs/apk/release/app-release*.apk out/JA-Econ-Pulse-1.0.${{ github.run_number }}.apk
+          APK=$(ls android/app/build/outputs/apk/release/app-release.apk android/app/build/outputs/apk/debug/app-debug.apk 2>/dev/null | head -1)
+          cp "$APK" out/JA-Econ-Pulse-1.0.${{ github.run_number }}.apk
           ls -la out
       - uses: actions/upload-artifact@v4
         with: { name: apk, path: out/*.apk }
