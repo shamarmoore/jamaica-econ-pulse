@@ -395,7 +395,7 @@ export function analyse(d, now = new Date()) {
     const dz0 = pj[0].prices['Auto Diesel']; const dz1 = pj[1].prices['Auto Diesel']; const cd = dz0 && dz1 ? (dz0 / dz1 - 1) * 100 : null;
     add({ id: 'fuel', scope: 'Jamaica', level: c > 1.5 ? 'pressure' : c < -1.5 ? 'easing' : 'neutral', severity: c > 3 ? 2 : c > 1.5 ? 1 : 0,
       title: c > 1.5 ? 'Fuel prices went up this week' : c < -1.5 ? 'Fuel prices went down this week' : 'Fuel prices little changed this week',
-      signal: `Petrojam gasolene 87 J$${fmt(g0, 2)}/L (${signed(c)} w/w)${cd != null ? `, diesel J$${fmt(dz0, 2)} (${signed(cd)})` : ''} — week of ${pj[0].date}. Pump prices add taxes and margins on top.`,
+      signal: `Petrojam gasolene 87 J$${fmt(g0, 2)}/L (${signed(c)} w/w)${cd != null ? `, diesel J$${fmt(dz0, 2)} (${signed(cd)})` : ''} — week of ${new Date(pj[0].date + 'T12:00:00Z').toLocaleDateString('en-GB', { day: 'numeric', month: 'short' })}. Pump prices add taxes and margins on top.`,
       effects: ['Weekly refinery prices pass to the pump within days, and to taxi/bus fares and delivery costs over weeks.', 'Compare with Brent: world oil moves usually reach Petrojam prices within 1–3 weeks.'],
       watch: 'Petrojam’s weekly price update.', gauge: c > 1.5 ? { inflation: 0.25 } : c < -1.5 ? { inflation: -0.25 } : {}, sources: ['petrojam'] });
   }
