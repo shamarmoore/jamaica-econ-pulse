@@ -26,7 +26,10 @@ async function refresh(force = false) {
   await Promise.all(todo.map(async (s) => {
     try {
       const res = await s.fn();
-      cache[s.id] = { data: res, at: Date.now() };
+      const prev = cache[s.id]?.data;
+      // keep previously-saved values for any field this fetch couldn't read (partial page loads)
+      const merged = prev && res && !Array.isArray(res) ? { ...prev, ...Object.fromEntries(Object.entries(res).filter(([, v]) => v != null)) } : res;
+      cache[s.id] = { data: merged, at: Date.now() };
     } catch (e) {
       cache[s.id] = { ...(cache[s.id] || {}), error: String(e.message || e), errorAt: Date.now() };
     } finally {
