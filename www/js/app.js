@@ -1,9 +1,23 @@
 import { SOURCES, FRED } from './sources.js';
 import { analyse, borrowing } from './analysis.js';
+import { decide, PROFILES, ASSETS } from './decisions.js';
 import { fmt, signed, last, changeOver, yoySeries } from './util.js';
 
 const KEY = 'ep_cache_v1';
 const PREV = 'ep_prev_gauges_v1';
+const HIST = 'ep_hist_v1';
+let hist = {};
+try { hist = JSON.parse(localStorage.getItem(HIST)) || {}; } catch (_) { hist = {}; }
+function recordHistory() {
+  const d = data(); const day = new Date().toISOString().slice(0, 10);
+  const e = hist[day] || {};
+  if (d.jse?.indices?.main) { e.jseMain = d.jse.indices.main.value; e.jseCombined = d.jse.indices.combined?.value; }
+  if (d.statin?.unemployment) e.unemp = d.statin.unemployment.value;
+  const g = d.petrojam?.weeks?.[0]?.prices['Gasolene 87']; if (g) e.g87 = g;
+  if (Object.keys(e).length) hist[day] = e;
+  const keys = Object.keys(hist).sort(); while (keys.length > 800) delete hist[keys.shift()];
+  try { localStorage.setItem(HIST, JSON.stringify(hist)); } catch (_) { /* ignore */ }
+}
 const $ = (s) => document.querySelector(s);
 const esc = (s) => String(s ?? '').replace(/[&<>"]/g, (c) => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;' }[c]));
 
@@ -36,6 +50,7 @@ async function refresh(force = false) {
       running.delete(s.id); save(); status(); render(false);
     }
   }));
+  recordHistory();
   const a = analyse(data());
   try {
     const old = JSON.parse(localStorage.getItem(PREV) || 'null');
@@ -121,6 +136,7 @@ function viewPulse(d, a) {
   const c = a.consider;
   return `
   <section class="lede"><p>${esc(a.headline)}</p></section>
+  ${movesStrip(d)}
   <section class="gauges">
     ${gaugeCard('Inflation pressure', a.gauges.inflation, pg.inflation, 'Prices & cost of living')}
     ${gaugeCard('Growth momentum', a.gauges.growth, pg.growth, 'Output, jobs, demand')}
@@ -255,6 +271,116 @@ function viewWorld(d) {
 }
 
 
+
+// ---------- Decide tab ----------
+let sub = 'overview';
+const PROFILE_KEY = 'ep_profile_v1';
+let profile = 'balanced';
+try { profile = localStorage.getItem(PROFILE_KEY) || 'balanced'; } catch (_) { /* default */ }
+const SUBS = [['overview', 'Overview'], ['spend', 'Spend'], ['borrow', 'Borrow'], ['home', 'Home'], ['invest', 'Invest'], ['work', 'Work']];
+
+function chip(dec) { return `<span class="vchip ${STEP_CLASS[dec.step]}"><span class="gi">${STEP_ICON[dec.step]}</span>${esc(dec.label)}</span>`; }
+
+function movesStrip(d) {
+  const x = decide(d, hist); if (!x.spend.why.length && !x.home.why.length) return '';
+  return `<section class="moves"><div class="gname">Your moves right now</div>
+    ${['spend', 'borrow', 'home', 'invest', 'work'].map((k) => `<button class="move" data-sub="${k}"><span class="mt">${x[k].title}</span>${chip(x[k])}</button>`).join('')}</section>`;
+}
+
+function hero(title, dec, extra = '') {
+  return `<section class="hero-b"><div class="gname">${title}</div>
+    <div class="glabel ${STEP_CLASS[dec.step]}"><span class="gi">${STEP_ICON[dec.step]}</span>${esc(dec.label)}</div>
+    <div class="segs">${[0, 1, 2, 3].map((i) => `<i class="${i <= dec.step ? STEP_CLASS[dec.step] : ''}"></i>`).join('')}</div>${extra}
+    ${dec.why?.length ? `<ul class="why">${dec.why.map((w) => { const good = dec.pol === 'pos' ? w.pts > 0 : w.pts < 0; const ic = w.pts === 0 ? '●' : dec.pol === 'pos' ? (w.pts > 0 ? '+' : '−') : (w.pts > 0 ? '▲' : '▼');
+      return `<li class="${w.pts === 0 ? '' : good ? 'down' : 'up'}"><span>${ic}</span>${esc(w.t)}</li>`; }).join('')}</ul>` : ''}
+  </section>`;
+}
+function tipsBlock(t) { return t?.length ? `<h2 class="sec">What to do</h2><ul class="tips">${t.map((x) => `<li>${esc(x)}</li>`).join('')}</ul>` : ''; }
+
+function viewDecide(d) {
+  const x = decide(d, hist);
+  const nav = `<nav class="subnav">${SUBS.map(([k, l]) => `<button data-sub="${k}" class="${sub === k ? 'on' : ''}">${l}</button>`).join('')}</nav>`;
+  let body = '';
+  if (!x.spend.why.length && !x.home.why.length) body = empty(running.size ? 'Gathering the latest numbers…' : 'No data yet. Check your connection and tap refresh.');
+  else if (sub === 'overview') {
+    const a = analyse(d);
+    body = `<p class="lede-s">${esc(a.headline)}</p>
+      ${['spend', 'borrow', 'home', 'invest', 'work'].map((k) => {
+        const dec = x[k]; const top = (dec.why || []).filter((w) => w.pts !== 0).slice(0, 2);
+        const firstWhy = k === 'borrow' ? x.ctx.b.reasons.slice(0, 2).map((r) => ({ t: r.txt, pts: r.pts })) : top.length ? top : (dec.why || []).slice(0, 1);
+        return `<article class="dcard ${STEP_CLASS[dec.step]}"><div class="dc-h"><h3>${dec.title}</h3>${chip(dec)}</div>
+          <ul>${firstWhy.map((w) => `<li>${esc(w.t)}</li>`).join('')}</ul>
+          <button class="more" data-sub="${k}">Details ›</button></article>`;
+      }).join('')}
+      <p class="fine">General, rule-based guidance from public data — not personal financial advice. Your own income, debts and goals come first.</p>`;
+  } else if (sub === 'spend') body = hero('Household spending · now', x.spend) + tipsBlock(x.spend.tips);
+  else if (sub === 'borrow') body = viewBorrow(d);
+  else if (sub === 'home') body = viewHome(d, x);
+  else if (sub === 'invest') body = viewInvest(d, x);
+  else if (sub === 'work') body = viewWork(d, x);
+  return nav + body;
+}
+
+const HOME_KEY = 'ep_home_v1';
+function viewHome(d, x) {
+  const h = x.home; const r = d.bojrates || {};
+  const defRate = h.mortBS ?? h.mortCB ?? 8;
+  let st = {}; try { st = JSON.parse(localStorage.getItem(HOME_KEY)) || {}; } catch (_) { /* none */ }
+  const v = { price: st.price ?? 25000000, deposit: st.deposit ?? 2500000, rate: st.rate ?? +defRate.toFixed(2), years: st.years ?? 25, income: st.income ?? '' };
+  return hero('Buying a home · now', h) +
+    `<h2 class="sec">Mortgage rates <small>BOJ averages actually charged</small></h2><div class="grid">
+      ${rateTile('Building societies', r.bsLoans?.mortgage, 'main mortgage lenders')}${rateTile('Commercial banks', r.loans?.mortgage)}</div>
+    <p class="fine">No public house-price index exists for Jamaica, so this reading uses what drives prices and affordability: rates, inflation, building costs, incomes and remittances. NHT contributors can get lower rates — <a href="https://www.nht.gov.jm/" target="_blank" rel="noopener">check NHT eligibility</a>.</p>
+    <h2 class="sec">Can I afford it?</h2>
+    <section class="calc" data-calc="home">
+      <label>Home price (J$)<input id="h-price" inputmode="numeric" value="${v.price}"></label>
+      <label>Deposit (J$)<input id="h-deposit" inputmode="numeric" value="${v.deposit}"></label>
+      <label>Mortgage rate (%)<input id="h-rate" inputmode="decimal" value="${v.rate}"></label>
+      <label>Term (years)<input id="h-years" inputmode="numeric" value="${v.years}"></label>
+      <label class="wide">Household take-home pay per month (J$)<input id="h-income" inputmode="numeric" value="${v.income}" placeholder="enter to see affordability"></label>
+      <div id="h-out" class="wide"></div>
+    </section>` + tipsBlock(h.tips);
+}
+function updateHome() {
+  const el = document.getElementById('h-out'); if (!el) return;
+  const g = (id) => parseFloat(String(document.getElementById(id).value).replace(/[,\s$J]/g, ''));
+  const st = { price: g('h-price') || 0, deposit: g('h-deposit') || 0, rate: g('h-rate') || 0, years: g('h-years') || 1, income: document.getElementById('h-income').value };
+  try { localStorage.setItem(HOME_KEY, JSON.stringify(st)); } catch (_) { /* ignore */ }
+  const P = Math.max(0, st.price - st.deposit); const m = pmt(P, st.rate, st.years); const inc = parseFloat(String(st.income).replace(/[,\s$J]/g, ''));
+  const share = inc ? (m / inc) * 100 : null;
+  const verdict = share == null ? '' : share <= 30 ? ['good', 'Comfortable'] : share <= 40 ? ['warn', 'Tight'] : ['bad', 'Stretched'];
+  el.innerHTML = `<div class="c-big"><span>Monthly mortgage</span><b>${J(m)}</b></div>
+    <div class="c-row"><span>Loan amount</span><b>${J(P)} (${fmt(st.price ? (P / st.price) * 100 : 0, 0)}% of price)</b></div>
+    <div class="c-row"><span>Total interest over ${st.years} yrs</span><b>${J(m * st.years * 12 - P)}</b></div>
+    ${share != null ? `<div class="c-row"><span>Share of take-home pay</span><b class="${verdict[0]}">${fmt(share, 0)}% · ${verdict[1]}</b></div>` : ''}
+    <div class="c-row"><span>At +2 pts (${fmt(st.rate + 2, 2)}%)</span><b>${J(pmt(P, st.rate + 2, st.years))}/mo</b></div>`;
+}
+
+function viewInvest(d, x) {
+  const iv = x.invest; const c = x.ctx; const m = iv.mixes[profile];
+  const bar = `<div class="alloc" role="img" aria-label="example allocation">${Object.entries(m).filter(([, v]) => v > 0).map(([k, v]) => `<span class="${ASSETS[k].color}" style="flex:${v}" title="${ASSETS[k].name} ${v}%">${v >= 10 ? `${v}%` : ''}</span>`).join('')}</div>`;
+  const legend = `<table class="leg">${Object.entries(m).map(([k, v]) => `<tr><td><i class="sw ${ASSETS[k].color}"></i>${ASSETS[k].name}</td><td>${v}%</td><td class="tl">${iv.tilt[k] >= 2 ? '<span class="good">▲ lean in</span>' : iv.tilt[k] <= -2 ? '<span class="bad">▼ lean out</span>' : ''}</td></tr>`).join('')}</table>`;
+  const yields = [
+    ['Inflation (Jamaica)', c.infl, '%'], ['6-month T-bill (JMD)', c.tb6, '%'], ['12-month deposit (JMD)', c.dep12, '%'],
+    ['12-month deposit (USD)', c.usdDep12, '%'], ['US 3-month T-bill (USD)', c.usTbill, '%'],
+  ].filter((y) => y[1] != null);
+  return `<section class="hero-b"><div class="gname">Investing · example mix by risk level</div>
+      <div class="seg3">${Object.entries(PROFILES).map(([k, p]) => `<button data-profile="${k}" class="${profile === k ? 'on' : ''}">${p.name}</button>`).join('')}</div>
+      <p class="fine">${PROFILES[profile].blurb}</p>${bar}${legend}
+      <div class="advice"><p><b>${esc(iv.label)}.</b>${iv.away.length ? ` Go lighter on ${esc(iv.away.slice(0, 2).join(' & '))}.` : ''}</p></div></section>
+    <h2 class="sec">Why the mix leans this way</h2><ul class="why plain">${iv.why.map((w) => `<li class="${w.pts > 0 ? 'down' : w.pts < 0 ? 'up' : ''}"><span>${w.pts > 0 ? '▲' : w.pts < 0 ? '▼' : '●'}</span>${esc(w.t)}</li>`).join('')}</ul>
+    <h2 class="sec">What safe money earns</h2><table class="yt">${yields.map(([n, v, u]) => `<tr><td>${n}</td><td>${fmt(v, 2)}${u}</td><td>${n.startsWith('Inflation') ? '' : c.infl != null && !n.includes('USD') ? `<span class="${v - c.infl < 0 ? 'bad' : 'good'}">${signed(v - c.infl, 1, ' real')}</span>` : ''}</td></tr>`).join('')}</table>
+    <p class="fine">Example asset-class mixes adjusted by today’s data — not recommendations of specific products. Fees, taxes and your timeline matter. For specific investments, speak with an FSC-licensed adviser. USD returns also gain or lose with the exchange rate.</p>`;
+}
+
+function viewWork(d, x) {
+  const w = x.work;
+  return hero('Job moves · now', w) +
+    (w.sectors.length ? `<h2 class="sec">Sector temperature <small>from live data</small></h2><ul class="carsig">${w.sectors.map((s) => `
+      <li><div class="cs-h"><b>${esc(s.name)}</b><span class="cs-v"><em class="${s.dir === 'warm' ? 'down' : s.dir === 'cool' ? 'up' : ''}">${s.dir === 'warm' ? '▲ warming' : s.dir === 'cool' ? '▼ cooling' : '● steady'}</em></span></div><div class="fine">${esc(s.why)}</div></li>`).join('')}</ul>` : '') +
+    tipsBlock(w.tips);
+}
+
 const CALC_KEY = 'ep_calc_v1';
 function calcState(defRate) {
   let c = {}; try { c = JSON.parse(localStorage.getItem(CALC_KEY)) || {}; } catch (_) { /* none */ }
@@ -375,18 +501,19 @@ function viewSources() {
   }).join('')}</ul>
   <h2 class="sec">How the readings work</h2>
   <p class="fine">Each card applies a fixed rule to the live numbers — for example, Brent oil up more than 10% in three months counts as pressure, because fuel is a large share of Jamaica’s imports and feeds into electricity, transport and the exchange rate. The four gauges add up those signals. Rules describe the usual direction of impact; they are not forecasts, and real outcomes depend on policy and timing.</p>
-  <p class="fine">Version 1.1</p>`;
+  <p class="fine">Version 1.2</p>`;
 }
 
 function render(force = true) {
   const v = $('#view');
-  if (!force && tab === 'borrow' && v.contains(document.activeElement) && document.activeElement.tagName === 'INPUT') return;
+  if (!force && tab === 'decide' && v.contains(document.activeElement) && document.activeElement.tagName === 'INPUT') return;
   const d = data(); const a = analyse(d);
   const openIds = [...v.querySelectorAll('details')].map((x) => x.open);
-  v.innerHTML = tab === 'pulse' ? viewPulse(d, a) : tab === 'jamaica' ? viewJamaica(d) : tab === 'world' ? viewWorld(d) : tab === 'borrow' ? viewBorrow(d) : tab === 'news' ? viewNews(d) : viewSources();
+  v.innerHTML = tab === 'pulse' ? viewPulse(d, a) : tab === 'jamaica' ? viewJamaica(d) : tab === 'world' ? viewWorld(d) : tab === 'decide' ? viewDecide(d) : tab === 'news' ? viewNews(d) : viewSources();
   if (tab === 'pulse' && openIds.length) v.querySelectorAll('details').forEach((x, i) => { if (openIds[i] !== undefined) x.open = openIds[i]; });
   const nf = $('#nf'); if (nf) nf.onchange = () => { newsFilter = nf.checked; render(); };
-  if (tab === 'borrow') { v.querySelectorAll('.calc input').forEach((i) => i.addEventListener('input', updateCalc)); updateCalc(); }
+  if (tab === 'decide' && sub === 'borrow') { v.querySelectorAll('.calc input').forEach((i) => i.addEventListener('input', updateCalc)); updateCalc(); }
+  if (tab === 'decide' && sub === 'home') { v.querySelectorAll('.calc input').forEach((i) => i.addEventListener('input', updateHome)); updateHome(); }
 }
 
 // sparkline scrubbing (touch + mouse)
@@ -407,6 +534,12 @@ $('#tabs').addEventListener('click', (e) => {
 });
 $('#status').addEventListener('click', (e) => { const g = e.target.closest('[data-goto]'); if (g) document.querySelector(`#tabs [data-tab="${g.dataset.goto}"]`).click(); });
 $('#refresh').addEventListener('click', () => refresh(true));
+$('#view').addEventListener('click', (e) => {
+  const sb = e.target.closest('[data-sub]');
+  if (sb) { sub = sb.dataset.sub; if (tab !== 'decide') { document.querySelector('#tabs [data-tab="decide"]').click(); return; } window.scrollTo(0, 0); render(); return; }
+  const pf = e.target.closest('[data-profile]');
+  if (pf) { profile = pf.dataset.profile; try { localStorage.setItem(PROFILE_KEY, profile); } catch (_) { /* ignore */ } render(); }
+});
 document.addEventListener('visibilitychange', () => { if (!document.hidden) refresh(false); });
 $('#today').textContent = new Date().toLocaleDateString('en-JM', { weekday: 'long', day: 'numeric', month: 'long', year: 'numeric' });
 

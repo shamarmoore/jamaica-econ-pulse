@@ -154,6 +154,8 @@ export const FRED = {
   PCU483111483111: { label: 'Deep-sea freight cost index', unit: 'index', years: 4 },
   VIXCLS: { label: 'Market fear gauge (VIX)', unit: 'index', years: 2 },
   BAMLEMHBHYCRPIOAS: { label: 'Emerging-market high-yield spread', unit: '%', years: 2 },
+  SP500: { label: 'US stocks (S&P 500)', unit: 'index', years: 2 },
+  DTB3: { label: 'US 3-month T-bill', unit: '%', years: 2 },
   LRUNTTTTCAM156S: { label: 'Canada unemployment', unit: '%', years: 4 },
 };
 function parseFredCSV(csv) {
@@ -190,7 +192,7 @@ async function fxRate(date) {
     `https://${tag}.currency-api.pages.dev/v1/currencies/usd.min.json`,
   ];
   for (const u of urls) {
-    try { const j = await getJSON(u); if (j?.usd?.jmd) return { date: j.date, jmd: j.usd.jmd, cad: j.usd.cad, gbp: j.usd.gbp, eur: j.usd.eur, jpy: j.usd.jpy }; } catch (_) { /* try next */ }
+    try { const j = await getJSON(u); if (j?.usd?.jmd) return { date: j.date, jmd: j.usd.jmd, cad: j.usd.cad, gbp: j.usd.gbp, eur: j.usd.eur, jpy: j.usd.jpy, xau: j.usd.xau }; } catch (_) { /* try next */ }
   }
   return null;
 }
@@ -203,7 +205,9 @@ async function fx() {
   const back = [30, 90, 180, 365];
   const hist = await Promise.all(back.map((d) => fxRate(isoDaysAgo(d))));
   hist.forEach((h, i) => { if (h) out.history.push({ daysAgo: back[i], ...h }); });
-  if (!out.now) out.now = await fxRate(null);
+  const latest = await fxRate(null);
+  if (!out.now) out.now = latest;
+  if (out.now && latest?.xau) out.now.xau = latest.xau;
   if (!out.now) throw new Error('No exchange-rate source responded');
   return out;
 }
@@ -276,12 +280,15 @@ function columns(rows, wanted, months = 30) {
   return out;
 }
 async function bojRates() {
-  const [loans, deps, bills] = await Promise.allSettled([
-    readSheet('2020/10/IR.CB.02.xls'), readSheet('2020/10/IR.CB.00.xls'), readSheet('2020/10/IR.GOJ.00.xlsx')]);
+  const [loans, deps, bills, usd, bs] = await Promise.allSettled([
+    readSheet('2020/10/IR.CB.02.xls'), readSheet('2020/10/IR.CB.00.xls'), readSheet('2020/10/IR.GOJ.00.xlsx'),
+    readSheet('2021/06/IR.CB.01-Commercial-Banks-Foreign-Currency-Deposit-Rates.xls'), readSheet('2020/10/IR.BS.02.xls')]);
   const out = {};
   if (loans.status === 'fulfilled') out.loans = columns(loans.value, { instalment: /^INSTALMENT/i, mortgage: /^MORTGAGE/i, personal: /^PERSONAL/i, commercial: /^COMMERCIAL/i, overall: /^OVERALL/i });
   if (deps.status === 'fulfilled') out.deposits = columns(deps.value, { savings: /^SAVINGS/i, time12: /^12 MONTHS/i, timeAvg: /^OVERALL TIME/i, overall: /^OVERALL DEPOSIT/i });
   if (bills.status === 'fulfilled') out.tbills = columns(bills.value, { m3: /^3 MONTHS/i, m6: /^6 MONTHS/i, m9: /^9 MONTHS/i });
+  if (usd.status === 'fulfilled') out.usdDeposits = columns(usd.value, { time12: /^12 MONTHS/i, savings: /^SAVINGS/i, overall: /^OVERALL DEPOSIT/i });
+  if (bs.status === 'fulfilled') out.bsLoans = columns(bs.value, { mortgage: /MORTGAGE/i, overall: /^OVERALL/i });
   if (!out.loans?.instalment?.length && !out.deposits?.overall?.length && !out.tbills?.m3?.length) throw new Error('BOJ rate tables not readable');
   return out;
 }
@@ -343,17 +350,34 @@ async function petrojam() {
   return { weeks };
 }
 
+
+// ---------- Jamaica Stock Exchange ----------
+async function jse() {
+  const t = htmlToText(await getText('https://www.jamstockex.com/'));
+  const out = { indices: {} };
+  const names = { 'Main Index': 'main', 'Junior Market Index': 'junior', 'Combined Index': 'combined', 'JSE Select Index': 'select', 'US Equities': 'usd', 'Financial Index': 'financial' };
+  for (const m of t.matchAll(/(Main Index|Junior Market Index|Combined Index|JSE Select Index|US Equities|Financial Index)\s+[\d,]+\s+Vol\s+([\d,]+\.\d+)\s+(-?[\d,]+\.\d+)/g)) {
+    const v = parseFloat(m[2].replace(/,/g, '')); const ch = parseFloat(m[3].replace(/,/g, ''));
+    out.indices[names[m[1]]] = { value: v, change: ch, pct: (ch / (v - ch)) * 100 };
+  }
+  const d = /Market (?:Closed|Open)\s+(\d{4}-\d{2}-\d{2})/.exec(t);
+  out.date = d ? d[1] : new Date().toISOString().slice(0, 10);
+  if (!out.indices.main && !out.indices.combined) throw new Error('JSE index layout not recognised');
+  return out;
+}
+
 export const SOURCES = [
   { id: 'boj', name: 'Bank of Jamaica', home: 'https://boj.org.jm/', scope: 'Jamaica', what: 'Inflation, policy rate, official FX rates', fn: boj, ttlH: 6 },
   { id: 'statin', name: 'STATIN', home: 'https://statinja.gov.jm/', scope: 'Jamaica', what: 'CPI, labour force, GDP, trade, PPI', fn: statin, ttlH: 12 },
-  { id: 'bojrates', name: 'BOJ interest-rate tables', home: 'https://boj.org.jm/statistics/interest-rates/', scope: 'Jamaica', what: 'Average loan rates (incl. instalment/vehicle), deposit rates, T-bill yields', fn: bojRates, ttlH: 24 },
+  { id: 'bojrates', name: 'BOJ interest-rate tables', home: 'https://boj.org.jm/statistics/interest-rates/', scope: 'Jamaica', what: 'Loan rates (vehicle, personal, mortgage; banks & building societies), JMD & USD deposit rates, T-bill yields', fn: bojRates, ttlH: 24 },
   { id: 'remit', name: 'BOJ Remittance Bulletin', home: 'https://boj.org.jm/', scope: 'Jamaica', what: 'Monthly net remittance inflows and source countries', fn: remittances, ttlH: 24 },
   { id: 'tourism', name: 'Tourism Analytics (JTB & airport data)', home: 'https://www.tourismanalytics.com/jamaica-statistics.html', scope: 'Jamaica', what: 'Stopover arrivals and airport passenger movements, year-on-year', fn: tourism, ttlH: 24 },
+  { id: 'jse', name: 'Jamaica Stock Exchange', home: 'https://www.jamstockex.com/', scope: 'Jamaica', what: 'Daily JSE Main, Junior, Combined and USD index closes', fn: jse, ttlH: 6 },
   { id: 'petrojam', name: 'Petrojam', home: 'https://www.petrojam.com/', scope: 'Jamaica', what: 'Weekly ex-refinery fuel prices', fn: petrojam, ttlH: 12 },
   { id: 'imf', name: 'IMF World Economic Outlook', home: 'https://www.imf.org/external/datamapper/profile/JAM', scope: 'Jamaica + partners', what: 'Growth, inflation, debt, current account — history & projections', fn: imf, ttlH: 72 },
   { id: 'worldbank', name: 'World Bank', home: 'https://data.worldbank.org/country/jamaica', scope: 'Jamaica', what: 'Structural exposure: remittances, tourism, reserves, import mix', fn: worldbank, ttlH: 168 },
   { id: 'fred', name: 'FRED (St. Louis Fed)', home: 'https://fred.stlouisfed.org/', scope: 'World', what: 'Oil, gas, US rates & jobs, inflation, food & grains, aluminium, freight, global risk, Canada jobs', fn: fred, ttlH: 12 },
-  { id: 'fx', name: 'Exchange-rate APIs', home: 'https://www.exchangerate-api.com/', scope: 'Jamaica', what: 'USD/JMD and JPY/JMD now and 1–12 months ago', fn: fx, ttlH: 6 },
+  { id: 'fx', name: 'Exchange-rate APIs', home: 'https://www.exchangerate-api.com/', scope: 'Jamaica', what: 'USD/JMD, JPY/JMD and gold, now and 1–12 months ago', fn: fx, ttlH: 6 },
   { id: 'nhc', name: 'NOAA Hurricane Center', home: 'https://www.nhc.noaa.gov/', scope: 'World', what: 'Active Atlantic storms & 7-day outlook', fn: hurricanes, ttlH: 1 },
   { id: 'news', name: 'Gleaner & Observer', home: 'https://jamaica-gleaner.com/business', scope: 'Jamaica', what: 'Business headlines', fn: news, ttlH: 2 },
 ];
