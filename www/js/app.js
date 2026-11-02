@@ -324,12 +324,12 @@ function viewDecide(d) {
 const HOME_KEY = 'ep_home_v1';
 function viewHome(d, x) {
   const h = x.home; const r = d.bojrates || {};
-  const defRate = h.mortBS ?? h.mortCB ?? 8;
+  const defRate = h.mortCB ?? 8;
   let st = {}; try { st = JSON.parse(localStorage.getItem(HOME_KEY)) || {}; } catch (_) { /* none */ }
   const v = { price: st.price ?? 25000000, deposit: st.deposit ?? 2500000, rate: st.rate ?? +defRate.toFixed(2), years: st.years ?? 25, income: st.income ?? '' };
   return hero('Buying a home · now', h) +
     `<h2 class="sec">Mortgage rates <small>BOJ averages actually charged</small></h2><div class="grid">
-      ${rateTile('Building societies', r.bsLoans?.mortgage, 'main mortgage lenders')}${rateTile('Commercial banks', r.loans?.mortgage)}</div>
+      ${rateTile('Bank mortgages (avg)', r.loans?.mortgage, 'includes JN & former building societies')}${rateTile('6-month T-bill', r.tbills?.m6, 'where rates are heading')}</div>
     <p class="fine">No public house-price index exists for Jamaica, so this reading uses what drives prices and affordability: rates, inflation, building costs, incomes and remittances. NHT contributors can get lower rates — <a href="https://www.nht.gov.jm/" target="_blank" rel="noopener">check NHT eligibility</a>.</p>
     <h2 class="sec">Can I afford it?</h2>
     <section class="calc" data-calc="home">

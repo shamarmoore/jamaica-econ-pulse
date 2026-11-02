@@ -280,15 +280,14 @@ function columns(rows, wanted, months = 30) {
   return out;
 }
 async function bojRates() {
-  const [loans, deps, bills, usd, bs] = await Promise.allSettled([
+  const [loans, deps, bills, usd] = await Promise.allSettled([
     readSheet('2020/10/IR.CB.02.xls'), readSheet('2020/10/IR.CB.00.xls'), readSheet('2020/10/IR.GOJ.00.xlsx'),
-    readSheet('2021/06/IR.CB.01-Commercial-Banks-Foreign-Currency-Deposit-Rates.xls'), readSheet('2020/10/IR.BS.02.xls')]);
+    readSheet('2021/06/IR.CB.01-Commercial-Banks-Foreign-Currency-Deposit-Rates.xls')]);
   const out = {};
   if (loans.status === 'fulfilled') out.loans = columns(loans.value, { instalment: /^INSTALMENT/i, mortgage: /^MORTGAGE/i, personal: /^PERSONAL/i, commercial: /^COMMERCIAL/i, overall: /^OVERALL/i });
   if (deps.status === 'fulfilled') out.deposits = columns(deps.value, { savings: /^SAVINGS/i, time12: /^12 MONTHS/i, timeAvg: /^OVERALL TIME/i, overall: /^OVERALL DEPOSIT/i });
   if (bills.status === 'fulfilled') out.tbills = columns(bills.value, { m3: /^3 MONTHS/i, m6: /^6 MONTHS/i, m9: /^9 MONTHS/i });
   if (usd.status === 'fulfilled') out.usdDeposits = columns(usd.value, { time12: /^12 MONTHS/i, savings: /^SAVINGS/i, overall: /^OVERALL DEPOSIT/i });
-  if (bs.status === 'fulfilled') out.bsLoans = columns(bs.value, { mortgage: /MORTGAGE/i, overall: /^OVERALL/i });
   if (!out.loans?.instalment?.length && !out.deposits?.overall?.length && !out.tbills?.m3?.length) throw new Error('BOJ rate tables not readable');
   return out;
 }
@@ -369,7 +368,7 @@ async function jse() {
 export const SOURCES = [
   { id: 'boj', name: 'Bank of Jamaica', home: 'https://boj.org.jm/', scope: 'Jamaica', what: 'Inflation, policy rate, official FX rates', fn: boj, ttlH: 6 },
   { id: 'statin', name: 'STATIN', home: 'https://statinja.gov.jm/', scope: 'Jamaica', what: 'CPI, labour force, GDP, trade, PPI', fn: statin, ttlH: 12 },
-  { id: 'bojrates', name: 'BOJ interest-rate tables', home: 'https://boj.org.jm/statistics/interest-rates/', scope: 'Jamaica', what: 'Loan rates (vehicle, personal, mortgage; banks & building societies), JMD & USD deposit rates, T-bill yields', fn: bojRates, ttlH: 24 },
+  { id: 'bojrates', name: 'BOJ interest-rate tables', home: 'https://boj.org.jm/statistics/interest-rates/', scope: 'Jamaica', what: 'Loan rates (vehicle, personal, mortgage), JMD & USD deposit rates, T-bill yields', fn: bojRates, ttlH: 24 },
   { id: 'remit', name: 'BOJ Remittance Bulletin', home: 'https://boj.org.jm/', scope: 'Jamaica', what: 'Monthly net remittance inflows and source countries', fn: remittances, ttlH: 24 },
   { id: 'tourism', name: 'Tourism Analytics (JTB & airport data)', home: 'https://www.tourismanalytics.com/jamaica-statistics.html', scope: 'Jamaica', what: 'Stopover arrivals and airport passenger movements, year-on-year', fn: tourism, ttlH: 24 },
   { id: 'jse', name: 'Jamaica Stock Exchange', home: 'https://www.jamstockex.com/', scope: 'Jamaica', what: 'Daily JSE Main, Junior, Combined and USD index closes', fn: jse, ttlH: 6 },

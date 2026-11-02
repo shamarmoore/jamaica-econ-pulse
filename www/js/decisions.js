@@ -17,7 +17,7 @@ function ctx(d) {
     a, b, boj, r, fred, fx, infl, jmd12, jmd3,
     tb6: lv(r.tbills?.m6) ?? lv(r.tbills?.m3), dep12: lv(r.deposits?.time12), sav: lv(r.deposits?.savings),
     usdDep12: lv(r.usdDeposits?.time12), usTbill: lv(fred.DTB3), personal: lv(r.loans?.personal), inst: lv(r.loans?.instalment),
-    mortCB: lv(r.loans?.mortgage), mortBS: lv(r.bsLoans?.mortgage),
+    mortCB: lv(r.loans?.mortgage),
     has: (id, level) => a.insights.some((i) => i.id === id && (!level || i.level === level)),
   };
 }
@@ -58,7 +58,7 @@ export function spending(d, c = ctx(d)) {
 export function home(d, c = ctx(d)) {
   const why = []; let s = 0; // positive = favourable to buy now (if personally ready)
   const add = (pts, t) => { s += pts; why.push({ pts, t }); };
-  const mort = c.mortBS ?? c.mortCB;
+  const mort = c.mortCB;
   if (c.b.step >= 2) add(1, 'Mortgage rates are unlikely to fall soon, so waiting is unlikely to get you a cheaper loan.');
   else if (c.b.step === 0) add(-1, 'Rates look likely to ease — waiting a few months could lower your mortgage rate.');
   if (mort != null && c.infl != null) {
@@ -79,7 +79,7 @@ export function home(d, c = ctx(d)) {
     'If you contribute to the NHT, combining an NHT loan with a bank or building-society loan usually lowers the blended rate — check your NHT eligibility and income band.',
     'Prefer a fixed rate while the rate outlook is “staying high” or “rising”.',
   ];
-  return { key: 'home', title: 'Buying a home', label, step, why, tips, mortCB: c.mortCB, mortBS: c.mortBS, pol: 'pos' };
+  return { key: 'home', title: 'Buying a home', label, step, why, tips, mortCB: c.mortCB, pol: 'pos' };
 }
 
 // ---------- Investing by risk profile ----------

@@ -24,7 +24,7 @@ An Android app that scrapes Jamaica's economic indicators straight from the publ
 Glanceable verdicts for personal decisions, each with its reasons shown:
 - **Spend** — trim / careful / normal, from inflation, real savings rates, growth, fuel & food trends, jobs and remittances.
 - **Borrow** — loan-rate outlook, live loan/deposit/T-bill rates, car-loan calculator, car import-cost signals.
-- **Home** — buy-now reading from mortgage rates (banks & building societies), rate outlook, inflation, building-cost pressure and income security, plus an affordability calculator. (Jamaica has no public house-price index, so prices themselves are not tracked.)
+- **Home** — buy-now reading from average bank mortgage rates, rate outlook, inflation, building-cost pressure and income security, plus an affordability calculator. (Jamaica has no public house-price index, so prices themselves are not tracked.)
 - **Invest** — example asset-class mixes for Conservative / Balanced / Growth, tilted by real JMD yields, JMD pressure, rate outlook, global risk mood and inflation; compares JMD/USD safe yields.
 - **Work** — whether it’s a good time to look or negotiate, with sector temperatures from tourism, mining, remittance and news data.
 These are general rule-based readings, not personalised financial advice.
