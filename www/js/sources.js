@@ -20,8 +20,11 @@ async function boj() {
     }
   } catch (e) { out.fxError = String(e.message || e); }
 
-  const html = await getText('https://boj.org.jm/');
-  const t = htmlToText(html);
+  let t = '';
+  try { t = htmlToText(await getText('https://boj.org.jm/')); } catch (e) {
+    if (!out.fx.USD) throw e;
+    out.homeError = String(e.message || e);
+  }
 
   const inf = after(t, /Inflation Rate/i, 120);
   out.inflation = firstNumber(inf, { percent: true });

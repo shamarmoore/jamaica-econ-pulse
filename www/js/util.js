@@ -3,6 +3,15 @@
 const UA = 'Mozilla/5.0 (Linux; Android 14; Pixel) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/124.0 Mobile Safari/537.36';
 
 export async function getText(url, timeoutMs = 25000) {
+  try { return await getTextOnce(url, timeoutMs); } catch (e) {
+    // one retry for temporary server errors / dropped connections
+    if (/HTTP 4\d\d/.test(String(e.message))) throw e;
+    await new Promise((r) => setTimeout(r, 2500));
+    return getTextOnce(url, timeoutMs);
+  }
+}
+
+async function getTextOnce(url, timeoutMs) {
   const isNode = typeof process !== 'undefined' && process.versions && process.versions.node;
   const req = fetch(url, {
     headers: isNode ? { 'User-Agent': UA, 'Accept': 'text/html,application/xhtml+xml,application/xml,application/json,text/csv,*/*' } : { 'Accept': '*/*' },
