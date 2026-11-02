@@ -1,5 +1,5 @@
 import { SOURCES, FRED } from './sources.js';
-import { analyse } from './analysis.js';
+import { analyse, borrowing } from './analysis.js';
 import { fmt, signed, last, changeOver, yoySeries } from './util.js';
 
 const KEY = 'ep_cache_v1';
@@ -33,7 +33,7 @@ async function refresh(force = false) {
     } catch (e) {
       cache[s.id] = { ...(cache[s.id] || {}), error: String(e.message || e), errorAt: Date.now() };
     } finally {
-      running.delete(s.id); save(); status(); render();
+      running.delete(s.id); save(); status(); render(false);
     }
   }));
   const a = analyse(data());
@@ -180,6 +180,18 @@ function viewJamaica(d) {
   if (s.exports && s.imports) out.push(stat('Goods trade (month)', `−US$${fmt(s.imports.value - s.exports.value)}M`, `exports ${fmt(s.exports.value)} · imports ${fmt(s.imports.value)} · ${s.imports.period || ''}`));
   out.push('</div>');
 
+  const rm = d.remit; const tr = d.tourism; const pj = d.petrojam?.weeks;
+  if (rm || tr || pj) {
+    out.push('<h2 class="sec">Dollars coming in & fuel</h2><div class="grid">');
+    if (rm) out.push(stat('Net remittances', `US$${fmt(rm.net)}M`, `${rm.month} · ${signed(rm.yoy)} y/y${rm.usShare ? ` · US ${fmt(rm.usShare)}%` : ''}`));
+    if (tr?.stopovers) out.push(stat('Stopover visitors (y/y)', signed(tr.stopovers.change), tr.stopovers.month));
+    if (tr?.mbj) out.push(stat('Montego Bay airport passengers', signed(tr.mbj.change), `${tr.mbj.month} · y/y`));
+    if (pj?.[0]) for (const f of ['Gasolene 87', 'Auto Diesel']) {
+      const v = pj[0].prices[f]; const p1 = pj[1]?.prices[f];
+      if (v) out.push(stat(`${f} (Petrojam)`, `J$${fmt(v, 2)}`, `per litre · ${p1 ? `${signed((v / p1 - 1) * 100)} w/w · ` : ''}${fd(pj[0].date)}`));
+    }
+    out.push('</div>');
+  }
   const yr = new Date().getFullYear();
   const imfTiles = ['NGDP_RPCH', 'PCPIPCH', 'LUR', 'GGXWDG_NGDP', 'BCA_NGDPD', 'GGXCNL_NGDP'].filter((k) => imf[`${k}:JAM`]);
   if (imfTiles.length) {
@@ -211,8 +223,10 @@ function viewWorld(d) {
   const groups = [
     ['Energy', ['DCOILBRENTEU', 'DHHNGSP']],
     ['US money & markets', ['FEDFUNDS', 'DGS10', 'DTWEXBGS']],
-    ['US economy (tourism & remittance source)', ['UNRATE', 'CPIAUCSL', 'UMCSENT']],
+    ['Where visitors & remittances come from', ['UNRATE', 'CPIAUCSL', 'UMCSENT', 'LRUNTTTTCAM156S']],
     ['Food import costs', ['PFOODINDEXM', 'PWHEAMTUSDM', 'PMAIZMTUSDM']],
+    ['Exports & shipping', ['PALUMUSDM', 'PCU483111483111']],
+    ['Global risk mood', ['VIXCLS', 'BAMLEMHBHYCRPIOAS']],
   ];
   for (const [g, ids] of groups) {
     const tiles = ids.filter((id) => f[id]?.length).map((id) => {
@@ -221,7 +235,7 @@ function viewWorld(d) {
       const l = last(s); const pp = unit === '%';
       const ch = pp ? changeOver(s, 183, 'pp') : changeOver(s, 90);
       const val = unit === '%' ? `${fmt(l.value, 2)}%` : unit.startsWith('US$') ? `$${fmt(l.value, 2)}` : fmt(l.value, 1);
-      const sub = `${pp ? `${signed(ch, 2, ' pts')} in 6m` : `${signed(ch)} in 3m`} · ${fd(l.date, !/^(UNRATE|CPIAUCSL|UMCSENT|FEDFUNDS|PFOOD|PWHEA|PMAIZ)/.test(id))}`;
+      const sub = `${pp ? `${signed(ch, 2, ' pts')} in 6m` : `${signed(ch)} in 3m`} · ${fd(l.date, !/^(UNRATE|CPIAUCSL|UMCSENT|FEDFUNDS|PFOOD|PWHEA|PMAIZ|PALUM|PCU|LRUN)/.test(id))}`;
       const thin = s.length > 260 ? s.filter((_, i) => i % Math.ceil(s.length / 260) === 0 || i === s.length - 1) : s;
       return stat(`${label}${unit !== '%' && unit !== 'index' ? ` <small>${unit}</small>` : ''}`, val, sub, spark(thin, { unit: unit === '%' ? '%' : '' }));
     });
@@ -238,6 +252,93 @@ function viewWorld(d) {
     out.push('</div>');
   }
   return out.length ? out.join('') : empty('World data hasn’t loaded yet.');
+}
+
+
+const CALC_KEY = 'ep_calc_v1';
+function calcState(defRate) {
+  let c = {}; try { c = JSON.parse(localStorage.getItem(CALC_KEY)) || {}; } catch (_) { /* none */ }
+  return { price: c.price ?? 4500000, deposit: c.deposit ?? 900000, rate: c.rate ?? (defRate ? +defRate.toFixed(2) : 11.5), years: c.years ?? 5, km: c.km ?? 250, kml: c.kml ?? 13, pump: c.pump ?? '' };
+}
+const pmt = (P, ratePct, years) => { const r = ratePct / 1200; const n = years * 12; return r ? (P * r) / (1 - (1 + r) ** -n) : P / n; };
+const J = (v) => `J$${Math.round(v).toLocaleString('en-US')}`;
+
+function rateTile(label, series, sub) {
+  if (!series?.length) return '';
+  const l = last(series); const c = changeOver(series, 183, 'pp');
+  return stat(label, `${fmt(l.value, 2)}%`, `${fd(l.date, false)}${c != null ? ` · ${signed(c, 2, ' pts')} 6m` : ''}${sub ? `<br>${sub}` : ''}`, spark(series.map((p) => ({ date: p.date, value: p.value })), { unit: '%', fmtX: (p) => fd(p.date, false) }));
+}
+
+function viewBorrow(d) {
+  const b = borrowing(d); const r = d.bojrates || {}; const boj = d.boj || {};
+  const inst = r.loans?.instalment; const defRate = inst?.length ? last(inst).value : null;
+  const c = calcState(defRate);
+  const infl = boj.inflation ?? d.statin?.cpiPtp?.value;
+  const t12 = r.deposits?.time12?.length ? last(r.deposits.time12).value : null;
+  const out = [];
+  out.push(`<section class="hero-b">
+    <div class="gname">Loan rates outlook · next 3–6 months</div>
+    <div class="glabel ${STEP_CLASS[b.step]}"><span class="gi">${STEP_ICON[b.step]}</span>${b.label}</div>
+    <div class="segs">${[0, 1, 2, 3].map((i) => `<i class="${i <= b.step ? STEP_CLASS[b.step] : ''}"></i>`).join('')}</div>
+    ${boj.nextPolicyDate ? `<div class="gblurb">Next BOJ rate decision: <b>${boj.nextPolicyDate}</b></div>` : ''}
+    <ul class="why">${b.reasons.map((x) => `<li class="${x.pts > 0 ? 'up' : x.pts < 0 ? 'down' : ''}"><span>${x.pts > 0 ? '▲' : x.pts < 0 ? '▼' : '●'}</span>${esc(x.txt)}</li>`).join('')}</ul>
+    <div class="advice">${b.advice.map((x) => `<p>${esc(x)}</p>`).join('')}</div>
+  </section>`);
+
+  out.push('<h2 class="sec">What borrowing costs right now <small>BOJ, commercial-bank averages</small></h2><div class="grid">');
+  out.push(rateTile('Vehicle / instalment loans', inst, 'avg rate actually charged'));
+  out.push(rateTile('Personal loans', r.loans?.personal));
+  out.push(rateTile('Mortgages', r.loans?.mortgage));
+  out.push(rateTile('All loans (avg)', r.loans?.overall));
+  out.push('</div><h2 class="sec">What saving earns</h2><div class="grid">');
+  out.push(rateTile('Time deposit, 12m+', r.deposits?.time12));
+  out.push(rateTile('Savings account', r.deposits?.savings));
+  out.push(rateTile('3-month T-bill', r.tbills?.m3));
+  out.push(rateTile('6-month T-bill', r.tbills?.m6));
+  out.push('</div>');
+  if (t12 != null && infl != null) {
+    const real = t12 - infl;
+    out.push(`<p class="note">${real < 0
+      ? `A 12-month deposit pays about ${fmt(t12, 2)}% while prices rise ${fmt(infl)}% — savings are losing about ${fmt(-real, 1)}% a year in buying power. ${defRate ? `Paying down a ${fmt(defRate, 1)}% loan is worth more than saving at ${fmt(t12, 1)}%.` : ''}`
+      : `A 12-month deposit (${fmt(t12, 2)}%) is beating inflation (${fmt(infl)}%) by ${fmt(real, 1)} points.`}</p>`);
+  }
+
+  out.push(`<h2 class="sec">Car loan calculator</h2>
+  <section class="calc">
+    <label>Car price (J$)<input id="c-price" inputmode="numeric" value="${c.price}"></label>
+    <label>Deposit (J$)<input id="c-deposit" inputmode="numeric" value="${c.deposit}"></label>
+    <label>Interest rate (%)<input id="c-rate" inputmode="decimal" value="${c.rate}"></label>
+    <label>Term (years)<input id="c-years" inputmode="numeric" value="${c.years}"></label>
+    <label>Km driven per week<input id="c-km" inputmode="numeric" value="${c.km}"></label>
+    <label>Fuel economy (km/L)<input id="c-kml" inputmode="decimal" value="${c.kml}"></label>
+    <label class="wide">Pump price you pay (J$/L)<input id="c-pump" inputmode="decimal" value="${c.pump}" placeholder="enter today’s pump price"></label>
+    <div id="c-out" class="wide"></div>
+    <p class="fine wide">${defRate ? `Rate starts at the current average vehicle-loan rate (${fmt(defRate, 2)}%). ` : ''}Your actual offer depends on lender, credit history and deposit.</p>
+  </section>`);
+
+  if (b.car.length) {
+    out.push(`<h2 class="sec">Car import cost signals <small>${b.carLabel}</small></h2><ul class="carsig">${b.car.map((x) => `
+      <li><div class="cs-h"><b>${x.name}</b><span class="cs-v">${x.value} <em class="${x.dir}">${x.dir === 'up' ? '▲' : x.dir === 'down' ? '▼' : '●'} ${x.change}</em></span></div><div class="fine">${x.note}</div></li>`).join('')}</ul>`);
+  }
+  out.push('<p class="fine">Rule-based readings of public data to help you time and size a decision — not financial advice.</p>');
+  return out.join('');
+}
+
+function updateCalc() {
+  const el = document.getElementById('c-out'); if (!el) return;
+  const g = (id) => parseFloat(String(document.getElementById(id).value).replace(/[,\s$J]/g, ''));
+  const st = { price: g('c-price') || 0, deposit: g('c-deposit') || 0, rate: g('c-rate') || 0, years: g('c-years') || 1, km: g('c-km') || 0, kml: g('c-kml') || 0, pump: document.getElementById('c-pump').value };
+  try { localStorage.setItem(CALC_KEY, JSON.stringify(st)); } catch (_) { /* ignore */ }
+  const P = Math.max(0, st.price - st.deposit); const m = pmt(P, st.rate, st.years); const total = m * st.years * 12;
+  const litres = st.kml ? (st.km * 52 / 12) / st.kml : 0; const pump = parseFloat(st.pump);
+  const rows = [-1, 0, 1, 2].map((dlt) => { const rr = st.rate + dlt; if (rr <= 0) return ''; const mm = pmt(P, rr, st.years);
+    return `<tr${dlt === 0 ? ' class="cur"' : ''}><td>${fmt(rr, 2)}%</td><td>${J(mm)}</td><td>${J(mm * st.years * 12 - P)}</td></tr>`; }).join('');
+  el.innerHTML = `<div class="c-big"><span>Monthly payment</span><b>${J(m)}</b></div>
+    <div class="c-row"><span>Amount borrowed</span><b>${J(P)}</b></div>
+    <div class="c-row"><span>Total interest over ${st.years} yrs</span><b>${J(total - P)}</b></div>
+    <div class="c-row"><span>Fuel per month</span><b>${fmt(litres, 0)} L${pump ? ` · ${J(litres * pump)}` : ''}</b></div>
+    ${pump ? `<div class="c-row"><span>Payment + fuel</span><b>${J(m + litres * pump)}/mo</b></div>` : ''}
+    <table class="sens"><thead><tr><th>Rate</th><th>Monthly</th><th>Total interest</th></tr></thead><tbody>${rows}</tbody></table>`;
 }
 
 const TAGS = [
@@ -274,16 +375,18 @@ function viewSources() {
   }).join('')}</ul>
   <h2 class="sec">How the readings work</h2>
   <p class="fine">Each card applies a fixed rule to the live numbers — for example, Brent oil up more than 10% in three months counts as pressure, because fuel is a large share of Jamaica’s imports and feeds into electricity, transport and the exchange rate. The four gauges add up those signals. Rules describe the usual direction of impact; they are not forecasts, and real outcomes depend on policy and timing.</p>
-  <p class="fine">Version 1.0</p>`;
+  <p class="fine">Version 1.1</p>`;
 }
 
-function render() {
-  const d = data(); const a = analyse(d);
+function render(force = true) {
   const v = $('#view');
+  if (!force && tab === 'borrow' && v.contains(document.activeElement) && document.activeElement.tagName === 'INPUT') return;
+  const d = data(); const a = analyse(d);
   const openIds = [...v.querySelectorAll('details')].map((x) => x.open);
-  v.innerHTML = tab === 'pulse' ? viewPulse(d, a) : tab === 'jamaica' ? viewJamaica(d) : tab === 'world' ? viewWorld(d) : tab === 'news' ? viewNews(d) : viewSources();
+  v.innerHTML = tab === 'pulse' ? viewPulse(d, a) : tab === 'jamaica' ? viewJamaica(d) : tab === 'world' ? viewWorld(d) : tab === 'borrow' ? viewBorrow(d) : tab === 'news' ? viewNews(d) : viewSources();
   if (tab === 'pulse' && openIds.length) v.querySelectorAll('details').forEach((x, i) => { if (openIds[i] !== undefined) x.open = openIds[i]; });
   const nf = $('#nf'); if (nf) nf.onchange = () => { newsFilter = nf.checked; render(); };
+  if (tab === 'borrow') { v.querySelectorAll('.calc input').forEach((i) => i.addEventListener('input', updateCalc)); updateCalc(); }
 }
 
 // sparkline scrubbing (touch + mouse)

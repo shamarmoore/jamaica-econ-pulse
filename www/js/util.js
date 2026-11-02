@@ -2,26 +2,39 @@
 
 const UA = 'Mozilla/5.0 (Linux; Android 14; Pixel) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/124.0 Mobile Safari/537.36';
 
-export async function getText(url, timeoutMs = 25000) {
-  try { return await getTextOnce(url, timeoutMs); } catch (e) {
+const nativeHttp = () => globalThis.Capacitor?.Plugins?.CapacitorHttp;
+const HEADERS = { 'User-Agent': UA, 'Accept': 'text/html,application/xhtml+xml,application/xml,application/json,text/csv,*/*', 'Accept-Language': 'en-US,en;q=0.9' };
+const withTimeout = (p, ms) => Promise.race([p, new Promise((_, rej) => setTimeout(() => rej(new Error('timed out')), ms))]);
+
+async function retry(fn) {
+  try { return await fn(); } catch (e) {
     // one retry for temporary server errors / dropped connections
     if (/HTTP 4\d\d/.test(String(e.message))) throw e;
     await new Promise((r) => setTimeout(r, 2500));
-    return getTextOnce(url, timeoutMs);
+    return fn();
   }
 }
 
-async function getTextOnce(url, timeoutMs) {
-  // Native HTTP on the phone honours User-Agent (some sites refuse the default Android one); browsers ignore it.
-  const req = fetch(url, {
-    headers: { 'User-Agent': UA, 'Accept': 'text/html,application/xhtml+xml,application/xml,application/json,text/csv,*/*', 'Accept-Language': 'en-US,en;q=0.9' },
-  }).then(async (r) => {
-    if (!r.ok) throw new Error(`HTTP ${r.status}`);
-    return r.text();
-  });
-  const timer = new Promise((_, rej) => setTimeout(() => rej(new Error('timed out')), timeoutMs));
-  return Promise.race([req, timer]);
+// On the phone, requests go through Android's native HTTP stack (no browser CORS limits).
+async function once(url, type, timeoutMs) {
+  const nh = nativeHttp();
+  if (nh) {
+    const r = await withTimeout(nh.request({ url, method: 'GET', headers: HEADERS, responseType: type === 'bin' ? 'arraybuffer' : 'text', connectTimeout: timeoutMs, readTimeout: timeoutMs }), timeoutMs + 2000);
+    if (r.status >= 400) throw new Error(`HTTP ${r.status}`);
+    if (type === 'bin') {
+      const b = atob(String(r.data)); const u = new Uint8Array(b.length);
+      for (let i = 0; i < b.length; i++) u[i] = b.charCodeAt(i);
+      return u;
+    }
+    return typeof r.data === 'string' ? r.data : JSON.stringify(r.data);
+  }
+  const r = await withTimeout(fetch(url, { headers: HEADERS }), timeoutMs);
+  if (!r.ok) throw new Error(`HTTP ${r.status}`);
+  return type === 'bin' ? new Uint8Array(await r.arrayBuffer()) : r.text();
 }
+
+export const getText = (url, timeoutMs = 25000) => retry(() => once(url, 'text', timeoutMs));
+export const getBinary = (url, timeoutMs = 40000) => retry(() => once(url, 'bin', timeoutMs));
 
 export async function getJSON(url, timeoutMs) {
   const t = await getText(url, timeoutMs);

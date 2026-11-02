@@ -10,13 +10,20 @@ An Android app that scrapes Jamaica's economic indicators straight from the publ
 | STATIN (homepage) | CPI (monthly, YTD, point-to-point), unemployment, youth unemployment, LU4, participation, GDP growth, PPI, exports/imports | 12 h |
 | IMF DataMapper API | Growth, inflation, unemployment, debt, current account, fiscal balance for Jamaica (plus US/Canada/UK growth), history and projections | 3 days |
 | World Bank API | Structural exposure: remittances % GDP, tourism % exports, reserves in months of imports, fuel and food shares of imports, FDI, debt | 7 days |
-| FRED (St. Louis Fed) | Brent, Henry Hub gas, Fed funds, US 10-yr, US unemployment, US CPI, consumer sentiment, broad USD, IMF food index, wheat, maize | 12 h |
-| open.er-api.com + fawazahmed0 currency-api | USD/JMD now and 1, 3, 6 and 12 months ago | 6 h |
+| BOJ interest-rate tables (Excel) | Average commercial-bank loan rates (instalment/vehicle, personal, mortgage, overall), deposit rates, T-bill yields | 24 h |
+| BOJ Remittance Bulletin (PDF) | Monthly net remittances, year-on-year change, US share | 24 h |
+| Tourism Analytics (JTB & airport data) | Stopover arrivals and Montego Bay / Kingston airport passengers, year-on-year | 24 h |
+| Petrojam | Weekly ex-refinery prices for gasolene 87/90, diesel, ULSD, LPG | 12 h |
+| FRED (St. Louis Fed) | Brent, Henry Hub gas, Fed funds, US 10-yr, US unemployment, US CPI, consumer sentiment, broad USD, IMF food index, wheat, maize, aluminium, deep-sea freight, VIX, EM high-yield spread, Canada unemployment | 12 h |
+| open.er-api.com + fawazahmed0 currency-api | USD/JMD and JPY/JMD now and 1, 3, 6 and 12 months ago | 6 h |
 | NOAA National Hurricane Center | Active Atlantic storms, mentions of Jamaica, 7-day formation odds | 1 h |
 | Gleaner & Observer RSS | Business headlines, auto-tagged by economic theme | 2 h |
 
+## Borrow tab
+A loan-rates outlook for the next 3–6 months (inflation vs target, real policy rate, T-bill trend, vehicle-loan rate trend, JMD, oil, US Fed), current loan/deposit/T-bill rates, what saving earns after inflation, a car-loan calculator (payment, total interest, rate sensitivity, fuel cost) and car import-cost signals (yen, US dollar, freight, pump prices).
+
 ## How the readings work
-`www/js/analysis.js` holds about 18 transparent rules. Each one takes a live number, decides whether it signals **pressure**, **watch**, **relief** or **steady**, and states the transmission channel into Jamaica (for example: oil → import bill → current account → JMD → electricity and transport costs → CPI). The signals add up into four gauges: inflation pressure, growth momentum, external pressure and shock risk. To change a threshold, edit that file and push.
+`www/js/analysis.js` holds about 25 transparent rules plus the borrowing outlook. Each one takes a live number, decides whether it signals **pressure**, **watch**, **relief** or **steady**, and states the transmission channel into Jamaica (for example: oil → import bill → current account → JMD → electricity and transport costs → CPI). The signals add up into four gauges: inflation pressure, growth momentum, external pressure and shock risk. To change a threshold, edit that file and push.
 
 ## Building
 Every push to `main` runs `.github/workflows/build.yml`:

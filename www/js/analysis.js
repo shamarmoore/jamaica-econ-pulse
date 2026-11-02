@@ -312,6 +312,94 @@ export function analyse(d, now = new Date()) {
       effects: ['No weather shock on the horizon this week.'], watch: 'Hurricane season runs June–November.', gauge: {}, sources: ['nhc'] });
   }
 
+  // 19. Remittances — actual BOJ figures
+  const rm = d.remit;
+  if (rm?.yoy != null) {
+    const down = rm.yoy < 0; const strong = rm.yoy >= 5;
+    add({ id: 'remit', scope: 'Jamaica', level: down ? 'pressure' : strong ? 'easing' : 'neutral', severity: down ? (rm.yoy < -5 ? 3 : 2) : 0,
+      title: down ? 'Remittances are falling' : strong ? 'Remittances are growing strongly' : 'Remittances are steady',
+      signal: `Net remittances US$${fmt(rm.net)}M in ${rm.month} (${signed(rm.yoy)} vs a year earlier)${rm.usShare ? `; ${fmt(rm.usShare)}% came from the US` : ''}${rm.fytd ? `. Fiscal year to date ${signed(rm.fytd.yoy)}.` : '.'}`,
+      effects: down ? ['Less household income for spending, school fees and home building — retail and hardware feel it first.', 'Fewer US dollars flowing in through cambios puts pressure on the JMD.']
+        : ['Diaspora money is cushioning household budgets and supporting spending.', 'Steady US-dollar inflows help keep the JMD stable.'],
+      watch: 'Next BOJ Remittance Bulletin (about 7 weeks after month-end).',
+      gauge: down ? { growth: -0.5, external: 1 } : strong ? { growth: 0.5, external: -0.5 } : {}, sources: ['remit'] });
+  }
+
+  // 20. Tourism — actual arrivals
+  const tr = d.tourism;
+  if (tr?.stopovers || tr?.mbj) {
+    const s0 = tr.stopovers; const mb = tr.mbj;
+    const ch = s0?.change ?? mb?.change; const weak = ch < -5; const strong = ch > 5;
+    add({ id: 'arrivals', scope: 'Jamaica', level: weak ? 'pressure' : strong ? 'easing' : 'neutral', severity: weak ? (ch < -15 ? 3 : 2) : 0,
+      title: weak ? 'Tourist arrivals are down' : strong ? 'Tourist arrivals are up' : 'Tourist arrivals are flat',
+      signal: `${s0 ? `Stopover visitors ${signed(s0.change)} year-on-year (${s0.month})` : ''}${s0 && mb ? '; ' : ''}${mb ? `Montego Bay airport passengers ${signed(mb.change)} (${mb.month})` : ''}.`,
+      effects: weak ? [
+        'Tourism is Jamaica’s biggest earner of US dollars — fewer visitors means less FX inflow and more pressure on the JMD.',
+        'Hotel, attraction, transport and craft jobs and hours are at risk, especially on the north coast.',
+        'Farmers, manufacturers and distributors who supply hotels see weaker orders.',
+      ] : ['More visitors bring in US dollars, support jobs on the north coast and lift suppliers to the industry.'],
+      watch: 'Monthly JTB and airport figures; winter season bookings.',
+      gauge: weak ? { growth: ch < -15 ? -1.5 : -1, external: 1 } : strong ? { growth: 1, external: -0.5 } : {}, sources: ['tourism'] });
+  }
+
+  // 21. Aluminium → bauxite/alumina export earnings
+  const al = fred.PALUMUSDM;
+  if (al?.length) {
+    const c = changeOver(al, 183);
+    if (c != null && Math.abs(c) > 8) add({ id: 'alum', scope: 'World', level: c > 0 ? 'easing' : 'watch', severity: 1,
+      title: c > 0 ? 'Aluminium prices are rising' : 'Aluminium prices are falling',
+      signal: `Aluminium US$${fmt(last(al).value, 0)}/t, ${signed(c)} over 6 months.`,
+      effects: [c > 0 ? 'Bauxite and alumina are Jamaica’s largest goods exports; firmer metal prices improve export earnings and plant viability.' : 'Weaker metal prices squeeze bauxite/alumina earnings and can put plant operations and jobs at risk.', 'Mining also pays royalties and levies to the government.'],
+      watch: 'Alumina plant operating announcements.', gauge: c > 0 ? { external: -0.5, growth: 0.25 } : { external: 0.5, growth: -0.25 }, sources: ['fred'] });
+  }
+
+  // 22. Shipping costs
+  const fr = fred.PCU483111483111;
+  if (fr?.length) {
+    const c = changeOver(fr, 183);
+    if (c != null && Math.abs(c) > 7) add({ id: 'freight', scope: 'World', level: c > 0 ? 'pressure' : 'easing', severity: c > 15 ? 2 : 1,
+      title: c > 0 ? 'Ocean shipping costs are rising' : 'Ocean shipping costs are falling',
+      signal: `Deep-sea freight cost index ${signed(c)} over 6 months.`,
+      effects: [c > 0 ? 'Almost everything Jamaica imports arrives by container, so higher freight adds to shelf prices, car landing costs and building materials within a few months.' : 'Cheaper freight trims the landed cost of imported goods, from groceries to vehicles.'],
+      watch: 'Shipping-line surcharges and port fees.', gauge: c > 0 ? { inflation: 0.5 } : { inflation: -0.5 }, sources: ['fred'] });
+  }
+
+  // 23. Global risk mood
+  const vix = fred.VIXCLS; const em = fred.BAMLEMHBHYCRPIOAS;
+  if (vix?.length || em?.length) {
+    const v = vix?.length ? last(vix).value : null; const ce = em?.length ? changeOver(em, 90, 'pp') : null;
+    const stress = (v != null && v > 25) || (ce != null && ce > 0.75); const calm = (v != null && v < 16) && (ce == null || ce < 0);
+    add({ id: 'risk', scope: 'World', level: stress ? 'pressure' : calm ? 'easing' : 'neutral', severity: stress ? 2 : 0,
+      title: stress ? 'Global investors are nervous' : calm ? 'Global markets are calm' : 'Global risk mood is normal',
+      signal: `${v != null ? `VIX fear gauge ${fmt(v)}` : ''}${v != null && em?.length ? '; ' : ''}${em?.length ? `emerging-market high-yield spread ${fmt(last(em).value, 2)}% (${signed(ce, 2, ' pts')} in 3 months)` : ''}.`,
+      effects: stress ? ['When investors flee risk, borrowing costs rise for countries like Jamaica and money tends to leave smaller markets.', 'Expect pressure on the JMD, JSE prices and government bond yields.']
+        : ['Calm markets keep Jamaica’s overseas borrowing costs lower and support investment flows.'],
+      watch: 'Jamaica’s credit-rating reviews and global market sell-offs.', gauge: stress ? { external: 1 } : calm ? { external: -0.5 } : {}, sources: ['fred'] });
+  }
+
+  // 24. Canada jobs
+  const cu = fred.LRUNTTTTCAM156S;
+  if (cu?.length) {
+    const c6 = changeOver(cu, 183, 'pp');
+    if (c6 != null && Math.abs(c6) >= 0.4) add({ id: 'canada', scope: 'World', level: c6 > 0 ? 'watch' : 'easing', severity: 1,
+      title: c6 > 0 ? 'Canada’s job market is weakening' : 'Canada’s job market is improving',
+      signal: `Canada unemployment ${fmt(last(cu).value)}% (${signed(c6, 1, ' pts')} over 6 months).`,
+      effects: ['Canada sends roughly a tenth of Jamaica’s remittances and many winter visitors.', c6 > 0 ? 'A weaker Canadian job market trims both.' : 'Stronger Canadian jobs support both.'],
+      watch: 'Canadian jobs report.', gauge: c6 > 0 ? { growth: -0.25 } : { growth: 0.25 }, sources: ['fred'] });
+  }
+
+  // 25. Pump prices (Petrojam)
+  const pj = d.petrojam?.weeks;
+  if (pj?.length >= 2 && pj[0].prices['Gasolene 87'] && pj[1].prices['Gasolene 87']) {
+    const g0 = pj[0].prices['Gasolene 87']; const g1 = pj[1].prices['Gasolene 87']; const c = (g0 / g1 - 1) * 100;
+    const dz0 = pj[0].prices['Auto Diesel']; const dz1 = pj[1].prices['Auto Diesel']; const cd = dz0 && dz1 ? (dz0 / dz1 - 1) * 100 : null;
+    add({ id: 'fuel', scope: 'Jamaica', level: c > 1.5 ? 'pressure' : c < -1.5 ? 'easing' : 'neutral', severity: c > 3 ? 2 : c > 1.5 ? 1 : 0,
+      title: c > 1.5 ? 'Fuel prices went up this week' : c < -1.5 ? 'Fuel prices went down this week' : 'Fuel prices little changed this week',
+      signal: `Petrojam gasolene 87 J$${fmt(g0, 2)}/L (${signed(c)} w/w)${cd != null ? `, diesel J$${fmt(dz0, 2)} (${signed(cd)})` : ''} — week of ${pj[0].date}. Pump prices add taxes and margins on top.`,
+      effects: ['Weekly refinery prices pass to the pump within days, and to taxi/bus fares and delivery costs over weeks.', 'Compare with Brent: world oil moves usually reach Petrojam prices within 1–3 weeks.'],
+      watch: 'Petrojam’s weekly price update.', gauge: c > 1.5 ? { inflation: 0.25 } : c < -1.5 ? { inflation: -0.25 } : {}, sources: ['petrojam'] });
+  }
+
   // Gauges → labels
   const gauges = {
     inflation: gaugeOf(g.inflation, ['Easing', 'Contained', 'Building', 'Hot'], [-0.75, 0.75, 1.75]),
@@ -369,4 +457,78 @@ function consider(gs, ins) {
   if (!b.length) b.push('Conditions are mixed; watch exchange rate and input costs.');
   if (!inv.length) inv.push('No strong rate or currency signal right now.');
   return { households: h, businesses: b, investors: inv };
+}
+
+
+// ---------- Borrowing & big-purchase outlook ----------
+export function borrowing(d, now = new Date()) {
+  const boj = d.boj || {}; const r = d.bojrates || {}; const fred = d.fred?.series || {}; const fx = d.fx || {};
+  const reasons = []; let score = 0;
+  const push = (pts, txt) => { score += pts; reasons.push({ pts, txt }); };
+  const infl = boj.inflation ?? d.statin?.cpiPtp?.value; const [lo, hi] = boj.target || [4, 6];
+  if (infl != null) {
+    if (infl > hi + 1.5) push(2, `Inflation (${fmt(infl)}%) is well above the BOJ’s ${lo}–${hi}% target — the BOJ won’t cut while that lasts.`);
+    else if (infl > hi) push(1, `Inflation (${fmt(infl)}%) is above the target range.`);
+    else if (infl < lo) push(-2, `Inflation (${fmt(infl)}%) is below target — room for rate cuts.`);
+    else push(-1, `Inflation (${fmt(infl)}%) is inside the target range.`);
+  }
+  if (boj.policyRate != null && infl != null) {
+    const real = boj.policyRate - infl;
+    if (real < 0) push(1, `The policy rate (${fmt(boj.policyRate, 2)}%) is below inflation — pressure to raise it, not cut.`);
+    else if (real > 2.5) push(-1, `The policy rate is well above inflation — tight enough to allow cuts later.`);
+  }
+  const tb = r.tbills?.m3;
+  if (tb?.length >= 4) {
+    const c = changeOver(tb, 95, 'pp');
+    if (c > 0.25) push(1, `3-month T-bill yields rose ${signed(c, 2, ' pts')} in 3 months — markets expect higher rates.`);
+    else if (c < -0.25) push(-1, `3-month T-bill yields fell ${signed(c, 2, ' pts')} in 3 months — markets expect lower rates.`);
+    else push(0, `3-month T-bill yields are flat (${fmt(last(tb).value, 2)}%).`);
+  }
+  const inst = r.loans?.instalment;
+  if (inst?.length >= 7) {
+    const c = changeOver(inst, 183, 'pp');
+    if (c > 0.2) push(1, `Average vehicle (instalment) loan rates rose ${signed(c, 2, ' pts')} in 6 months.`);
+    else if (c < -0.2) push(-1, `Average vehicle (instalment) loan rates fell ${signed(c, 2, ' pts')} in 6 months.`);
+  }
+  const h90 = fx.history?.find((h) => h.daysAgo === 90);
+  if (fx.now && h90) { const c = (fx.now.jmd / h90.jmd - 1) * 100; if (c > 1.5) push(1, `The JMD weakened ${signed(c)} in 3 months — the BOJ may keep rates high to defend it.`); }
+  const brent = fred.DCOILBRENTEU; if (brent?.length) { const c = changeOver(brent, 90); if (c > 10) push(1, `Oil is up ${signed(c)} in 3 months, adding to inflation.`); else if (c < -10) push(-1, `Oil is down ${signed(c)} in 3 months, easing inflation.`); }
+  const ff = fred.FEDFUNDS; if (ff?.length) { const c = changeOver(ff, 183, 'pp'); if (c < -0.2) push(-1, 'The US Fed is cutting, which gives the BOJ more room.'); else if (c > 0.2) push(1, 'The US Fed is hiking, which limits the BOJ.'); }
+
+  const label = score >= 5 ? 'Likely to rise' : score >= 2 ? 'Staying high' : score >= -1 ? 'Holding steady' : 'Likely to ease';
+  const step = score >= 5 ? 3 : score >= 2 ? 2 : score >= -1 ? 1 : 0;
+  const advice = score >= 2 ? [
+    'Rate cuts look unlikely in the next few months, so waiting for cheaper loans probably won’t pay off soon.',
+    'If you borrow now, a fixed rate protects you if rates rise further.',
+    'Shop around — the average is a guide; individual offers vary with credit history, deposit and the lender.',
+  ] : score <= -2 ? [
+    'Rates look more likely to fall than rise; a variable rate or a shorter wait could save interest.',
+    'Watch the next BOJ decision — cuts usually reach loan offers with a lag of a few months.',
+  ] : ['No strong signal either way; compare offers and focus on what fits your budget.'];
+
+  // Car-cost signals
+  const car = [];
+  const hist = (n) => fx.history?.find((h) => h.daysAgo === n);
+  if (fx.now?.jpy && hist(90)?.jpy) {
+    const jmdPerYenNow = fx.now.jmd / fx.now.jpy; const ago = hist(90).jmd / hist(90).jpy; const ago12 = hist(365)?.jpy ? hist(365).jmd / hist(365).jpy : null;
+    const c = (jmdPerYenNow / ago - 1) * 100; const c12 = ago12 ? (jmdPerYenNow / ago12 - 1) * 100 : null;
+    car.push({ name: 'Yen vs JMD', value: `J$${fmt(jmdPerYenNow * 100, 2)} per ¥100`, change: `${signed(c)} 3m${c12 != null ? ` · ${signed(c12)} 12m` : ''}`, dir: c > 2 ? 'up' : c < -2 ? 'down' : 'flat',
+      note: 'Most used cars are imported from Japan — a stronger yen makes them dearer to land.' });
+  }
+  if (fx.now && h90) {
+    const c = (fx.now.jmd / h90.jmd - 1) * 100;
+    car.push({ name: 'US$ vs JMD', value: `J$${fmt(fx.now.jmd, 2)}`, change: `${signed(c)} 3m`, dir: c > 1.5 ? 'up' : c < -1.5 ? 'down' : 'flat', note: 'New cars, parts and many fees are priced in US dollars.' });
+  }
+  const fr = fred.PCU483111483111;
+  if (fr?.length) { const c = changeOver(fr, 183); car.push({ name: 'Ocean freight', value: fmt(last(fr).value, 0), change: `${signed(c)} 6m`, dir: c > 7 ? 'up' : c < -7 ? 'down' : 'flat', note: 'Shipping is part of every imported car’s landed cost.' }); }
+  const pj = d.petrojam?.weeks;
+  if (pj?.[0]?.prices['Gasolene 87']) {
+    const g = pj[0].prices['Gasolene 87']; const g1 = pj[1]?.prices['Gasolene 87'];
+    const c = g1 ? (g / g1 - 1) * 100 : null;
+    car.push({ name: 'Gasolene 87 (Petrojam)', value: `J$${fmt(g, 2)}/L`, change: c != null ? `${signed(c)} w/w` : '', dir: c > 1.5 ? 'up' : c < -1.5 ? 'down' : 'flat', note: 'Refinery price before taxes and retail margin — tracks what you’ll pay at the pump.' });
+  }
+  const ups = car.filter((x) => x.dir === 'up').length; const downs = car.filter((x) => x.dir === 'down').length;
+  const carLabel = ups >= 2 ? 'Import costs rising' : downs >= 2 ? 'Import costs easing' : 'Import costs mixed/steady';
+
+  return { score, label, step, reasons, advice, car, carLabel };
 }

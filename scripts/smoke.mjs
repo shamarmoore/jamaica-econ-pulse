@@ -2,7 +2,7 @@
 // Used by CI on each build (and weekly) so a broken source shows up as a red line in GitHub.
 import { writeFileSync, appendFileSync } from 'node:fs';
 import { SOURCES } from '../www/js/sources.js';
-import { analyse } from '../www/js/analysis.js';
+import { analyse, borrowing } from '../www/js/analysis.js';
 
 const cache = {}; const rows = [];
 for (const s of SOURCES) {
@@ -23,10 +23,13 @@ const a = analyse(d);
 console.log('HEADLINE:', a.headline);
 console.log('GAUGES:', JSON.stringify(a.gauges));
 for (const i of a.insights) console.log(`[${i.level}/${i.severity}] ${i.title} — ${i.signal}`);
+const bo = borrowing(d);
+console.log('BORROWING:', bo.label, bo.score, '|', bo.reasons.map((r) => r.txt).join(' / '));
+console.log('CAR:', bo.carLabel, JSON.stringify(bo.car));
 writeFileSync('smoke-cache.json', JSON.stringify(cache));
 
 const ok = rows.filter((r) => r[1] === 'OK').length;
 const md = [`### Source check: ${ok}/${rows.length} sources OK`, '', '| Source | Status | Time | Detail |', '|---|---|---|---|',
   ...rows.map((r) => `| ${r.map((c) => String(c).replace(/\|/g, '/').slice(0, 220)).join(' | ')} |`), '',
-  `**Headline:** ${a.headline}`, '', ...a.insights.map((i) => `- **${i.title}** (${i.level}) — ${i.signal}`)].join('\n');
+  `**Headline:** ${a.headline}`, '', `**Loan rates outlook:** ${bo.label}`, '', ...a.insights.map((i) => `- **${i.title}** (${i.level}) — ${i.signal}`)].join('\n');
 if (process.env.GITHUB_STEP_SUMMARY) appendFileSync(process.env.GITHUB_STEP_SUMMARY, md + '\n');

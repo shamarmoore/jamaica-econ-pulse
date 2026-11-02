@@ -1,6 +1,6 @@
 // Every data source the app scrapes, straight from the publisher. Each fetcher returns plain JSON
 // so results can be cached on the phone. If a publisher changes its page, only that card goes stale.
-import { getText, getJSON, htmlToText, after, firstNumber, parseRSS, MONTH_YEAR, DAY_MONTH_YEAR, isoDaysAgo } from './util.js';
+import { getText, getJSON, getBinary, htmlToText, after, firstNumber, parseRSS, MONTH_YEAR, DAY_MONTH_YEAR, isoDaysAgo } from './util.js';
 
 // ---------- Bank of Jamaica ----------
 async function boj() {
@@ -150,6 +150,11 @@ export const FRED = {
   PFOODINDEXM: { label: 'Global food price index', unit: 'index', years: 4 },
   PWHEAMTUSDM: { label: 'Wheat', unit: 'US$/t', years: 4 },
   PMAIZMTUSDM: { label: 'Maize (corn)', unit: 'US$/t', years: 4 },
+  PALUMUSDM: { label: 'Aluminium', unit: 'US$/t', years: 4 },
+  PCU483111483111: { label: 'Deep-sea freight cost index', unit: 'index', years: 4 },
+  VIXCLS: { label: 'Market fear gauge (VIX)', unit: 'index', years: 2 },
+  BAMLEMHBHYCRPIOAS: { label: 'Emerging-market high-yield spread', unit: '%', years: 2 },
+  LRUNTTTTCAM156S: { label: 'Canada unemployment', unit: '%', years: 4 },
 };
 function parseFredCSV(csv) {
   const lines = String(csv).trim().split(/\r?\n/);
@@ -185,7 +190,7 @@ async function fxRate(date) {
     `https://${tag}.currency-api.pages.dev/v1/currencies/usd.min.json`,
   ];
   for (const u of urls) {
-    try { const j = await getJSON(u); if (j?.usd?.jmd) return { date: j.date, jmd: j.usd.jmd, cad: j.usd.cad, gbp: j.usd.gbp, eur: j.usd.eur }; } catch (_) { /* try next */ }
+    try { const j = await getJSON(u); if (j?.usd?.jmd) return { date: j.date, jmd: j.usd.jmd, cad: j.usd.cad, gbp: j.usd.gbp, eur: j.usd.eur, jpy: j.usd.jpy }; } catch (_) { /* try next */ }
   }
   return null;
 }
@@ -193,7 +198,7 @@ async function fx() {
   const out = { history: [] };
   try {
     const j = await getJSON('https://open.er-api.com/v6/latest/USD');
-    if (j?.rates?.JMD) out.now = { date: new Date(j.time_last_update_unix * 1000).toISOString().slice(0, 10), jmd: j.rates.JMD, cad: j.rates.CAD, gbp: j.rates.GBP, eur: j.rates.EUR };
+    if (j?.rates?.JMD) out.now = { date: new Date(j.time_last_update_unix * 1000).toISOString().slice(0, 10), jmd: j.rates.JMD, cad: j.rates.CAD, gbp: j.rates.GBP, eur: j.rates.EUR, jpy: j.rates.JPY };
   } catch (_) { /* fall back below */ }
   const back = [30, 90, 180, 365];
   const hist = await Promise.all(back.map((d) => fxRate(isoDaysAgo(d))));
@@ -249,13 +254,106 @@ async function news() {
   return { items };
 }
 
+
+// ---------- BOJ interest-rate tables (Excel) ----------
+const excelDate = (n) => new Date(Date.UTC(1899, 11, 30) + n * 86400000).toISOString().slice(0, 10);
+async function readSheet(path) {
+  const X = await import('../vendor/xlsx.mjs');
+  const wb = X.read(await getBinary(`https://boj.org.jm/wp-content/uploads/${path}`), { type: 'array' });
+  return X.utils.sheet_to_json(wb.Sheets[wb.SheetNames[0]], { header: 1, raw: true, defval: '' });
+}
+function columns(rows, wanted, months = 30) {
+  const head = rows.slice(0, 20);
+  const idx = {};
+  for (const [key, re] of Object.entries(wanted)) {
+    for (const r of head) { const i = r.findIndex((c) => re.test(String(c))); if (i >= 0) { idx[key] = i; break; } }
+  }
+  const data = rows.filter((r) => typeof r[0] === 'number' && r[0] > 30000).slice(-months);
+  const out = {};
+  for (const [key, i] of Object.entries(idx)) {
+    out[key] = data.filter((r) => typeof r[i] === 'number').map((r) => ({ date: excelDate(r[0]), value: +r[i].toFixed(3) }));
+  }
+  return out;
+}
+async function bojRates() {
+  const [loans, deps, bills] = await Promise.allSettled([
+    readSheet('2020/10/IR.CB.02.xls'), readSheet('2020/10/IR.CB.00.xls'), readSheet('2020/10/IR.GOJ.00.xlsx')]);
+  const out = {};
+  if (loans.status === 'fulfilled') out.loans = columns(loans.value, { instalment: /^INSTALMENT/i, mortgage: /^MORTGAGE/i, personal: /^PERSONAL/i, commercial: /^COMMERCIAL/i, overall: /^OVERALL/i });
+  if (deps.status === 'fulfilled') out.deposits = columns(deps.value, { savings: /^SAVINGS/i, time12: /^12 MONTHS/i, timeAvg: /^OVERALL TIME/i, overall: /^OVERALL DEPOSIT/i });
+  if (bills.status === 'fulfilled') out.tbills = columns(bills.value, { m3: /^3 MONTHS/i, m6: /^6 MONTHS/i, m9: /^9 MONTHS/i });
+  if (!out.loans?.instalment?.length && !out.deposits?.overall?.length && !out.tbills?.m3?.length) throw new Error('BOJ rate tables not readable');
+  return out;
+}
+
+// ---------- BOJ Remittance Bulletin (PDF) ----------
+async function remittances() {
+  const media = await getJSON('https://boj.org.jm/wp-json/wp/v2/media?search=Remittance-Bulletin&per_page=1&orderby=date&order=desc');
+  const url = media?.[0]?.source_url;
+  if (!url) throw new Error('No bulletin found');
+  const pdfjs = await import('../vendor/pdf.min.mjs');
+  pdfjs.GlobalWorkerOptions.workerSrc = new URL('../vendor/pdf.worker.min.mjs', import.meta.url).href;
+  const pdf = await pdfjs.getDocument({ data: await getBinary(url), useSystemFonts: true, verbosity: 0, isEvalSupported: false }).promise;
+  let txt = '';
+  for (let p = 1; p <= Math.min(3, pdf.numPages); p++) { const c = await (await pdf.getPage(p)).getTextContent(); txt += c.items.map((i) => i.str).join(' ') + ' '; }
+  const c = txt.replace(/\s+/g, '');
+  const m = /NetremittanceinflowsofUS\$([\d,.]+)millionfor([A-Z][a-z]+)(\d{4}),?represent(?:s|ed)?an?(increase|decline|decrease)of([\d.]+)percent/i.exec(c);
+  if (!m) throw new Error('Bulletin wording not recognised');
+  const us = /accountingfor([\d.]+)percentoftotal/i.exec(c);
+  const fy = /FiscalYeartoDate\d{4}(?:\/\d{2})?:NetremittanceinflowsofUS\$([\d,.]+)millionrepresentedan?(increase|decline|decrease)ofUS\$[\d,.]+millionor([\d.]+)percent/i.exec(c);
+  const sign = (w) => (/increase/i.test(w) ? 1 : -1);
+  return {
+    month: `${m[2]} ${m[3]}`, net: parseFloat(m[1].replace(/,/g, '')), yoy: sign(m[4]) * parseFloat(m[5]),
+    usShare: us ? +us[1] : null, fytd: fy ? { net: parseFloat(fy[1].replace(/,/g, '')), yoy: sign(fy[2]) * parseFloat(fy[3]) } : null, url,
+  };
+}
+
+// ---------- Tourism (JTB & airport figures via Tourism Analytics) ----------
+async function tourism() {
+  const t = htmlToText(await getText('https://www.tourismanalytics.com/jamaica-statistics.html'));
+  const latest = (re) => {
+    let best = null;
+    for (const m of t.matchAll(re)) {
+      const ts = Date.parse(`1 ${m[3]}`);
+      if (!best || ts > best.ts) best = { ts, month: m[3], change: (/fewer/i.test(m[2]) ? -1 : 1) * parseFloat(m[1]) };
+    }
+    return best;
+  };
+  const out = {
+    stopovers: latest(/Jamaica received ([\d.]+)% (fewer|more) stopover arrivals in ([A-Z][a-z]+ \d{4})/g),
+    mbj: latest(/Montego Bay Airport handled ([\d.]+)% (fewer|more) passenger movements in ([A-Z][a-z]+ \d{4})/g),
+    kin: latest(/Kingston Airport,? Jamaica handled ([\d.]+)% (fewer|more) passenger movements in ([A-Z][a-z]+ \d{4})/g),
+  };
+  if (!out.stopovers && !out.mbj) throw new Error('Tourism figures not found');
+  return out;
+}
+
+// ---------- Petrojam weekly fuel prices ----------
+const FUELS = ['Gasolene 87', 'Gasolene 90', 'Auto Diesel', 'ULSD', 'Propane', 'Butane', 'Kerosene'];
+async function petrojam() {
+  const t = htmlToText(await getText('https://www.petrojam.com/'));
+  const weeks = [];
+  for (const m of t.matchAll(/Prices Date:\s*([A-Z][a-z]+ \d{1,2}, \d{4})([\s\S]*?)(?=Prices Date:|Career|$)/g)) {
+    const prices = {};
+    for (const f of FUELS) { const v = new RegExp(`${f}\\s*\\$\\s*([\\d,.]+)`).exec(m[2]); if (v) prices[f] = parseFloat(v[1].replace(/,/g, '')); }
+    if (Object.keys(prices).length) weeks.push({ date: new Date(Date.parse(`${m[1]} 12:00`)).toISOString().slice(0, 10), prices });
+  }
+  if (!weeks.length) throw new Error('Petrojam prices not found');
+  weeks.sort((a, b) => (a.date < b.date ? 1 : -1));
+  return { weeks };
+}
+
 export const SOURCES = [
   { id: 'boj', name: 'Bank of Jamaica', home: 'https://boj.org.jm/', scope: 'Jamaica', what: 'Inflation, policy rate, official FX rates', fn: boj, ttlH: 6 },
   { id: 'statin', name: 'STATIN', home: 'https://statinja.gov.jm/', scope: 'Jamaica', what: 'CPI, labour force, GDP, trade, PPI', fn: statin, ttlH: 12 },
+  { id: 'bojrates', name: 'BOJ interest-rate tables', home: 'https://boj.org.jm/statistics/interest-rates/', scope: 'Jamaica', what: 'Average loan rates (incl. instalment/vehicle), deposit rates, T-bill yields', fn: bojRates, ttlH: 24 },
+  { id: 'remit', name: 'BOJ Remittance Bulletin', home: 'https://boj.org.jm/', scope: 'Jamaica', what: 'Monthly net remittance inflows and source countries', fn: remittances, ttlH: 24 },
+  { id: 'tourism', name: 'Tourism Analytics (JTB & airport data)', home: 'https://www.tourismanalytics.com/jamaica-statistics.html', scope: 'Jamaica', what: 'Stopover arrivals and airport passenger movements, year-on-year', fn: tourism, ttlH: 24 },
+  { id: 'petrojam', name: 'Petrojam', home: 'https://www.petrojam.com/', scope: 'Jamaica', what: 'Weekly ex-refinery fuel prices', fn: petrojam, ttlH: 12 },
   { id: 'imf', name: 'IMF World Economic Outlook', home: 'https://www.imf.org/external/datamapper/profile/JAM', scope: 'Jamaica + partners', what: 'Growth, inflation, debt, current account — history & projections', fn: imf, ttlH: 72 },
   { id: 'worldbank', name: 'World Bank', home: 'https://data.worldbank.org/country/jamaica', scope: 'Jamaica', what: 'Structural exposure: remittances, tourism, reserves, import mix', fn: worldbank, ttlH: 168 },
-  { id: 'fred', name: 'FRED (St. Louis Fed)', home: 'https://fred.stlouisfed.org/', scope: 'World', what: 'Oil, gas, US rates & jobs, US inflation, food & grain prices', fn: fred, ttlH: 12 },
-  { id: 'fx', name: 'Exchange-rate APIs', home: 'https://www.exchangerate-api.com/', scope: 'Jamaica', what: 'USD/JMD now and 1–12 months ago', fn: fx, ttlH: 6 },
+  { id: 'fred', name: 'FRED (St. Louis Fed)', home: 'https://fred.stlouisfed.org/', scope: 'World', what: 'Oil, gas, US rates & jobs, inflation, food & grains, aluminium, freight, global risk, Canada jobs', fn: fred, ttlH: 12 },
+  { id: 'fx', name: 'Exchange-rate APIs', home: 'https://www.exchangerate-api.com/', scope: 'Jamaica', what: 'USD/JMD and JPY/JMD now and 1–12 months ago', fn: fx, ttlH: 6 },
   { id: 'nhc', name: 'NOAA Hurricane Center', home: 'https://www.nhc.noaa.gov/', scope: 'World', what: 'Active Atlantic storms & 7-day outlook', fn: hurricanes, ttlH: 1 },
   { id: 'news', name: 'Gleaner & Observer', home: 'https://jamaica-gleaner.com/business', scope: 'Jamaica', what: 'Business headlines', fn: news, ttlH: 2 },
 ];
