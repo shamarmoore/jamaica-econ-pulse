@@ -185,8 +185,8 @@ function viewJamaica(d) {
   if (imfTiles.length) {
     out.push(`<h2 class="sec">IMF outlook <small>solid = actual · dashed = projection</small></h2><div class="grid">`);
     for (const k of imfTiles) {
-      const sr = imf[`${k}:JAM`]; const cur = sr.find((p) => p.year === yr); const nx = sr.find((p) => p.year === yr + 1);
-      out.push(stat(d.imf.labels[k], cur ? `${fmt(cur.value)}` : '—', `${yr}${nx ? ` · ${yr + 1}: ${fmt(nx.value)}` : ''}`, spark(sr, { proj: yr, fmtX: (p) => String(p.year), unit: '' })));
+      const sr = imf[`${k}:JAM`]; const cur = sr.find((p) => p.year === yr) || [...sr].reverse().find((p) => p.year < yr); const nx = sr.find((p) => p.year === yr + 1);
+      out.push(stat(d.imf.labels[k], cur ? `${fmt(cur.value)}` : '—', `${cur ? cur.year : yr}${nx ? ` · ${yr + 1}: ${fmt(nx.value)}` : ''}`, spark(sr, { proj: yr, fmtX: (p) => String(p.year), unit: '' })));
     }
     out.push('</div>');
   }
