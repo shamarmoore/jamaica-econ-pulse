@@ -32,11 +32,14 @@ if (d.listings) {
   console.log('LISTINGS', it.length, JSON.stringify(by('src')), JSON.stringify(by('type')), 'preferred', it.filter((x) => x.preferred).length, 'errors', d.listings.errors);
   console.log('PRECISION', JSON.stringify(it.reduce((m, x) => ((m[x.loc.precision] = (m[x.loc.precision] || 0) + 1), m), {})));
   const work = await geocode('Half Way Tree Road, Kingston, Jamaica');
-  const qs = [...new Set(it.filter((x) => x.loc.query).map((x) => x.loc.query))].slice(0, 10);
+  const qs = [...new Set(it.filter((x) => x.loc.query).map((x) => x.loc.query))].slice(0, 80);
   const pts = [];
   for (const q of qs) { await new Promise((r) => setTimeout(r, 1100)); try { const g = await geocode(q); if (g) pts.push([q, g]); } catch (e) { console.log('GEO ERR', q, e.message); } }
   const dt = work && pts.length ? await driveTimes(work, pts.map((p) => p[1])) : [];
   pts.forEach((p, i) => console.log('DRIVE', p[0], '→', dt[i]?.min?.toFixed(0), 'min', dt[i]?.km?.toFixed(1), 'km'));
+  const ck = (g) => `${g[0].toFixed(4)},${g[1].toFixed(4)}`;
+  cache._geo = Object.fromEntries([['@work', work], ['@workq', '43 Half Way Tree Road, Kingston, Jamaica'], ...qs.map((q) => [q, (pts.find((p) => p[0] === q) || [])[1] || 0])]);
+  cache._drive = Object.fromEntries(pts.map((p, i) => [ck(p[1]), dt[i]]));
   const f = { ...FIN_DEFAULTS, myIncome: 350000, savings: 3000000, coOn: true, coIncome: 250000 };
   it.filter((x) => x.price).slice(0, 12).forEach((x) => { const b = bestScenario(x.price, f, { land: x.type === 'land', bankRateLive: 7.6 }); console.log('LIST', x.src, '|', x.type, '|', x.title.slice(0, 50), '|', x.where || x.loc.place, '| J$', x.price, '|', b.mode, b.verdict, Math.round(b.monthly), 'cash', Math.round(b.cash), x.preferred ? '★' : ''); });
 }

@@ -90,7 +90,7 @@ export function bestScenario(P, f, opts) {
 // ---------- Locality gazetteer (names only; coordinates come from OpenStreetMap at runtime) ----------
 export const PREFERRED = /(st\.?\s*thomas|bull\s*bay|seven\s*mile|eight\s*mile|nine\s*mile|ten\s*mile|eleven\s*mile|yallahs|albion|grants\s*pen|cane\s*river|rest\s*haven)/i;
 const PLACES = {
-  'St. Thomas': ['Yallahs', 'Albion', 'Morant Bay', 'Easington', 'Pamphret', 'Lyssons', 'Llandewey', 'White Horses', 'Poormans Corner', 'Cambridge Hill', 'Golden Grove', 'Bath', 'Seaforth', 'Port Morant', 'Trinityville', 'Spring Garden', 'Mount George', 'Font Hill', 'Heartease', 'Belvedere', 'Leith Hall', 'Retreat', 'Prospect', 'Lloyds', 'Eleven Mile', 'Grants Pen', 'Bowden', 'Seaforth', 'Hampton Court', 'Pear Tree River'],
+  'St. Thomas': ['Yallahs', 'Albion', 'Morant Bay', 'Easington', 'Pamphret', 'Lyssons', 'Llandewey', 'White Horses', 'Poormans Corner', 'Cambridge Hill', 'Golden Grove', 'Bath', 'Seaforth', 'Port Morant', 'Trinityville', 'Spring Garden', 'Mount George', 'Font Hill', 'Heartease', 'Leith Hall', 'Retreat', 'Prospect', 'Lloyds', 'Eleven Mile', 'Grants Pen', 'Bowden', 'Seaforth', 'Hampton Court', 'Pear Tree River'],
   'St. Andrew': ['Bull Bay', 'Seven Mile', 'Eight Mile', 'Nine Mile', 'Ten Mile', 'Harbour View', 'Rest Haven', 'Cane River', 'Papine', 'Mona', 'Hope Pastures', 'Barbican', 'Constant Spring', 'Red Hills', 'Golden Meadows', 'Stony Hill', 'Meadowbrook', 'Duhaney Park', 'Half Way Tree', 'Cherry Gardens', 'Norbrook', 'Jacks Hill', 'Gordon Town', 'Irish Town', 'Kintyre', 'August Town', 'Liguanea', 'Havendale', 'Molynes', 'Washington Gardens', 'Patrick City', 'Pembroke Hall', 'Waterloo', 'New Kingston', 'Forest Hills', 'Lawrence Tavern', 'Mavis Bank', 'Mannings Hill', 'Smokey Vale', 'Shortwood', 'Belmont', 'Graham Heights', 'Plantation Heights', 'Manor Park', 'Hughenden', 'Arcadia', 'Upper Rock Spring', 'Mountain View', 'Elletson Road'],
   Kingston: ['Rockfort', 'Port Royal', 'Rae Town', 'Allman Town', 'Franklyn Town', 'Vineyard Town', 'Downtown Kingston'],
   'St. Catherine': ['Portmore', 'Spanish Town', 'Old Harbour', 'Gregory Park', 'Bridgeport', 'Caymanas', 'Hellshire', 'Waterford', 'Edgewater', 'Greater Portmore', 'Ferry', 'Sligoville', 'Linstead', 'Bog Walk', 'Innswood', 'Angels', 'Lluidas Vale', 'Ewarton', 'Willowdene', 'Twickenham Park', 'Old Harbour Bay', 'Jacks Hall'],
@@ -98,8 +98,9 @@ const PLACES = {
 const PLACE_LIST = Object.entries(PLACES).flatMap(([parish, names]) => names.map((n) => ({ n, parish, re: new RegExp(`\\b${n.replace(/\s+/g, '\\s*')}\\b`, 'i') })));
 const PARISH_RE = [['St. Thomas', /st\.?\s*thomas/i], ['St. Catherine', /st\.?\s*cath|portmore|spanish town/i], ['St. Andrew', /st\.?\s*andrew|kingston\s*\d|kgn\s*\d|corp(orate)?\s*area/i], ['Kingston', /\bkingston\b/i]];
 
-export function locate(text, hintParish) {
-  for (const p of PLACE_LIST) if (p.re.test(text)) return { place: p.n, parish: p.parish, query: `${p.n}, ${p.parish}, Jamaica`, precision: 'community' };
+const PARISH_OF = (s) => (/st\.?\s*thomas/i.test(s) ? ['St. Thomas'] : /st\.?\s*cath/i.test(s) ? ['St. Catherine'] : /kingston|st\.?\s*andrew/i.test(s) ? ['St. Andrew', 'Kingston'] : null);
+export function locate(text, hintParish, strictParishes = null) {
+  for (const p of PLACE_LIST) if ((!strictParishes || strictParishes.includes(p.parish)) && p.re.test(text)) return { place: p.n, parish: p.parish, query: `${p.n}, ${p.parish}, Jamaica`, precision: 'community' };
   const k = /kingston\s*(\d{1,2})/i.exec(text); if (k) return { place: `Kingston ${k[1]}`, parish: 'Kingston/St. Andrew', query: `Kingston ${k[1]}, Jamaica`, precision: 'zone' };
   const parish = hintParish || (PARISH_RE.find(([, re]) => re.test(text)) || [])[0];
   return parish ? { place: parish, parish, query: null, precision: 'parish' } : { place: null, parish: null, query: null, precision: 'none' };
@@ -163,12 +164,16 @@ export async function listings(fxRate) {
   const errors = [a, b].filter((x) => x.status === 'rejected').map((x) => String(x.reason?.message || x.reason));
   if (!items.length) throw new Error(errors.join('; ') || 'No listings found');
   for (const it of items) {
-    const loc = locate(`${it.where} ${it.title} ${it.desc || ''}`, it.parishHint);
-    if (it.where && loc.precision !== 'community' && it.where.includes(',')) {
-      const [street, ...rest] = it.where.split(',');
-      const parish = rest.join(',').replace(/Kingston\s*\/\s*St\.?\s*Andrew/i, 'Kingston').trim();
-      loc.query = `${street.trim()}, ${parish}, Jamaica`; loc.precision = 'street'; loc.place = loc.place || street.trim();
+    const [street, ...rest] = (it.where || '').split(',');
+    const parishText = rest.join(',');
+    const strict = parishText ? PARISH_OF(parishText) : null;
+    const loc = locate(`${it.where} ${it.title} ${it.desc || ''}`, it.parishHint || (strict && strict[0]), strict);
+    const streetIsParish = PARISH_OF(street || '') && street.trim().split(/\s+/).length <= 3;
+    if (it.where && loc.precision !== 'community' && parishText && !streetIsParish) {
+      const parish = parishText.replace(/Kingston\s*\/\s*St\.?\s*Andrew/i, 'Kingston').trim();
+      loc.query = `${street.trim()}, ${parish}, Jamaica`; loc.precision = 'street'; loc.place = street.trim();
     }
+    if (strict && !loc.parish) loc.parish = strict[0];
     Object.assign(it, { loc, preferred: PREFERRED.test(`${it.where} ${it.title} ${it.desc || ''}`) });
   }
   const seen = new Set();

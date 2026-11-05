@@ -1,6 +1,7 @@
 import { SOURCES, FRED } from './sources.js';
 import { analyse, borrowing } from './analysis.js';
 import { decide, PROFILES, ASSETS } from './decisions.js';
+import { NHT_DEFAULTS, FIN_DEFAULTS, scenario, bestScenario, geocode, driveTimes } from './homes.js';
 import { fmt, signed, last, changeOver, yoySeries } from './util.js';
 
 const KEY = 'ep_cache_v1';
@@ -277,7 +278,7 @@ let sub = 'overview';
 const PROFILE_KEY = 'ep_profile_v1';
 let profile = 'balanced';
 try { profile = localStorage.getItem(PROFILE_KEY) || 'balanced'; } catch (_) { /* default */ }
-const SUBS = [['overview', 'Overview'], ['spend', 'Spend'], ['borrow', 'Borrow'], ['home', 'Home'], ['invest', 'Invest'], ['work', 'Work']];
+const SUBS = [['overview', 'Overview'], ['spend', 'Spend'], ['borrow', 'Borrow'], ['home', 'Home'], ['listings', 'Listings'], ['invest', 'Invest'], ['work', 'Work'], ['jobs', 'Jobs']];
 
 function chip(dec) { return `<span class="vchip ${STEP_CLASS[dec.step]}"><span class="gi">${STEP_ICON[dec.step]}</span>${esc(dec.label)}</span>`; }
 
@@ -318,42 +319,193 @@ function viewDecide(d) {
   else if (sub === 'home') body = viewHome(d, x);
   else if (sub === 'invest') body = viewInvest(d, x);
   else if (sub === 'work') body = viewWork(d, x);
+  else if (sub === 'listings') body = viewListings(d);
+  else if (sub === 'jobs') body = viewJobs(d);
   return nav + body;
 }
 
-const HOME_KEY = 'ep_home_v1';
+
+// ---------- Home: buying power with NHT + co-applicant ----------
+const FIN_KEY = 'ep_fin_v1'; const NHT_KEY = 'ep_nht_v1';
+const load = (k, def) => { try { return { ...def, ...(JSON.parse(localStorage.getItem(k)) || {}) }; } catch (_) { return { ...def }; } };
+let fin = load(FIN_KEY, { ...FIN_DEFAULTS, target: 20000000 });
+let nhtCfg = load(NHT_KEY, { ...NHT_DEFAULTS, bands: NHT_DEFAULTS.bands.map((b) => b[1]) });
+const nhtOpts = () => ({ ...nhtCfg, bands: NHT_DEFAULTS.bands.map((b, i) => [b[0], +nhtCfg.bands[i]]) });
+const liveMort = (d) => { const m = d.bojrates?.loans?.mortgage; return m?.length ? last(m).value : 7.6; };
+const MODE_NAME = { bank: 'Bank only', nht: 'NHT (you) + bank', nhtco: 'NHT + co-applicant + bank' };
+const VERDICT = { yes: ['good', 'Can afford'], check: ['ok', 'Payment OK — add savings'], stretch: ['warn', 'Stretch'], no: ['bad', 'Out of reach'], unknown: ['ok', 'Enter income'] };
+
+function field(id, label, val, extra = '') { return `<label>${label}<input data-fin="${id}" inputmode="decimal" value="${esc(val ?? '')}" ${extra}></label>`; }
+function check(id, label, on, scope = 'fin') { return `<label class="chk"><input type="checkbox" data-${scope}="${id}" ${on ? 'checked' : ''}> ${label}</label>`; }
+
 function viewHome(d, x) {
   const h = x.home; const r = d.bojrates || {};
-  const defRate = h.mortCB ?? 8;
-  let st = {}; try { st = JSON.parse(localStorage.getItem(HOME_KEY)) || {}; } catch (_) { /* none */ }
-  const v = { price: st.price ?? 25000000, deposit: st.deposit ?? 2500000, rate: st.rate ?? +defRate.toFixed(2), years: st.years ?? 25, income: st.income ?? '' };
   return hero('Buying a home · now', h) +
-    `<h2 class="sec">Mortgage rates <small>BOJ averages actually charged</small></h2><div class="grid">
-      ${rateTile('Bank mortgages (avg)', r.loans?.mortgage, 'includes JN & former building societies')}${rateTile('6-month T-bill', r.tbills?.m6, 'where rates are heading')}</div>
-    <p class="fine">No public house-price index exists for Jamaica, so this reading uses what drives prices and affordability: rates, inflation, building costs, incomes and remittances. NHT contributors can get lower rates — <a href="https://www.nht.gov.jm/" target="_blank" rel="noopener">check NHT eligibility</a>.</p>
-    <h2 class="sec">Can I afford it?</h2>
-    <section class="calc" data-calc="home">
-      <label>Home price (J$)<input id="h-price" inputmode="numeric" value="${v.price}"></label>
-      <label>Deposit (J$)<input id="h-deposit" inputmode="numeric" value="${v.deposit}"></label>
-      <label>Mortgage rate (%)<input id="h-rate" inputmode="decimal" value="${v.rate}"></label>
-      <label>Term (years)<input id="h-years" inputmode="numeric" value="${v.years}"></label>
-      <label class="wide">Household take-home pay per month (J$)<input id="h-income" inputmode="numeric" value="${v.income}" placeholder="enter to see affordability"></label>
-      <div id="h-out" class="wide"></div>
-    </section>` + tipsBlock(h.tips);
+    `<h2 class="sec">Your buying power <small>NHT + co-applicant</small></h2>
+    <section class="calc fin">
+      ${field('target', 'Home price to test (J$)', fin.target)}
+      ${field('savings', 'Savings for deposit + closing (J$)', fin.savings, 'placeholder="e.g. 3000000"')}
+      ${field('myIncome', 'Your gross monthly income (J$)', fin.myIncome, 'placeholder="before tax"')}
+      ${field('myAge', 'Your age', fin.myAge)}
+      <div class="wide">${check('myNht', 'I am an NHT contributor', fin.myNht)}</div>
+      <div class="wide">${check('coOn', 'Add a co-applicant', fin.coOn)}</div>
+      <div class="wide co ${fin.coOn ? '' : 'hide'}"><div class="calc2">
+        ${field('coIncome', 'Co-applicant gross monthly income (J$)', fin.coIncome)}
+        ${field('coAge', 'Co-applicant age', fin.coAge)}
+        <div class="wide">${check('coNht', 'Co-applicant is an NHT contributor', fin.coNht)}</div></div></div>
+      <div id="fin-out" class="wide"></div>
+      <details class="wide adv"><summary>Assumptions (edit if your lender or NHT letter differs)</summary><div class="calc2">
+        ${field('ratio', 'Max payment, % of gross income', fin.ratio)}${field('closingPct', 'Closing costs, % of price', fin.closingPct)}
+        ${field('bankRate', 'Bank mortgage rate % (blank = BOJ avg)', fin.bankRate ?? '', `placeholder="${fmt(liveMort(d), 2)}"`)}${field('bankLTV', 'Bank max financing, % of price', fin.bankLTV)}
+        ${field('bankTerm', 'Bank max term (years)', fin.bankTerm)}${field('landLTV', 'Land loan max, % of price', fin.landLTV)}
+        ${field('landRateAdd', 'Land loan rate premium (pts)', fin.landRateAdd)}${field('landTerm', 'Land loan term (years)', fin.landTerm)}
+        <label>NHT limit, single (J$)<input data-nht="limitSingle" inputmode="numeric" value="${nhtCfg.limitSingle}"></label>
+        <label>NHT limit, single if price ≤ J$${fmt(nhtCfg.specialPriceCap / 1e6, 0)}M<input data-nht="limitSingleSpecial" inputmode="numeric" value="${nhtCfg.limitSingleSpecial}"></label>
+        <label>NHT limit, two applicants (J$)<input data-nht="limitJoint" inputmode="numeric" value="${nhtCfg.limitJoint}"></label>
+        <label>NHT lot-loan limit per applicant (J$)<input data-nht="lotLimitPer" inputmode="numeric" value="${nhtCfg.lotLimitPer}"></label>
+        <label>NHT max term (years)<input data-nht="maxTerm" inputmode="numeric" value="${nhtCfg.maxTerm}"></label>
+        <label>Repay by age<input data-nht="maxAge" inputmode="numeric" value="${nhtCfg.maxAge}"></label>
+        ${['≤ J$30,000/wk', 'J$30,001–42,000/wk', 'J$42,001–100,000/wk', 'over J$100,000/wk'].map((l, i) => `<label>NHT rate % (${l})<input data-nhtband="${i}" inputmode="decimal" value="${nhtCfg.bands[i]}"></label>`).join('')}
+      </div><p class="fine">Defaults: NHT loan limits from NHT’s July 2025 booklet; income-band rates from NHT’s published table (July 2023 — confirm with your eligibility letter). Closing costs typically run 4–8% of price. NHT sets your rate from the average weekly income of the NHT contributors on the loan, and your term from the youngest applicant’s age.</p></details>
+    </section>
+    <h2 class="sec">Mortgage rates <small>BOJ averages actually charged</small></h2><div class="grid">
+      ${rateTile('Bank mortgages (avg)', r.loans?.mortgage, 'used for the bank portion')}${rateTile('6-month T-bill', r.tbills?.m6, 'where rates are heading')}</div>` + tipsBlock(h.tips);
 }
-function updateHome() {
-  const el = document.getElementById('h-out'); if (!el) return;
-  const g = (id) => parseFloat(String(document.getElementById(id).value).replace(/[,\s$J]/g, ''));
-  const st = { price: g('h-price') || 0, deposit: g('h-deposit') || 0, rate: g('h-rate') || 0, years: g('h-years') || 1, income: document.getElementById('h-income').value };
-  try { localStorage.setItem(HOME_KEY, JSON.stringify(st)); } catch (_) { /* ignore */ }
-  const P = Math.max(0, st.price - st.deposit); const m = pmt(P, st.rate, st.years); const inc = parseFloat(String(st.income).replace(/[,\s$J]/g, ''));
-  const share = inc ? (m / inc) * 100 : null;
-  const verdict = share == null ? '' : share <= 30 ? ['good', 'Comfortable'] : share <= 40 ? ['warn', 'Tight'] : ['bad', 'Stretched'];
-  el.innerHTML = `<div class="c-big"><span>Monthly mortgage</span><b>${J(m)}</b></div>
-    <div class="c-row"><span>Loan amount</span><b>${J(P)} (${fmt(st.price ? (P / st.price) * 100 : 0, 0)}% of price)</b></div>
-    <div class="c-row"><span>Total interest over ${st.years} yrs</span><b>${J(m * st.years * 12 - P)}</b></div>
-    ${share != null ? `<div class="c-row"><span>Share of take-home pay</span><b class="${verdict[0]}">${fmt(share, 0)}% · ${verdict[1]}</b></div>` : ''}
-    <div class="c-row"><span>At +2 pts (${fmt(st.rate + 2, 2)}%)</span><b>${J(pmt(P, st.rate + 2, st.years))}/mo</b></div>`;
+
+function maxAffordable(f, mode, opts) {
+  let lo = 0; let hi = 200e6;
+  for (let i = 0; i < 32; i++) { const mid = (lo + hi) / 2; const v = scenario(mid, f, mode, opts).verdict; if (v === 'yes' || v === 'check') lo = mid; else hi = mid; }
+  return lo;
+}
+function updateFin() {
+  const el = document.getElementById('fin-out'); if (!el) return;
+  const d = data(); const opts = { nht: nhtOpts(), bankRateLive: liveMort(d) };
+  const P = +String(fin.target).replace(/[,\s$J]/g, '') || 0;
+  const modes = ['bank', 'nht'].concat(fin.coOn ? ['nhtco'] : []);
+  const rows = modes.map((m) => ({ m, s: scenario(P, fin, m, opts) }));
+  const hasInc = +String(fin.myIncome).replace(/[,\s$J]/g, '') > 0;
+  el.innerHTML = !hasInc ? '<p class="note">Enter your gross monthly income to see what you can afford.</p>' : `
+    <table class="scn"><thead><tr><th></th>${rows.map((r) => `<th>${MODE_NAME[r.m]}</th>`).join('')}</tr></thead><tbody>
+      <tr><td>NHT loan</td>${rows.map((r) => `<td>${r.s.nhtLoan ? `${J(r.s.nhtLoan)}<small>${r.s.nhtRatePct}% · ${r.s.nhtTerm} yrs</small>` : '—'}</td>`).join('')}</tr>
+      <tr><td>Bank loan</td>${rows.map((r) => `<td>${r.s.bankLoan ? `${J(r.s.bankLoan)}<small>${fmt(r.s.bankRate, 2)}% · ${r.s.bankTerm} yrs</small>` : '—'}</td>`).join('')}</tr>
+      <tr><td>Deposit</td>${rows.map((r) => `<td>${J(r.s.deposit)}</td>`).join('')}</tr>
+      <tr><td>Closing costs</td>${rows.map((r) => `<td>${J(r.s.closing)}</td>`).join('')}</tr>
+      <tr class="em"><td>Cash needed</td>${rows.map((r) => `<td>${J(r.s.cash)}</td>`).join('')}</tr>
+      <tr class="em"><td>Monthly payment</td>${rows.map((r) => `<td>${J(r.s.monthly)}<small>${r.s.share != null ? `${fmt(r.s.share, 0)}% of income` : ''}</small></td>`).join('')}</tr>
+      <tr><td>Total interest</td>${rows.map((r) => `<td>${J(r.s.totalInterest)}</td>`).join('')}</tr>
+      <tr><td>Verdict</td>${rows.map((r) => `<td><b class="${VERDICT[r.s.verdict][0]}">${VERDICT[r.s.verdict][1]}</b></td>`).join('')}</tr>
+      <tr><td>Max price you can afford</td>${rows.map((r) => `<td>${J(maxAffordable(fin, r.m, opts))}</td>`).join('')}</tr>
+    </tbody></table>
+    ${rows.flatMap((r) => r.s.notes.map((n) => `<p class="fine">${MODE_NAME[r.m]}: ${esc(n)}</p>`)).join('')}`;
+}
+function bindFin(v) {
+  v.querySelectorAll('[data-fin]').forEach((i) => i.addEventListener(i.type === 'checkbox' ? 'change' : 'input', () => {
+    fin[i.dataset.fin] = i.type === 'checkbox' ? i.checked : i.value;
+    if (i.dataset.fin === 'coOn') v.querySelector('.co')?.classList.toggle('hide', !i.checked);
+    try { localStorage.setItem(FIN_KEY, JSON.stringify(fin)); } catch (_) { /* ignore */ }
+    updateFin();
+  }));
+  v.querySelectorAll('[data-nht],[data-nhtband]').forEach((i) => i.addEventListener('input', () => {
+    if (i.dataset.nhtband != null) nhtCfg.bands[+i.dataset.nhtband] = +i.value || 0; else nhtCfg[i.dataset.nht] = +String(i.value).replace(/[,\s$J]/g, '') || 0;
+    try { localStorage.setItem(NHT_KEY, JSON.stringify(nhtCfg)); } catch (_) { /* ignore */ }
+    updateFin();
+  }));
+  updateFin();
+}
+
+// ---------- Listings near work ----------
+const GEO_KEY = 'ep_geo_v1'; const DRV_KEY = 'ep_drive_v1';
+let geoCache = load(GEO_KEY, {}); let drvCache = load(DRV_KEY, {});
+let listFilter = { type: 'all', outside: false };
+let enrich = { running: false, done: 0, total: 0, error: null };
+const WORK_FALLBACK = [18.0061, -76.7942]; // Half Way Tree Road (OpenStreetMap)
+const ck = (g) => `${g[0].toFixed(4)},${g[1].toFixed(4)}`;
+
+async function enrichListings() {
+  const L = data().listings?.items; if (!L || enrich.running) return;
+  enrich = { running: true, done: 0, total: 0, error: null };
+  try {
+    const wq = fin.work || FIN_DEFAULTS.work;
+    if (!geoCache['@work'] || geoCache['@workq'] !== wq) {
+      let w = null; try { w = await geocode(wq); } catch (_) { /* fallback */ }
+      geoCache['@work'] = w || WORK_FALLBACK; geoCache['@workq'] = wq; drvCache = {};
+    }
+    const qs = [...new Set(L.map((x) => x.loc?.query).filter((q) => q && !(q in geoCache)))].slice(0, 80);
+    enrich.total = qs.length;
+    for (const q of qs) {
+      try { geoCache[q] = (await geocode(q)) || 0; } catch (_) { geoCache[q] = 0; }
+      enrich.done++; if (enrich.done % 5 === 0) { save2(); if (sub === 'listings') render(false); }
+      await new Promise((r) => setTimeout(r, 1100)); // OpenStreetMap usage policy: max 1 request/second
+    }
+    const need = [...new Set(Object.entries(geoCache).filter(([k, g]) => !k.startsWith('@') && g && !(ck(g) in drvCache)).map(([, g]) => ck(g)))];
+    if (need.length) {
+      const pts = need.map((k) => k.split(',').map(Number));
+      const res = await driveTimes(geoCache['@work'], pts);
+      need.forEach((k, i) => { drvCache[k] = res[i]; });
+    }
+  } catch (e) { enrich.error = String(e.message || e); }
+  enrich.running = false; save2(); if (tab === 'decide' && sub === 'listings') render(false);
+}
+function save2() { try { localStorage.setItem(GEO_KEY, JSON.stringify(geoCache)); localStorage.setItem(DRV_KEY, JSON.stringify(drvCache)); } catch (_) { /* ignore */ } }
+
+function viewListings(d) {
+  const L = d.listings?.items;
+  if (!L) return empty(running.has('listings') ? 'Searching listings…' : 'Listings haven’t loaded yet — tap refresh.');
+  if (!enrich.running && L.some((x) => x.loc?.query && !(x.loc.query in geoCache))) setTimeout(enrichListings, 50);
+  const opts = { nht: nhtOpts(), bankRateLive: liveMort(d) };
+  const minM = +fin.minMin || 0; const maxM = +fin.maxMin || 999; const traffic = +fin.traffic || 1.4;
+  const rows = L.filter((x) => listFilter.type === 'all' || x.type === listFilter.type).map((x) => {
+    const g = x.loc?.query ? geoCache[x.loc.query] : null; const dr = g ? drvCache[ck(g)] : null;
+    const best = x.price ? bestScenario(x.price, fin, { ...opts, land: x.type === 'land' }) : null;
+    return { x, min: dr?.min ?? null, km: dr?.km ?? null, best };
+  });
+  const inRange = rows.filter((r) => r.min != null && r.min >= minM && r.min <= maxM);
+  const outRange = rows.filter((r) => r.min != null && (r.min < minM || r.min > maxM));
+  const unclear = rows.filter((r) => r.min == null);
+  const rank = { yes: 0, check: 1, stretch: 2, no: 3, unknown: 4 };
+  const sorter = (a, b) => ((rank[a.best?.verdict ?? 'unknown']) - (rank[b.best?.verdict ?? 'unknown'])) || ((b.x.preferred ? 1 : 0) - (a.x.preferred ? 1 : 0)) || ((a.x.price || 9e12) - (b.x.price || 9e12));
+  const card = (r) => {
+    const v = r.best ? VERDICT[r.best.verdict] : ['ok', 'Price unclear'];
+    return `<li class="lst ${v[0]}"><div class="l-h"><span class="vchip ${v[0]}">${v[1]}</span>${r.x.preferred ? '<span class="star">★ Top pick area</span>' : ''}</div>
+      <a href="${esc(r.x.url)}" target="_blank" rel="noopener"><b>${esc(r.x.title)}</b></a>
+      <div class="l-p">${r.x.price ? J(r.x.price) : esc(r.x.priceText)} <span class="tag">${r.x.type}</span></div>
+      <div class="fine">${esc(r.x.where || r.x.loc?.place || '')}${r.x.loc?.parish && !(r.x.where || '').includes(r.x.loc.parish) ? ` · ${esc(r.x.loc.parish)}` : ''}</div>
+      ${r.min != null ? `<div class="l-d">🚗 ≈ ${fmt(r.min, 0)} min to work (no traffic) · ~${fmt(r.min * traffic, 0)} min rush hour · ${fmt(r.km, 1)} km</div>` : `<div class="l-d fine">Commute unknown — ${r.x.loc?.precision === 'parish' ? 'only the parish is given' : 'no location in the ad'}</div>`}
+      ${r.best && r.best.income ? `<div class="l-f">Best option: <b>${MODE_NAME[r.best.mode]}</b> · ${J(r.best.monthly)}/mo · cash needed ${J(r.best.cash)}</div>` : ''}
+      <div class="fine">${esc(r.x.src)}${r.x.date ? ` · posted ${fd(r.x.date)}` : ''}</div></li>`;
+  };
+  const group = (title, list, open = true) => list.length ? `<details class="grp" ${open ? 'open' : ''}><summary>${title} <span class="cnt">${list.length}</span></summary><ul class="lsts">${list.sort(sorter).map(card).join('')}</ul></details>` : '';
+  const hasInc = +String(fin.myIncome).replace(/[,\s$J]/g, '') > 0;
+  return `<section class="hero-b"><div class="gname">Houses & land near work</div>
+      <p class="lede-s">${inRange.length} listing${inRange.length === 1 ? '' : 's'} within ${minM}–${maxM} min of ${esc((fin.work || FIN_DEFAULTS.work).split(',')[0])}${inRange.filter((r) => r.x.preferred).length ? ` · ${inRange.filter((r) => r.x.preferred).length} in St. Thomas / Bull Bay` : ''}</p>
+      <div class="calc2">${field('minMin', 'Min drive (min)', fin.minMin)}${field('maxMin', 'Max drive (min)', fin.maxMin)}
+        ${field('work', 'Work address', fin.work)}${field('traffic', 'Rush-hour factor', fin.traffic)}</div>
+      <div class="chips">${[['all', 'All'], ['house', 'Houses'], ['land', 'Land']].map(([k, l]) => `<button data-ltype="${k}" class="${listFilter.type === k ? 'on' : ''}">${l}</button>`).join('')}</div>
+      ${!hasInc ? '<p class="note">Add your income and savings under Home → Your buying power to sort listings by what you can afford.</p>' : ''}
+      ${enrich.running ? `<p class="fine"><span class="spin"></span>Locating listings on the map… ${enrich.done}/${enrich.total}</p>` : ''}
+      ${enrich.error ? `<p class="fine bad">Commute lookup failed: ${esc(enrich.error)}</p>` : ''}
+    </section>
+    ${group('Within your commute range', inRange)}
+    ${group('Commute unknown — check the ad', unclear, false)}
+    ${group('Outside your commute range', outRange, false)}
+    <p class="fine">Listings come from PropertyAdsJa and Gleaner Classifieds (most agency MLS listings aren’t public). Locations are matched from the ad text and placed with OpenStreetMap; drive times are OSRM no-traffic estimates. Affordability uses your Home settings — always confirm with the lender and NHT.</p>`;
+}
+
+// ---------- Analyst jobs ----------
+let jobsJamaica = true;
+function viewJobs(d) {
+  const J0 = d.jobs?.jobs; if (!J0) return empty(running.has('jobs') ? 'Searching CaribbeanJobs…' : 'Jobs haven’t loaded yet — tap refresh.');
+  const list = J0.filter((j) => !jobsJamaica || /jamaica/i.test(j.country));
+  const parseD = (s) => { const m = /(\d{2})\/(\d{2})\/(\d{4})/.exec(s || ''); return m ? `${m[3]}-${m[2]}-${m[1]}` : ''; };
+  list.sort((a, b) => (parseD(b.updated) > parseD(a.updated) ? 1 : -1));
+  return `<section class="hero-b"><div class="gname">Analyst openings · CaribbeanJobs</div>
+      <p class="lede-s">${list.length} role${list.length === 1 ? '' : 's'} with “analyst” in the title${jobsJamaica ? ' in Jamaica' : ' across the Caribbean'}</p>
+      <label class="chk"><input type="checkbox" id="jobs-ja" ${jobsJamaica ? 'checked' : ''}> Jamaica only</label></section>
+    <ul class="lsts">${list.map((j) => `<li class="lst"><a href="${esc(j.url)}" target="_blank" rel="noopener"><b>${esc(j.title)}</b></a>
+      <div class="l-p">${esc(j.company || 'Company not disclosed')}</div>
+      <div class="fine">${esc(j.location)}${j.country && !/jamaica/i.test(j.country) ? `, ${esc(j.country)}` : ''} · updated ${esc(fd(parseD(j.updated)) || j.updated)} · ${esc(j.salary || 'Salary not disclosed')}</div>
+      ${j.desc ? `<p class="j-d">${esc(j.desc.slice(0, 180))}${j.desc.length > 180 ? '…' : ''}</p>` : ''}</li>`).join('')}</ul>
+    <p class="fine">Refreshes every 8 hours from caribbeanjobs.com. Open a listing to apply on the site.</p>`;
 }
 
 function viewInvest(d, x) {
@@ -501,7 +653,7 @@ function viewSources() {
   }).join('')}</ul>
   <h2 class="sec">How the readings work</h2>
   <p class="fine">Each card applies a fixed rule to the live numbers — for example, Brent oil up more than 10% in three months counts as pressure, because fuel is a large share of Jamaica’s imports and feeds into electricity, transport and the exchange rate. The four gauges add up those signals. Rules describe the usual direction of impact; they are not forecasts, and real outcomes depend on policy and timing.</p>
-  <p class="fine">Version 1.2</p>`;
+  <p class="fine">Version 1.3</p>`;
 }
 
 function render(force = true) {
@@ -513,7 +665,12 @@ function render(force = true) {
   if (tab === 'pulse' && openIds.length) v.querySelectorAll('details').forEach((x, i) => { if (openIds[i] !== undefined) x.open = openIds[i]; });
   const nf = $('#nf'); if (nf) nf.onchange = () => { newsFilter = nf.checked; render(); };
   if (tab === 'decide' && sub === 'borrow') { v.querySelectorAll('.calc input').forEach((i) => i.addEventListener('input', updateCalc)); updateCalc(); }
-  if (tab === 'decide' && sub === 'home') { v.querySelectorAll('.calc input').forEach((i) => i.addEventListener('input', updateHome)); updateHome(); }
+  if (tab === 'decide' && sub === 'home') bindFin(v);
+  if (tab === 'decide' && sub === 'listings') {
+    v.querySelectorAll('[data-fin]').forEach((i) => i.addEventListener('change', () => { fin[i.dataset.fin] = i.value; try { localStorage.setItem(FIN_KEY, JSON.stringify(fin)); } catch (_) { /* ignore */ } if (i.dataset.fin === 'work') { delete geoCache['@work']; enrichListings(); } render(); }));
+    v.querySelectorAll('[data-ltype]').forEach((b) => b.addEventListener('click', () => { listFilter.type = b.dataset.ltype; render(); }));
+  }
+  if (tab === 'decide' && sub === 'jobs') { const c = document.getElementById('jobs-ja'); if (c) c.onchange = () => { jobsJamaica = c.checked; render(); }; }
 }
 
 // sparkline scrubbing (touch + mouse)
