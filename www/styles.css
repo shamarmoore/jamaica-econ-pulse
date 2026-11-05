@@ -203,7 +203,7 @@ b.good, span.good { color: var(--good); } b.warn { color: var(--warn); } b.bad, 
 .cnt { font: 600 12px var(--sans); background: var(--ink); color: var(--paper); border-radius: 10px; padding: 1px 7px; margin-left: 4px; }
 .lsts { list-style: none; padding: 0; margin: 6px 0 0; }
 .lst { background: var(--card); border: 1px solid var(--rule); border-left: 4px solid var(--ok); border-radius: 3px; padding: 10px 12px; margin-bottom: 8px; }
-.lst.good { border-left-color: var(--good); } .lst.warn { border-left-color: var(--warn); } .lst.bad { border-left-color: var(--bad); }
+.lst.v-good { border-left-color: var(--good); } .lst.v-warn { border-left-color: var(--warn); } .lst.v-bad { border-left-color: var(--bad); }
 .lst a { color: var(--ink); text-decoration: none; font-family: var(--serif); font-size: 16px; }
 .l-h { display: flex; justify-content: space-between; align-items: center; margin-bottom: 4px; gap: 6px; flex-wrap: wrap; }
 .star { font: 700 11.5px var(--sans); color: var(--warn); }

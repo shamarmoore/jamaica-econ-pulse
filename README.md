@@ -14,6 +14,9 @@ An Android app that scrapes Jamaica's economic indicators straight from the publ
 | BOJ Remittance Bulletin (PDF) | Monthly net remittances, year-on-year change, US share | 24 h |
 | Tourism Analytics (JTB & airport data) | Stopover arrivals and Montego Bay / Kingston airport passengers, year-on-year | 24 h |
 | Jamaica Stock Exchange | Daily Main, Junior, Combined, Select and USD index closes (the app builds its own trend history) | 6 h |
+| PropertyAdsJa & Gleaner Classifieds | Houses and land for sale (KSA, St. Thomas, St. Catherine) | 12 h |
+| CaribbeanJobs | Openings with “analyst” in the title | 8 h |
+| OpenStreetMap Nominatim + OSRM | Listing locations and drive times from your work address (cached on the phone) | on demand |
 | Petrojam | Weekly ex-refinery prices for gasolene 87/90, diesel, ULSD, LPG | 12 h |
 | FRED (St. Louis Fed) | Brent, Henry Hub gas, Fed funds, US 10-yr, US unemployment, US CPI, consumer sentiment, broad USD, IMF food index, wheat, maize, aluminium, deep-sea freight, VIX, EM high-yield spread, Canada unemployment | 12 h |
 | open.er-api.com + fawazahmed0 currency-api | USD/JMD and JPY/JMD now and 1, 3, 6 and 12 months ago | 6 h |
@@ -27,6 +30,9 @@ Glanceable verdicts for personal decisions, each with its reasons shown:
 - **Home** — buy-now reading from average bank mortgage rates, rate outlook, inflation, building-cost pressure and income security, plus an affordability calculator. (Jamaica has no public house-price index, so prices themselves are not tracked.)
 - **Invest** — example asset-class mixes for Conservative / Balanced / Growth, tilted by real JMD yields, JMD pressure, rate outlook, global risk mood and inflation; compares JMD/USD safe yields.
 - **Work** — whether it’s a good time to look or negotiate, with sector temperatures from tourism, mining, remittance and news data.
+- **Home → Your buying power** — compares Bank only vs NHT (you) + bank vs NHT + co-applicant + bank for any price: NHT loan (rate from average weekly income band, term from the youngest applicant’s age, July 2025 loan limits), bank top-up at the live BOJ mortgage average, deposit, closing costs, monthly payment, total interest and the maximum price you can afford. All limits and rates are editable.
+- **Listings** — houses and land for sale scraped from PropertyAdsJa and Gleaner Classifieds, located via OpenStreetMap and timed by car (OSRM) from your work address; filtered to your commute window, starred for St. Thomas / Bull Bay, and sorted by whether you can afford them.
+- **Jobs** — openings with “analyst” in the title from CaribbeanJobs (Jamaica only by default).
 These are general rule-based readings, not personalised financial advice.
 
 ## Borrow section

@@ -465,10 +465,10 @@ function viewListings(d) {
   const rank = { yes: 0, check: 1, stretch: 2, no: 3, unknown: 4 };
   const sorter = (a, b) => ((rank[a.best?.verdict ?? 'unknown']) - (rank[b.best?.verdict ?? 'unknown'])) || ((b.x.preferred ? 1 : 0) - (a.x.preferred ? 1 : 0)) || ((a.x.price || 9e12) - (b.x.price || 9e12));
   const card = (r) => {
-    const v = r.best ? VERDICT[r.best.verdict] : ['ok', 'Price unclear'];
-    return `<li class="lst ${v[0]}"><div class="l-h"><span class="vchip ${v[0]}">${v[1]}</span>${r.x.preferred ? '<span class="star">★ Top pick area</span>' : ''}</div>
+    const v = r.best ? VERDICT[r.best.verdict] : ['ok', 'No price'];
+    return `<li class="lst v-${v[0]}"><div class="l-h"><span class="vchip ${v[0]}">${v[1]}</span>${r.x.preferred ? '<span class="star">★ Top pick area</span>' : ''}</div>
       <a href="${esc(r.x.url)}" target="_blank" rel="noopener"><b>${esc(r.x.title)}</b></a>
-      <div class="l-p">${r.x.price ? J(r.x.price) : esc(r.x.priceText)} <span class="tag">${r.x.type}</span></div>
+      <div class="l-p">${r.x.price ? J(r.x.price) : /\d[1-9]|[1-9]/.test(r.x.priceText || '') ? esc(r.x.priceText) : r.x.src === 'PropertyAdsJa' ? 'Price on request' : 'Price not listed'} <span class="tag">${r.x.type}</span></div>
       <div class="fine">${esc(r.x.where || r.x.loc?.place || '')}${r.x.loc?.parish && !(r.x.where || '').includes(r.x.loc.parish) ? ` · ${esc(r.x.loc.parish)}` : ''}</div>
       ${r.min != null ? `<div class="l-d">🚗 ≈ ${fmt(r.min, 0)} min to work (no traffic) · ~${fmt(r.min * traffic, 0)} min rush hour · ${fmt(r.km, 1)} km</div>` : `<div class="l-d fine">Commute unknown — ${r.x.loc?.precision === 'parish' ? 'only the parish is given' : 'no location in the ad'}</div>`}
       ${r.best && r.best.income ? `<div class="l-f">Best option: <b>${MODE_NAME[r.best.mode]}</b> · ${J(r.best.monthly)}/mo · cash needed ${J(r.best.cash)}</div>` : ''}
