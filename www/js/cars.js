@@ -5,6 +5,8 @@ export const MODELS = [
   { key: 'civic', label: 'Honda Civic', re: /\bhonda\s+civic\b|\bcivic\b/i, autoads: { make: 20, model: 'Civic' } },
   { key: 'gt86', label: 'Toyota GT86', re: /\b(?:toyota\s+)?(?:gt|ft)\s?-?86\b|\btoyota\s+86\b/i, autoads: { make: 53, model: '86' } },
 ];
+const MULTI = /\b(hrv|hr-v|vezel|odyssey|spada|voxy|noah|stepwagon|step wagon|crv|cr-v|rav4|chr|c-hr|fit|accord|axio|fielder|biante|isis|premio|allion)\b/gi;
+const isParts = (t) => (String(t).match(MULTI) || []).length >= 2 || /\bparts?\b|\bengine\b|\bwrecking\b|\bbody kit\b/i.test(t);
 const LHD = /\b(left[\s-]*hand[\s-]*drive|lhd|left[\s-]*hand)\b/i;
 const price = (t) => {
   const m = /J?\$\s?([\d,]+(?:\.\d+)?)\s*(M|mil|million|K)?/i.exec(String(t).replace(/\s+/g, ' '));
@@ -22,7 +24,7 @@ async function autoAdsJa(model) {
     let rank = out.length;
     for (const m of h.matchAll(/<a href="(https:\/\/www\.autoadsja\.com\/[A-Z0-9]{3,6})" title="([^"]+)">[\s\S]{0,1600}?<span class="visible-xs">\s*([^<]+)<\/span>/g)) {
       const title = decodeEntities(m[2]);
-      if (!model.re.test(title)) continue;
+      if (!model.re.test(title) || isParts(title)) continue;
       const [what, where = ''] = title.split(/\s+for sale in\s+/i);
       out.push({ src: 'AutoAdsJa', id: `aa:${m[1].slice(-6)}`, url: m[1], title: what.trim(), where: where.replace(/,\s*Jamaica$/i, ''), price: price(m[3]), year: year(what), rank: rank++, lhd: LHD.test(title), date: null });
     }
@@ -39,9 +41,9 @@ async function gleanerCars() {
     const link = /<h4><a href="([^"]+)">([\s\S]*?)<\/a>/.exec(b); if (!link) continue;
     const title = htmlToText(link[2]); const desc = htmlToText((/class="description[^"]*">([\s\S]*?)<\/span>/.exec(b) || [])[1] || '');
     const text = `${title} ${desc}`;
-    const model = MODELS.find((m) => m.re.test(text)); if (!model) continue;
+    const model = MODELS.find((m) => m.re.test(text)); if (!model || isParts(text)) continue;
     const date = (/datetime="([^"]+)"/.exec(b) || [])[1];
-    out.push({ src: 'Gleaner Classifieds', id: `gc:${(/_(\d+)$/.exec(link[1]) || [])[1] || link[1]}`, url: link[1], title, desc, model: model.key, where: '',
+    out.push({ src: 'Gleaner Classifieds', id: `gc:${(/_(\d+)$/.exec(link[1]) || [])[1] || link[1]}`, url: link[1], title: title || desc.slice(0, 70) || `${model.label} for sale`, desc, model: model.key, where: '',
       price: price(htmlToText((/sr_ad_price">([\s\S]*?)<\/span>/.exec(b) || [])[1] || '')) ?? price(text), year: year(text), lhd: LHD.test(text), date: date ? date.slice(0, 10) : null });
   }
   return out;

@@ -51,6 +51,7 @@ if (d.jsequotes) {
   const t = new Date(new Date(`${L.date}T12:00:00Z`) - 182 * 864e5).toISOString().slice(0, 10);
   const q6 = await quotesOn(t); console.log('JSEQ6', q6?.date, q6 ? Object.keys(q6.q).length : 0);
   const hist = { [L.date]: Object.fromEntries(Object.entries(L.q).map(([k, x]) => [k, x.close])) }; if (q6) hist[q6.date] = Object.fromEntries(Object.entries(q6.q).map(([k, x]) => [k, x.close]));
+  cache._jsehist = hist;
   const r = rankStocks(L, hist); console.log('RANK basis', r.basis, r.rows.slice(0, 8).map((x) => `${x.sym} ${x.m6?.toFixed(1)}% hi${x.offHigh?.toFixed(0)}`).join(' | '));
 }
 if (d.gnews) { const g = d.gnews.items; console.log('GNEWS', g.length, 'tagged', g.filter((x) => x.tags.length).length); g.filter((x) => x.tags.length).slice(0, 6).forEach((x) => console.log('GN', x.source, '|', x.title.slice(0, 80), '|', x.tags.join(','))); }
