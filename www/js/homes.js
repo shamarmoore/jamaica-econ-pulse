@@ -11,7 +11,7 @@ export const NHT_DEFAULTS = {
 export const FIN_DEFAULTS = {
   myIncome: '', myAge: 25, myNht: true,
   coOn: false, coIncome: '', coAge: 25, coNht: true,
-  savings: '', ratio: 35, closingPct: 6, bankLTV: 90, bankTerm: 30, bankRate: null,
+  savings: '', ratio: 35, legalPct: 2, gctPct: 15, regPct: 0.25, stampJ: 2500, lenderPct: 2, otherJ: 100000, bankLTV: 90, bankTerm: 30, bankRate: null,
   landLTV: 70, landRateAdd: 2, landTerm: 15,
   minMin: 25, maxMin: 50, traffic: 1.4, work: '43 Half Way Tree Road, Kingston, Jamaica',
 };
@@ -65,7 +65,10 @@ export function scenario(P, f, mode, { land = false, nht = NHT_DEFAULTS, bankRat
   }
   const bankPay = pmt(bankLoan, bankRate, bankTerm);
   const deposit = Math.max(0, P - nhtLoan - bankLoan);
-  const closing = (P * num(f.closingPct)) / 100;
+  const legal = (P * num(f.legalPct ?? 2)) / 100; const legalGct = (legal * num(f.gctPct ?? 15)) / 100;
+  const govt = (P * num(f.regPct ?? 0.25)) / 100 + num(f.stampJ ?? 2500);
+  const lender = ((nhtLoan + bankLoan) > 0 ? (bankLoan * num(f.lenderPct ?? 2)) / 100 : 0) + ((nhtLoan + bankLoan) > 0 ? num(f.otherJ ?? 100000) : 0);
+  const closing = legal + legalGct + govt + lender;
   const cash = deposit + closing;
   const monthly = nhtPay + bankPay;
   const share = income ? (monthly / income) * 100 : null;
@@ -77,7 +80,7 @@ export function scenario(P, f, mode, { land = false, nht = NHT_DEFAULTS, bankRat
     else if (share <= num(f.ratio) + 10 && (savings ? cash <= savings * 1.25 : true)) verdict = 'stretch';
     else verdict = 'no';
   }
-  return { mode, P, nhtLoan, nhtRatePct, nhtTerm, nhtPay, bankLoan, bankRate, bankTerm, bankPay, deposit, closing, cash, monthly, share, verdict, notes, income,
+  return { mode, P, nhtLoan, nhtRatePct, nhtTerm, nhtPay, bankLoan, bankRate, bankTerm, bankPay, deposit, closing, legal: legal + legalGct, govt, lender, cash, monthly, share, verdict, notes, income,
     totalInterest: nhtPay * nhtTerm * 12 + bankPay * bankTerm * 12 - nhtLoan - bankLoan };
 }
 

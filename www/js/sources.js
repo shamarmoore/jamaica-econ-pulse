@@ -1,6 +1,8 @@
 // Every data source the app scrapes, straight from the publisher. Each fetcher returns plain JSON
 // so results can be cached on the phone. If a publisher changes its page, only that card goes stale.
 import { listings as scrapeListings, analystJobs } from './homes.js';
+import { carListings } from './cars.js';
+import { jseQuotes, globalNews } from './markets.js';
 import { getText, getJSON, getBinary, htmlToText, after, firstNumber, parseRSS, MONTH_YEAR, DAY_MONTH_YEAR, isoDaysAgo } from './util.js';
 
 // ---------- Bank of Jamaica ----------
@@ -376,6 +378,9 @@ export const SOURCES = [
   { id: 'petrojam', name: 'Petrojam', home: 'https://www.petrojam.com/', scope: 'Jamaica', what: 'Weekly ex-refinery fuel prices', fn: petrojam, ttlH: 12 },
   { id: 'listings', name: 'Property listings (PropertyAdsJa, Gleaner Classifieds)', home: 'https://www.propertyadsja.com/', scope: 'Jamaica', what: 'Houses and land for sale in Kingston & St. Andrew, St. Thomas and St. Catherine', fn: async () => { let fx = 158; try { const j = await getJSON('https://open.er-api.com/v6/latest/USD'); fx = j.rates.JMD || fx; } catch (_) { /* default */ } return scrapeListings(fx); }, ttlH: 12 },
   { id: 'jobs', name: 'CaribbeanJobs', home: 'https://www.caribbeanjobs.com/analyst-jobs', scope: 'Jamaica', what: 'Job openings with “analyst” in the title', fn: analystJobs, ttlH: 8 },
+  { id: 'cars', name: 'Car listings (AutoAdsJa, Gleaner Classifieds)', home: 'https://www.autoadsja.com/', scope: 'Jamaica', what: 'Recently posted Honda Civics and Toyota GT86s', fn: carListings, ttlH: 6 },
+  { id: 'jsequotes', name: 'JSE Trade Quotes', home: 'https://www.jamstockex.com/trading/trade-quotes/', scope: 'Jamaica', what: 'Daily closing prices, volume and 52-week ranges for the stock picker', fn: jseQuotes, ttlH: 8 },
+  { id: 'gnews', name: 'Global news (BBC, CNBC, FT, Guardian, NPR, MarketWatch, OilPrice)', home: 'https://feeds.bbci.co.uk/news/business/', scope: 'World', what: 'World business & economy headlines tagged by how they reach Jamaica', fn: globalNews, ttlH: 2 },
   { id: 'imf', name: 'IMF World Economic Outlook', home: 'https://www.imf.org/external/datamapper/profile/JAM', scope: 'Jamaica + partners', what: 'Growth, inflation, debt, current account — history & projections', fn: imf, ttlH: 72 },
   { id: 'worldbank', name: 'World Bank', home: 'https://data.worldbank.org/country/jamaica', scope: 'Jamaica', what: 'Structural exposure: remittances, tourism, reserves, import mix', fn: worldbank, ttlH: 168 },
   { id: 'fred', name: 'FRED (St. Louis Fed)', home: 'https://fred.stlouisfed.org/', scope: 'World', what: 'Oil, gas, US rates & jobs, inflation, food & grains, aluminium, freight, global risk, Canada jobs', fn: fred, ttlH: 12 },

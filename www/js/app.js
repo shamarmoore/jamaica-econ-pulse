@@ -1,7 +1,9 @@
 import { SOURCES, FRED } from './sources.js';
 import { analyse, borrowing } from './analysis.js';
 import { decide, PROFILES, ASSETS } from './decisions.js';
-import { NHT_DEFAULTS, FIN_DEFAULTS, scenario, bestScenario, geocode, driveTimes } from './homes.js';
+import { NHT_DEFAULTS, FIN_DEFAULTS, scenario, bestScenario, geocode, driveTimes, pmt as pmt2 } from './homes.js';
+import { MODELS, jacarsLinks } from './cars.js';
+import { quotesOn, rankStocks, TV_SYMBOLS, tvUrl, GLOBAL_TAGS } from './markets.js';
 import { fmt, signed, last, changeOver, yoySeries } from './util.js';
 
 const KEY = 'ep_cache_v1';
@@ -16,6 +18,7 @@ function recordHistory() {
   if (d.statin?.unemployment) e.unemp = d.statin.unemployment.value;
   const g = d.petrojam?.weeks?.[0]?.prices['Gasolene 87']; if (g) e.g87 = g;
   if (Object.keys(e).length) hist[day] = e;
+  addJseToHist();
   const keys = Object.keys(hist).sort(); while (keys.length > 800) delete hist[keys.shift()];
   try { localStorage.setItem(HIST, JSON.stringify(hist)); } catch (_) { /* ignore */ }
 }
@@ -278,7 +281,7 @@ let sub = 'overview';
 const PROFILE_KEY = 'ep_profile_v1';
 let profile = 'balanced';
 try { profile = localStorage.getItem(PROFILE_KEY) || 'balanced'; } catch (_) { /* default */ }
-const SUBS = [['overview', 'Overview'], ['spend', 'Spend'], ['borrow', 'Borrow'], ['home', 'Home'], ['listings', 'Listings'], ['invest', 'Invest'], ['work', 'Work'], ['jobs', 'Jobs']];
+const SUBS = [['overview', 'Overview'], ['spend', 'Spend'], ['borrow', 'Borrow'], ['home', 'Home'], ['listings', 'Listings'], ['car', 'Car'], ['invest', 'Invest'], ['trade', 'Trade'], ['work', 'Work'], ['jobs', 'Jobs']];
 
 function chip(dec) { return `<span class="vchip ${STEP_CLASS[dec.step]}"><span class="gi">${STEP_ICON[dec.step]}</span>${esc(dec.label)}</span>`; }
 
@@ -321,6 +324,8 @@ function viewDecide(d) {
   else if (sub === 'work') body = viewWork(d, x);
   else if (sub === 'listings') body = viewListings(d);
   else if (sub === 'jobs') body = viewJobs(d);
+  else if (sub === 'car') body = viewCar(d);
+  else if (sub === 'trade') body = viewTrade(d);
   return nav + body;
 }
 
@@ -329,6 +334,7 @@ function viewDecide(d) {
 const FIN_KEY = 'ep_fin_v1'; const NHT_KEY = 'ep_nht_v1';
 const load = (k, def) => { try { return { ...def, ...(JSON.parse(localStorage.getItem(k)) || {}) }; } catch (_) { return { ...def }; } };
 let fin = load(FIN_KEY, { ...FIN_DEFAULTS, target: 20000000 });
+delete fin.closingPct;
 let nhtCfg = load(NHT_KEY, { ...NHT_DEFAULTS, bands: NHT_DEFAULTS.bands.map((b) => b[1]) });
 const nhtOpts = () => ({ ...nhtCfg, bands: NHT_DEFAULTS.bands.map((b, i) => [b[0], +nhtCfg.bands[i]]) });
 const liveMort = (d) => { const m = d.bojrates?.loans?.mortgage; return m?.length ? last(m).value : 7.6; };
@@ -355,7 +361,10 @@ function viewHome(d, x) {
         <div class="wide">${check('coNht', 'Co-applicant is an NHT contributor', fin.coNht)}</div></div></div>
       <div id="fin-out" class="wide"></div>
       <details class="wide adv"><summary>Assumptions (edit if your lender or NHT letter differs)</summary><div class="calc2">
-        ${field('ratio', 'Max payment, % of gross income', fin.ratio)}${field('closingPct', 'Closing costs, % of price', fin.closingPct)}
+        ${field('ratio', 'Max payment, % of gross income', fin.ratio)}${field('legalPct', 'Attorney fee, % of price', fin.legalPct ?? 2)}
+        ${field('gctPct', 'GCT on attorney fee, %', fin.gctPct ?? 15)}${field('regPct', 'Registration fee (your half), % of price', fin.regPct ?? 0.25)}
+        ${field('stampJ', 'Stamp duty, your share (J$)', fin.stampJ ?? 2500)}${field('lenderPct', 'Bank commitment/processing fee, % of bank loan', fin.lenderPct ?? 2)}
+        ${field('otherJ', 'Valuation, survey & misc. (J$)', fin.otherJ ?? 100000)}
         ${field('bankRate', 'Bank mortgage rate % (blank = BOJ avg)', fin.bankRate ?? '', `placeholder="${fmt(liveMort(d), 2)}"`)}${field('bankLTV', 'Bank max financing, % of price', fin.bankLTV)}
         ${field('bankTerm', 'Bank max term (years)', fin.bankTerm)}${field('landLTV', 'Land loan max, % of price', fin.landLTV)}
         ${field('landRateAdd', 'Land loan rate premium (pts)', fin.landRateAdd)}${field('landTerm', 'Land loan term (years)', fin.landTerm)}
@@ -366,7 +375,7 @@ function viewHome(d, x) {
         <label>NHT max term (years)<input data-nht="maxTerm" inputmode="numeric" value="${nhtCfg.maxTerm}"></label>
         <label>Repay by age<input data-nht="maxAge" inputmode="numeric" value="${nhtCfg.maxAge}"></label>
         ${['≤ J$30,000/wk', 'J$30,001–42,000/wk', 'J$42,001–100,000/wk', 'over J$100,000/wk'].map((l, i) => `<label>NHT rate % (${l})<input data-nhtband="${i}" inputmode="decimal" value="${nhtCfg.bands[i]}"></label>`).join('')}
-      </div><p class="fine">Defaults: NHT loan limits from NHT’s July 2025 booklet; income-band rates from NHT’s published table (July 2023 — confirm with your eligibility letter). Closing costs typically run 4–8% of price. NHT sets your rate from the average weekly income of the NHT contributors on the loan, and your term from the youngest applicant’s age.</p></details>
+      </div><p class="fine">Defaults: NHT loan limits from NHT’s July 2025 booklet; income-band rates from NHT’s published table (July 2023 — confirm with your eligibility letter). Closing costs (buyer’s side): attorney fees usually 1.5–3% of price plus GCT; registration is 0.5% of price shared with the seller; stamp duty is a J$5,000 flat fee shared; the seller pays the 2% transfer tax; bank commitment fees vary (about 1–3.5% of the loan). All-in, buyers typically pay 4–8% with a mortgage. NHT sets your rate from the average weekly income of the NHT contributors on the loan, and your term from the youngest applicant’s age.</p></details>
     </section>
     <h2 class="sec">Mortgage rates <small>BOJ averages actually charged</small></h2><div class="grid">
       ${rateTile('Bank mortgages (avg)', r.loans?.mortgage, 'used for the bank portion')}${rateTile('6-month T-bill', r.tbills?.m6, 'where rates are heading')}</div>` + tipsBlock(h.tips);
@@ -389,7 +398,10 @@ function updateFin() {
       <tr><td>NHT loan</td>${rows.map((r) => `<td>${r.s.nhtLoan ? `${J(r.s.nhtLoan)}<small>${r.s.nhtRatePct}% · ${r.s.nhtTerm} yrs</small>` : '—'}</td>`).join('')}</tr>
       <tr><td>Bank loan</td>${rows.map((r) => `<td>${r.s.bankLoan ? `${J(r.s.bankLoan)}<small>${fmt(r.s.bankRate, 2)}% · ${r.s.bankTerm} yrs</small>` : '—'}</td>`).join('')}</tr>
       <tr><td>Deposit</td>${rows.map((r) => `<td>${J(r.s.deposit)}</td>`).join('')}</tr>
-      <tr><td>Closing costs</td>${rows.map((r) => `<td>${J(r.s.closing)}</td>`).join('')}</tr>
+      <tr><td>Legal fees (attorney + GCT)</td>${rows.map((r) => `<td>${J(r.s.legal)}</td>`).join('')}</tr>
+      <tr><td>Govt fees (registration, stamp duty)</td>${rows.map((r) => `<td>${J(r.s.govt)}</td>`).join('')}</tr>
+      <tr><td>Lender & valuation fees</td>${rows.map((r) => `<td>${J(r.s.lender)}</td>`).join('')}</tr>
+      <tr><td>Closing costs total</td>${rows.map((r) => `<td>${J(r.s.closing)}<small>${fmt((r.s.closing / Math.max(1, r.s.P)) * 100, 1)}% of price</small></td>`).join('')}</tr>
       <tr class="em"><td>Cash needed</td>${rows.map((r) => `<td>${J(r.s.cash)}</td>`).join('')}</tr>
       <tr class="em"><td>Monthly payment</td>${rows.map((r) => `<td>${J(r.s.monthly)}<small>${r.s.share != null ? `${fmt(r.s.share, 0)}% of income` : ''}</small></td>`).join('')}</tr>
       <tr><td>Total interest</td>${rows.map((r) => `<td>${J(r.s.totalInterest)}</td>`).join('')}</tr>
@@ -489,6 +501,94 @@ function viewListings(d) {
     ${group('Commute unknown — check the ad', unclear, false)}
     ${group('Outside your commute range', outRange, false)}
     <p class="fine">Listings come from PropertyAdsJa and Gleaner Classifieds (most agency MLS listings aren’t public). Locations are matched from the ad text and placed with OpenStreetMap; drive times are OSRM no-traffic estimates. Affordability uses your Home settings — always confirm with the lender and NHT.</p>`;
+}
+
+
+// ---------- Car shopping ----------
+const CAR_KEY = 'ep_car_v1'; const SEEN_KEY = 'ep_carseen_v1';
+let carCfg = load(CAR_KEY, { model: 'all', depositPct: 20, years: 5, rate: '', showLhd: false });
+let carSeen = load(SEEN_KEY, {});
+function viewCar(d) {
+  const C = d.cars?.items; const b = borrowing(d);
+  const instAvg = d.bojrates?.loans?.instalment?.length ? last(d.bojrates.loans.instalment).value : 11.5;
+  const rate = +carCfg.rate || instAvg; const dep = (+carCfg.depositPct || 0) / 100; const yrs = +carCfg.years || 5;
+  const inc = +String(fin.myIncome).replace(/[,\s$J]/g, '') || 0;
+  if (C) { const now = Date.now(); let ch = false; for (const x of C) if (!carSeen[x.id]) { carSeen[x.id] = now; ch = true; } if (ch) { try { localStorage.setItem(SEEN_KEY, JSON.stringify(carSeen)); } catch (_) { /* ignore */ } } }
+  const list = (C || []).filter((x) => (carCfg.model === 'all' || x.model === carCfg.model) && (carCfg.showLhd || !x.lhd));
+  const firstSeen = (x) => carSeen[x.id] || 0;
+  list.sort((a, b2) => (b2.date || '').localeCompare(a.date || '') || (firstSeen(b2) - firstSeen(a)) || ((a.rank ?? 99) - (b2.rank ?? 99)));
+  const lhdCount = (C || []).filter((x) => x.lhd).length;
+  const card = (x) => {
+    const loan = x.price ? x.price * (1 - dep) : 0; const m = x.price ? pmt2(loan, rate, yrs) : 0;
+    const share = inc && m ? (m / inc) * 100 : null; const cls = share == null ? 'ok' : share <= 15 ? 'good' : share <= 22 ? 'warn' : 'bad';
+    const isNew = Date.now() - firstSeen(x) < 3 * 864e5;
+    return `<li class="lst v-${cls}"><div class="l-h"><span class="tag">${x.model === 'gt86' ? 'GT86' : 'Civic'}</span>${isNew ? '<span class="star">● New this week</span>' : ''}${x.lhd ? '<span class="bad">⚠ Left-hand drive</span>' : ''}</div>
+      <a href="${esc(x.url)}" target="_blank" rel="noopener"><b>${esc(x.title)}</b></a>
+      <div class="l-p">${x.price ? J(x.price) : 'Price not listed'}${x.year ? ` · ${x.year}` : ''}</div>
+      ${x.price ? `<div class="l-f">${fmt(carCfg.depositPct, 0)}% down = ${J(x.price * dep)} · loan ${J(loan)} → <b>${J(m)}/mo</b> for ${yrs} yrs at ${fmt(rate, 2)}%${share != null ? ` · ${fmt(share, 0)}% of gross income` : ''}</div>` : ''}
+      <div class="fine">${esc(x.where || '')}${x.where ? ' · ' : ''}${esc(x.src)}${x.date ? ` · posted ${fd(x.date)}` : ` · first seen ${fd(new Date(firstSeen(x)).toISOString().slice(0, 10))}`}</div></li>`;
+  };
+  return `<section class="hero-b"><div class="gname">Car shopping · right-hand drive Civic & GT86</div>
+      <div class="glabel ${STEP_CLASS[b.step]}"><span class="gi">${STEP_ICON[b.step]}</span>Loan rates: ${esc(b.label)}</div>
+      <p class="fine">Average vehicle (instalment) loan rate ${fmt(instAvg, 2)}% (BOJ). ${esc(b.carLabel)}: ${b.car.map((c) => `${esc(c.name)} ${esc(c.change)}`).join(' · ')}</p>
+      <div class="chips">${[['all', 'All'], ...MODELS.map((m) => [m.key, m.label])].map(([k, l]) => `<button data-cmodel="${k}" class="${carCfg.model === k ? 'on' : ''}">${l}</button>`).join('')}</div>
+      <div class="calc2">
+        <label>Down payment (%)<input data-car="depositPct" inputmode="decimal" value="${esc(carCfg.depositPct)}"></label>
+        <label>Loan term (years)<input data-car="years" inputmode="numeric" value="${esc(carCfg.years)}"></label>
+        <label>Loan rate % (blank = BOJ avg)<input data-car="rate" inputmode="decimal" value="${esc(carCfg.rate)}" placeholder="${fmt(instAvg, 2)}"></label>
+        <label class="chk" style="align-self:end"><input type="checkbox" data-car="showLhd" ${carCfg.showLhd ? 'checked' : ''}> Show LHD${lhdCount ? ` (${lhdCount})` : ''}</label>
+      </div>
+      ${inc ? '' : '<p class="fine">Add your income under Home → Your buying power to see each payment as a share of income.</p>'}
+    </section>
+    ${C ? `<h2 class="sec">Recently posted <small>${list.length} listing${list.length === 1 ? '' : 's'}</small></h2><ul class="lsts">${list.map(card).join('') || '<li class="fine">None posted right now — check back; new ads are picked up every 6 hours.</li>'}</ul>` : empty(running.has('cars') ? 'Searching car ads…' : 'Car ads haven’t loaded yet — tap refresh.')}
+    <h2 class="sec">Also check</h2><ul class="tips">${jacarsLinks.map(([l, u]) => `<li><a href="${u}" target="_blank" rel="noopener">${l}</a> — JaCars blocks automated reading, so open it directly.</li>`).join('')}</ul>
+    <p class="fine">Listings from AutoAdsJa and Gleaner Classifieds. Jamaican cars are right-hand drive by default; ads that mention left-hand drive are hidden unless you switch them on — always confirm the steering side, import status and title before paying. Payment colours: green ≤15% of gross income, amber ≤22%, red above.</p>`;
+}
+
+// ---------- Trade: TradingView charts + live JSE trend picker ----------
+const JH_KEY = 'ep_jsehist_v1';
+let jseHist = load(JH_KEY, {});
+let tvSym = 'BITSTAMP:BTCUSD';
+let jseFill = { running: false, msg: '' }; let jseTried = false;
+function addJseToHist() {
+  const L = data().jsequotes; if (!L) return;
+  jseHist[L.date] = Object.fromEntries(Object.entries(L.q).map(([k, x]) => [k, x.close]));
+  const ks = Object.keys(jseHist).sort(); while (ks.length > 420) delete jseHist[ks.shift()];
+  try { localStorage.setItem(JH_KEY, JSON.stringify(jseHist)); } catch (_) { /* ignore */ }
+}
+async function jseBackfill() {
+  const L = data().jsequotes; if (!L || jseFill.running) return;
+  jseFill = { running: true, msg: '' };
+  for (const days of [91, 182, 365]) {
+    const r = rankStocks(L, jseHist); const have = { 91: r.dates?.d3, 182: r.dates?.d6, 365: r.dates?.d12 }[days];
+    if (have) continue;
+    jseFill.msg = `Fetching JSE closes from ${days === 365 ? '12' : days === 182 ? '6' : '3'} months ago…`; if (sub === 'trade') render(false);
+    try {
+      const t = new Date(new Date(`${L.date}T12:00:00Z`) - days * 864e5).toISOString().slice(0, 10);
+      const q = await quotesOn(t);
+      if (q) { jseHist[q.date] = Object.fromEntries(Object.entries(q.q).map(([k, x]) => [k, x.close])); try { localStorage.setItem(JH_KEY, JSON.stringify(jseHist)); } catch (_) { /* ignore */ } }
+    } catch (e) { jseFill.msg = `Couldn’t fetch history: ${e.message}`; }
+  }
+  jseFill.running = false; if (tab === 'decide' && sub === 'trade') render(false);
+}
+function viewTrade(d) {
+  const L = d.jsequotes; if (L && !jseHist[L.date]) addJseToHist();
+  const r = rankStocks(L, jseHist);
+  if (L && !jseFill.running && (!r.dates?.d3 || !r.dates?.d6 || !r.dates?.d12) && !jseTried) { jseTried = true; setTimeout(jseBackfill, 50); }
+  const pct = (v) => (v == null ? '—' : `<span class="${v >= 0 ? 'good' : 'bad'}">${signed(v, 1)}</span>`);
+  const top = r.rows.filter((x) => x.vol > 0 || x.m6 != null).slice(0, 15);
+  return `<section class="hero-b"><div class="gname">Live charts · TradingView</div>
+      <div class="chips wrap">${TV_SYMBOLS.map(([l, sy]) => `<button data-tv="${sy}" class="${tvSym === sy ? 'on' : ''}">${l}</button>`).join('')}</div>
+      <iframe class="tv" src="${tvUrl(tvSym)}" title="TradingView chart" loading="lazy" allowtransparency="true"></iframe>
+      <p class="fine">Charts stream live from TradingView inside the app (needs data). Use the symbol box on the chart to switch to anything TradingView covers. Embedded charts can’t load your saved Pine Script indicators or alerts — open TradingView itself for those. JSE stocks aren’t on TradingView, so the picker below uses the JSE’s own data.</p></section>
+    <h2 class="sec">JSE trend picker <small>live from JSE Trade Quotes · ${L ? fd(L.date) : '—'}</small></h2>
+    ${jseFill.running || jseFill.msg ? `<p class="fine">${jseFill.running ? '<span class="spin"></span>' : ''}${esc(jseFill.msg)}</p>` : ''}
+    ${!L ? empty(running.has('jsequotes') ? 'Loading JSE quotes…' : 'JSE quotes haven’t loaded yet — tap refresh.') : `
+    <p class="fine">Ranked by ${r.basis === 'm6' ? '6-month' : r.basis === 'm3' ? '3-month' : 'distance from 52-week high (history still loading)'} price change. In our earlier JSE tests, the top third by 6-month trend beat the market by about 1.9 points per 3 months (3 of 4 marks) — a lead, not a promise. Cheapness on earnings passed all 4 marks but needs company earnings data that the JSE quote page doesn’t publish, so it isn’t live here.</p>
+    <div class="tblwrap"><table class="yt pick"><thead><tr><th>Stock</th><th>Close</th><th>3m</th><th>6m</th><th>12m</th><th>vs 52w high</th></tr></thead><tbody>
+      ${top.map((x) => `<tr><td><b>${esc(x.sym)}</b>${x.offHigh != null && x.offHigh < -35 ? ' <span class="bad" title="Far below 52-week high — lagged in tests">⚠</span>' : ''}${!x.vol ? ' <span class="fine">no trades today</span>' : ''}</td><td>${fmt(x.close, 2)}</td><td>${pct(x.m3)}</td><td>${pct(x.m6)}</td><td>${pct(x.m12)}</td><td>${pct(x.offHigh)}</td></tr>`).join('')}
+    </tbody></table></div>
+    <p class="fine">⚠ = more than 35% below its 52-week high (in the earlier tests these kept lagging). Prices exclude dividends; thinly traded stocks can be hard to buy at the quoted close. The app adds each day’s closes to its own history on your phone. Research shortlist, not advice.</p>`}`;
 }
 
 // ---------- Analyst jobs ----------
@@ -626,8 +726,24 @@ const TAGS = [
   ['Fiscal', /budget|tax|\bIMF\b|debt|bond|ministry of finance|fiscal/i], ['Markets', /\bJSE\b|stock|shares|ipo|dividend|investor/i],
   ['Jobs', /jobs|employ|labour|wage|BPO|layoff/i], ['Trade', /export|import|port|shipping|trade/i], ['Weather', /hurricane|storm|drought|flood|melissa/i],
 ];
-let newsFilter = true;
+let newsFilter = true; let newsScope = 'local'; let gFilter = true;
 function viewNews(d) {
+  const seg = `<div class="seg3 two"><button data-nscope="local" class="${newsScope === 'local' ? 'on' : ''}">Jamaica</button><button data-nscope="global" class="${newsScope === 'global' ? 'on' : ''}">Global</button></div>`;
+  if (newsScope === 'global') return seg + viewGlobal(d);
+  return seg + viewLocal(d);
+}
+function viewGlobal(d) {
+  const items = d.gnews?.items || []; if (!items.length) return empty(running.has('gnews') ? 'Loading world headlines…' : 'Global headlines haven’t loaded yet.');
+  const shown = gFilter ? items.filter((x) => x.tags.length) : items;
+  const note = Object.fromEntries(GLOBAL_TAGS.map(([n, , w]) => [n, w]));
+  const counts = {}; shown.forEach((x) => x.tags.forEach((t) => { counts[t] = (counts[t] || 0) + 1; }));
+  const top = Object.entries(counts).sort((a, b) => b[1] - a[1]).slice(0, 4).map(([t, c]) => `${t} (${c})`).join(' · ');
+  return `<div class="newsbar"><label><input type="checkbox" id="gf" ${gFilter ? 'checked' : ''}> Relevant to Jamaica only</label><span class="fine">${top ? `Global themes: ${top}` : ''}</span></div>
+    <ul class="news">${shown.slice(0, 70).map((x) => `<li><a href="${esc(x.link)}" target="_blank" rel="noopener">${esc(x.title)}</a>
+      <div class="nmeta">${esc(x.source)}${x.ts ? ` · ${ago(new Date(x.ts))}` : ''}${x.tags.slice(0, 3).map((t) => `<span class="tag">${t}</span>`).join('')}</div>
+      ${x.tags[0] ? `<div class="why1">Why it matters: ${esc(note[x.tags[0]])}</div>` : ''}</li>`).join('')}</ul>`;
+}
+function viewLocal(d) {
   const items = d.news?.items || [];
   if (!items.length) return empty('Headlines haven’t loaded yet.');
   const tagged = items.map((it) => ({ ...it, tags: TAGS.filter(([, re]) => re.test(it.title)).map(([t]) => t) }));
@@ -653,7 +769,7 @@ function viewSources() {
   }).join('')}</ul>
   <h2 class="sec">How the readings work</h2>
   <p class="fine">Each card applies a fixed rule to the live numbers — for example, Brent oil up more than 10% in three months counts as pressure, because fuel is a large share of Jamaica’s imports and feeds into electricity, transport and the exchange rate. The four gauges add up those signals. Rules describe the usual direction of impact; they are not forecasts, and real outcomes depend on policy and timing.</p>
-  <p class="fine">Version 1.3</p>`;
+  <p class="fine">Version 1.4</p>`;
 }
 
 function render(force = true) {
@@ -664,12 +780,19 @@ function render(force = true) {
   v.innerHTML = tab === 'pulse' ? viewPulse(d, a) : tab === 'jamaica' ? viewJamaica(d) : tab === 'world' ? viewWorld(d) : tab === 'decide' ? viewDecide(d) : tab === 'news' ? viewNews(d) : viewSources();
   if (tab === 'pulse' && openIds.length) v.querySelectorAll('details').forEach((x, i) => { if (openIds[i] !== undefined) x.open = openIds[i]; });
   const nf = $('#nf'); if (nf) nf.onchange = () => { newsFilter = nf.checked; render(); };
+  const gf = $('#gf'); if (gf) gf.onchange = () => { gFilter = gf.checked; render(); };
+  v.querySelectorAll('[data-nscope]').forEach((b) => b.addEventListener('click', () => { newsScope = b.dataset.nscope; render(); }));
   if (tab === 'decide' && sub === 'borrow') { v.querySelectorAll('.calc input').forEach((i) => i.addEventListener('input', updateCalc)); updateCalc(); }
   if (tab === 'decide' && sub === 'home') bindFin(v);
   if (tab === 'decide' && sub === 'listings') {
     v.querySelectorAll('[data-fin]').forEach((i) => i.addEventListener('change', () => { fin[i.dataset.fin] = i.value; try { localStorage.setItem(FIN_KEY, JSON.stringify(fin)); } catch (_) { /* ignore */ } if (i.dataset.fin === 'work') { delete geoCache['@work']; enrichListings(); } render(); }));
     v.querySelectorAll('[data-ltype]').forEach((b) => b.addEventListener('click', () => { listFilter.type = b.dataset.ltype; render(); }));
   }
+  if (tab === 'decide' && sub === 'car') {
+    v.querySelectorAll('[data-cmodel]').forEach((b) => b.addEventListener('click', () => { carCfg.model = b.dataset.cmodel; try { localStorage.setItem(CAR_KEY, JSON.stringify(carCfg)); } catch (_) { /* ignore */ } render(); }));
+    v.querySelectorAll('[data-car]').forEach((i) => i.addEventListener('change', () => { carCfg[i.dataset.car] = i.type === 'checkbox' ? i.checked : i.value; try { localStorage.setItem(CAR_KEY, JSON.stringify(carCfg)); } catch (_) { /* ignore */ } render(); }));
+  }
+  if (tab === 'decide' && sub === 'trade') v.querySelectorAll('[data-tv]').forEach((b) => b.addEventListener('click', () => { tvSym = b.dataset.tv; render(); }));
   if (tab === 'decide' && sub === 'jobs') { const c = document.getElementById('jobs-ja'); if (c) c.onchange = () => { jobsJamaica = c.checked; render(); }; }
 }
 

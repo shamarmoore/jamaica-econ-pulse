@@ -44,6 +44,16 @@ if (d.listings) {
   it.filter((x) => x.price).slice(0, 12).forEach((x) => { const b = bestScenario(x.price, f, { land: x.type === 'land', bankRateLive: 7.6 }); console.log('LIST', x.src, '|', x.type, '|', x.title.slice(0, 50), '|', x.where || x.loc.place, '| J$', x.price, '|', b.mode, b.verdict, Math.round(b.monthly), 'cash', Math.round(b.cash), x.preferred ? '★' : ''); });
 }
 if (d.jobs) { const j = d.jobs.jobs; console.log('JOBS', j.length, 'Jamaica', j.filter((x) => /jamaica/i.test(x.country)).length); j.slice(0, 8).forEach((x) => console.log('JOB', x.title, '|', x.company, '|', x.country, x.location, '|', x.updated, '|', x.salary)); }
+if (d.cars) { const c = d.cars.items; console.log('CARS', c.length, 'errors', d.cars.errors); c.slice(0, 14).forEach((x) => console.log('CAR', x.src, '|', x.model, '|', x.title, '|', x.year, '| J$', x.price, '|', x.where, x.date || '', x.lhd ? 'LHD' : '')); }
+if (d.jsequotes) {
+  const { rankStocks, quotesOn } = await import('../www/js/markets.js');
+  const L = d.jsequotes; console.log('JSEQ', L.date, Object.keys(L.q).length, JSON.stringify(Object.entries(L.q).slice(0, 3)));
+  const t = new Date(new Date(`${L.date}T12:00:00Z`) - 182 * 864e5).toISOString().slice(0, 10);
+  const q6 = await quotesOn(t); console.log('JSEQ6', q6?.date, q6 ? Object.keys(q6.q).length : 0);
+  const hist = { [L.date]: Object.fromEntries(Object.entries(L.q).map(([k, x]) => [k, x.close])) }; if (q6) hist[q6.date] = Object.fromEntries(Object.entries(q6.q).map(([k, x]) => [k, x.close]));
+  const r = rankStocks(L, hist); console.log('RANK basis', r.basis, r.rows.slice(0, 8).map((x) => `${x.sym} ${x.m6?.toFixed(1)}% hi${x.offHigh?.toFixed(0)}`).join(' | '));
+}
+if (d.gnews) { const g = d.gnews.items; console.log('GNEWS', g.length, 'tagged', g.filter((x) => x.tags.length).length); g.filter((x) => x.tags.length).slice(0, 6).forEach((x) => console.log('GN', x.source, '|', x.title.slice(0, 80), '|', x.tags.join(','))); }
 const bo = borrowing(d);
 console.log('BORROWING:', bo.label, bo.score, '|', bo.reasons.map((r) => r.txt).join(' / '));
 console.log('CAR:', bo.carLabel, JSON.stringify(bo.car));
