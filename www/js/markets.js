@@ -87,7 +87,7 @@ export const GLOBAL_TAGS = [
   ['Travel & tourism', /airline|cruise|tourism|travel|hotel|flights?\b/i, 'Tourism is Jamaica’s biggest earner of US dollars.'],
   ['Migration & remittances', /remittance|migrant|immigration|deport|diaspora|visa/i, 'Diaspora income and US immigration policy shape remittance flows.'],
   ['Food & commodities', /wheat|corn|maize|grain|food price|fertili[sz]er|soy|sugar|coffee|cocoa/i, 'Jamaica imports most staples — world food prices reach shelves in months.'],
-  ['Shipping', /shipping|freight|container|port\b|suez|panama canal|red sea/i, 'Freight costs feed into the landed cost of nearly everything imported.'],
+  ['Shipping', /shipping|freight|container|\bports?\b|suez|panama canal|red sea/i, 'Freight costs feed into the landed cost of nearly everything imported.'],
   ['Dollar & gold', /\bdollar\b|currency|forex|\bgold\b|yen|euro\b/i, 'A stronger US dollar adds pressure on the JMD.'],
   ['Weather & climate', /hurricane|storm|climate|drought|flood/i, 'Storms and drought hit farming, tourism and insurance costs.'],
   ['China & global growth', /china|global growth|imf|world bank|gdp/i, 'Global growth drives demand for tourism and commodities like alumina.'],
