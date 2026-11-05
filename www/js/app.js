@@ -513,7 +513,7 @@ function viewCar(d) {
   const instAvg = d.bojrates?.loans?.instalment?.length ? last(d.bojrates.loans.instalment).value : 11.5;
   const rate = +carCfg.rate || instAvg; const dep = (+carCfg.depositPct || 0) / 100; const yrs = +carCfg.years || 5;
   const inc = +String(fin.myIncome).replace(/[,\s$J]/g, '') || 0;
-  if (C) { const now = Date.now(); let ch = false; for (const x of C) if (!carSeen[x.id]) { carSeen[x.id] = now; ch = true; } if (ch) { try { localStorage.setItem(SEEN_KEY, JSON.stringify(carSeen)); } catch (_) { /* ignore */ } } }
+  if (C) { const first = !Object.keys(carSeen).length; const now = Date.now(); let ch = false; for (const x of C) if (!carSeen[x.id]) { carSeen[x.id] = first ? 1 : now; ch = true; } if (ch) { try { localStorage.setItem(SEEN_KEY, JSON.stringify(carSeen)); } catch (_) { /* ignore */ } } }
   const list = (C || []).filter((x) => (carCfg.model === 'all' || x.model === carCfg.model) && (carCfg.showLhd || !x.lhd));
   const firstSeen = (x) => carSeen[x.id] || 0;
   list.sort((a, b2) => (b2.date || '').localeCompare(a.date || '') || (firstSeen(b2) - firstSeen(a)) || ((a.rank ?? 99) - (b2.rank ?? 99)));
@@ -521,12 +521,12 @@ function viewCar(d) {
   const card = (x) => {
     const loan = x.price ? x.price * (1 - dep) : 0; const m = x.price ? pmt2(loan, rate, yrs) : 0;
     const share = inc && m ? (m / inc) * 100 : null; const cls = share == null ? 'ok' : share <= 15 ? 'good' : share <= 22 ? 'warn' : 'bad';
-    const isNew = Date.now() - firstSeen(x) < 3 * 864e5;
+    const isNew = (x.date && Date.now() - Date.parse(x.date) < 7 * 864e5) || (firstSeen(x) > 1 && Date.now() - firstSeen(x) < 7 * 864e5);
     return `<li class="lst v-${cls}"><div class="l-h"><span class="tag">${x.model === 'gt86' ? 'GT86' : 'Civic'}</span>${isNew ? '<span class="star">● New this week</span>' : ''}${x.lhd ? '<span class="bad">⚠ Left-hand drive</span>' : ''}</div>
       <a href="${esc(x.url)}" target="_blank" rel="noopener"><b>${esc(x.title)}</b></a>
       <div class="l-p">${x.price ? J(x.price) : 'Price not listed'}${x.year ? ` · ${x.year}` : ''}</div>
       ${x.price ? `<div class="l-f">${fmt(carCfg.depositPct, 0)}% down = ${J(x.price * dep)} · loan ${J(loan)} → <b>${J(m)}/mo</b> for ${yrs} yrs at ${fmt(rate, 2)}%${share != null ? ` · ${fmt(share, 0)}% of gross income` : ''}</div>` : ''}
-      <div class="fine">${esc(x.where || '')}${x.where ? ' · ' : ''}${esc(x.src)}${x.date ? ` · posted ${fd(x.date)}` : ` · first seen ${fd(new Date(firstSeen(x)).toISOString().slice(0, 10))}`}</div></li>`;
+      <div class="fine">${esc(x.where || '')}${x.where ? ' · ' : ''}${esc(x.src)}${x.date ? ` · posted ${fd(x.date)}` : firstSeen(x) > 1 ? ` · first seen ${fd(new Date(firstSeen(x)).toISOString().slice(0, 10))}` : ''}</div></li>`;
   };
   return `<section class="hero-b"><div class="gname">Car shopping · right-hand drive Civic & GT86</div>
       <div class="glabel ${STEP_CLASS[b.step]}"><span class="gi">${STEP_ICON[b.step]}</span>Loan rates: ${esc(b.label)}</div>
@@ -585,9 +585,10 @@ function viewTrade(d) {
     ${jseFill.running || jseFill.msg ? `<p class="fine">${jseFill.running ? '<span class="spin"></span>' : ''}${esc(jseFill.msg)}</p>` : ''}
     ${!L ? empty(running.has('jsequotes') ? 'Loading JSE quotes…' : 'JSE quotes haven’t loaded yet — tap refresh.') : `
     <p class="fine">Ranked by ${r.basis === 'm6' ? '6-month' : r.basis === 'm3' ? '3-month' : 'distance from 52-week high (history still loading)'} price change. In our earlier JSE tests, the top third by 6-month trend beat the market by about 1.9 points per 3 months (3 of 4 marks) — a lead, not a promise. Cheapness on earnings passed all 4 marks but needs company earnings data that the JSE quote page doesn’t publish, so it isn’t live here.</p>
-    <div class="tblwrap"><table class="yt pick"><thead><tr><th>Stock</th><th>Close</th><th>3m</th><th>6m</th><th>12m</th><th>vs 52w high</th></tr></thead><tbody>
-      ${top.map((x) => `<tr><td><b>${esc(x.sym)}</b>${x.offHigh != null && x.offHigh < -35 ? ' <span class="bad" title="Far below 52-week high — lagged in tests">⚠</span>' : ''}${!x.vol ? ' <span class="fine">no trades today</span>' : ''}</td><td>${fmt(x.close, 2)}</td><td>${pct(x.m3)}</td><td>${pct(x.m6)}</td><td>${pct(x.m12)}</td><td>${pct(x.offHigh)}</td></tr>`).join('')}
-    </tbody></table></div>
+    ${(() => { const cols = [['m3', '3m'], ['m6', '6m'], ['m12', '12m'], ['offHigh', 'vs high']].filter(([k]) => top.some((x) => x[k] != null));
+      return `<div class="tblwrap"><table class="yt pick"><thead><tr><th>Stock</th><th>Close</th>${cols.map(([, l]) => `<th>${l}</th>`).join('')}</tr></thead><tbody>
+      ${top.map((x) => `<tr><td><b>${esc(x.sym)}</b>${x.offHigh != null && x.offHigh < -35 ? ' <span class="bad" title="Far below 52-week high — lagged in tests">⚠</span>' : ''}${!x.vol ? ' <small class="fine">no trades</small>' : ''}</td><td>${fmt(x.close, 2)}</td>${cols.map(([k]) => `<td>${pct(x[k])}</td>`).join('')}</tr>`).join('')}
+    </tbody></table></div>`; })()}
     <p class="fine">⚠ = more than 35% below its 52-week high (in the earlier tests these kept lagging). Prices exclude dividends; thinly traded stocks can be hard to buy at the quoted close. The app adds each day’s closes to its own history on your phone. Research shortlist, not advice.</p>`}`;
 }
 

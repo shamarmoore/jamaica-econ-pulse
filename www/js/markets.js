@@ -81,7 +81,7 @@ const FEEDS = [
 ];
 export const GLOBAL_TAGS = [
   ['Oil & energy', /\boil\b|opec|crude|brent|gasoline|natural gas|lng\b|energy price/i, 'Fuel is about a fifth of Jamaica’s imports — moves hit pump prices, JPS bills and the JMD.'],
-  ['US rates', /\bfed\b|federal reserve|interest rate|rate (cut|hike)|treasury yield|powell|bond yield/i, 'US rates set the pull on money leaving JMD assets and the BOJ’s room to cut.'],
+  ['Interest rates', /\bfed\b|federal reserve|interest rates?|rate (cut|hike|rise)|raise rates|treasury yield|powell|bond yield|central bank|bank of england|ecb\b/i, 'Global rate moves — above all the US Fed — set the pull on money leaving JMD assets and the BOJ’s room to cut.'],
   ['US jobs & consumers', /jobs report|payroll|unemployment|layoff|consumer (spending|confidence|sentiment)|recession|retail sales/i, 'US paycheques fund most remittances and stopover visits to Jamaica.'],
   ['Trade & tariffs', /tariff|trade war|sanction|export ban|import dut/i, 'Tariffs and trade rules change the cost of goods Jamaica imports from the US and China.'],
   ['Travel & tourism', /airline|cruise|tourism|travel|hotel|flights?\b/i, 'Tourism is Jamaica’s biggest earner of US dollars.'],
@@ -99,8 +99,10 @@ export async function globalNews() {
   res.forEach((r, i) => {
     if (r.status !== 'fulfilled') return;
     for (const it of parseRSS(r.value).slice(0, 25)) {
-      const t = Date.parse(it.pubDate); const text = `${it.title} ${htmlToText(it.description || '')}`;
-      const tags = GLOBAL_TAGS.filter(([, re]) => re.test(text)).map(([n]) => n);
+      const t = Date.parse(it.pubDate); const body = htmlToText(it.description || '');
+      const inTitle = GLOBAL_TAGS.filter(([, re]) => re.test(it.title)).map(([n]) => n);
+      const inBody = GLOBAL_TAGS.filter(([n, re]) => n !== 'Markets & crypto' && n !== 'Dollar & gold' && !inTitle.includes(n) && re.test(body)).map(([n]) => n);
+      const tags = [...inTitle, ...inBody];
       items.push({ source: FEEDS[i][0], title: it.title, link: it.link, ts: Number.isNaN(t) ? 0 : t, tags });
     }
   });
