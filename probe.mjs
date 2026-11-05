@@ -1,14 +1,19 @@
 const UA = 'Mozilla/5.0 (Linux; Android 14; Pixel) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/124.0 Mobile Safari/537.36';
-const get = async (u) => { const r = await fetch(u, { headers: { 'User-Agent': UA, 'Accept': 'text/html,application/xml,application/json,*/*' } }); return { status: r.status, url: r.url, text: await r.text() }; };
+const get = async (u) => { const r = await fetch(u, { headers: { 'User-Agent': UA, 'Accept': 'text/html,*/*' } }); return { status: r.status, text: await r.text() }; };
 const strip = (h) => h.replace(/<script[\s\S]*?<\/script>|<style[\s\S]*?<\/style>/gi, ' ').replace(/<[^>]+>/g, ' ').replace(/&nbsp;|&#160;/g, ' ').replace(/&amp;/g, '&').replace(/\s+/g, ' ');
 async function step(n, f) { console.log(`\n===== ${n}`); try { await f(); } catch (e) { console.log('ERR', e.message); } }
-for (const u of ['https://www.jacars.net/', 'https://www.jacars.net/cars/honda/civic/', 'https://www.jacars.net/search/?q=honda+civic', 'https://jacars.net/cars/toyota/86/']) {
-  await step(u, async () => { const r = await get(u); console.log(r.status, r.url, r.text.length); const t = strip(r.text); console.log(t.slice(0, 500)); console.log([...new Set(r.text.match(/href="[^"]*(civic|honda|toyota|cars\/|search|ad\/|listing)[^"]*"/gi) || [])].slice(0, 15).join(' ')); });
-}
-await step('autoadsja home form', async () => { const r = await get('https://www.autoadsja.com/'); console.log(r.status, r.text.length); const f = r.text.indexOf('<form'); console.log(r.text.slice(f, f + 2500).replace(/\s+/g, ' ')); });
-await step('autoadsja search civic', async () => { const r = await get('https://www.autoadsja.com/search.asp?SearchMake=Honda&SearchModel=Civic'); console.log(r.status, r.text.length); const i = r.text.indexOf('JMD'); console.log(r.text.slice(Math.max(0, i - 1500), i + 400).replace(/\s+/g, ' ')); console.log((strip(r.text).match(/[^.]{0,80}found/i) || [])[0]); });
-await step('gleaner autos', async () => { const r = await get('https://www.gleanerclassifieds.com/'); console.log([...new Set(r.text.match(/\/marketplace\/category\/400-transport\/[^"']+/g) || [])].join('\n')); });
-await step('JSE trade quotes', async () => { const r = await get('https://www.jamstockex.com/trading/trade-quotes/?market=50&date=2026-11-04'); console.log(r.status, r.text.length); const i = r.text.indexOf('SYMBOL'); console.log(strip(r.text.slice(i - 200, i + 3000)).slice(0, 1500)); });
-for (const u of ['https://feeds.bbci.co.uk/news/business/rss.xml', 'https://www.cnbc.com/id/100727362/device/rss/rss.html', 'https://www.aljazeera.com/xml/rss/all.xml', 'https://www.theguardian.com/business/economics/rss', 'https://feeds.npr.org/1017/rss.xml', 'https://www.ft.com/world?format=rss', 'https://oilprice.com/rss/main', 'https://www.caribbeannationalweekly.com/feed/', 'https://www.loopnews.com/rss', 'https://feeds.marketwatch.com/marketwatch/topstories/']) {
-  await step(u, async () => { const r = await get(u); const titles = (r.text.match(/<title>([\s\S]*?)<\/title>/g) || []).slice(1, 4).map((t) => t.replace(/<\/?title>|<!\[CDATA\[|\]\]>/g, '').trim()); console.log(r.status, (r.text.match(/<item/g) || []).length, 'items |', titles.join(' || ')); });
-}
+await step('autoadsja selects', async () => {
+  const { text } = await get('https://www.autoadsja.com/search.asp?SearchVehicleMake=20');
+  console.log('selects', (text.match(/<select[^>]*name="[^"]+"/g) || []).join(' | '));
+  const t = text.indexOf('>Toyota<'); console.log('toyota opt', text.slice(t - 40, t + 10));
+  const m = text.indexOf('name="SearchVehicleModel"'); console.log('model sel', m >= 0 ? text.slice(m, m + 1500).replace(/\s+/g, ' ') : 'none');
+  const s = text.indexOf('Sort results by'); console.log('sort', text.slice(s - 600, s + 800).replace(/\s+/g, ' '));
+  console.log('found', (strip(text).match(/Cars? for sale[^-]*-\s*\d+ found/i) || [])[0]);
+  const c = text.indexOf('class="thumbnail"'); console.log('CARD', text.slice(c - 200, c + 2200).replace(/\s+/g, ' '));
+  console.log('paging', [...new Set(text.match(/href="[^"]*search\.asp\?[^"]*(Page|page|pg|start)[^"]*"/g) || [])].slice(0, 5), (text.match(/>\s*Next\s*</g) || []).length, text.slice(text.indexOf('>Next<') - 300, text.indexOf('>Next<') + 20).replace(/\s+/g, ' '));
+});
+await step('JSE trade quotes table', async () => {
+  const { text } = await get('https://www.jamstockex.com/trading/trade-quotes/?market=50&date=2026-11-04');
+  const tables = text.split('<table').slice(1); console.log('tables', tables.length);
+  tables.slice(0, 4).forEach((tb, i) => { const head = (tb.match(/<th[^>]*>([\s\S]*?)<\/th>/g) || []).map((h) => strip(h)).join(' | '); const row = (tb.match(/<tr[\s\S]*?<\/tr>/g) || [])[1] || ''; console.log(`T${i} HEAD: ${head.slice(0, 400)}\n   ROW: ${strip(row).slice(0, 300)}\n   rows: ${(tb.match(/<tr/g) || []).length}`); });
+});
