@@ -1,17 +1,14 @@
 const UA = 'Mozilla/5.0 (Linux; Android 14; Pixel) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/124.0 Mobile Safari/537.36';
-const get = async (u) => { const r = await fetch(u, { headers: { 'User-Agent': UA, 'Accept': 'text/html,application/json,*/*' } }); return { status: r.status, text: await r.text() }; };
+const get = async (u) => { const r = await fetch(u, { headers: { 'User-Agent': UA, 'Accept': 'text/html,application/xml,application/json,*/*' } }); return { status: r.status, url: r.url, text: await r.text() }; };
 const strip = (h) => h.replace(/<script[\s\S]*?<\/script>|<style[\s\S]*?<\/style>/gi, ' ').replace(/<[^>]+>/g, ' ').replace(/&nbsp;|&#160;/g, ' ').replace(/&amp;/g, '&').replace(/\s+/g, ' ');
 async function step(n, f) { console.log(`\n===== ${n}`); try { await f(); } catch (e) { console.log('ERR', e.message); } }
-await step('xp-search.js', async () => { const { text } = await get('https://realtyhd.com/XposurePublicIncludes/client/js/xp-search.js?v=1'); console.log(text.length); console.log([...new Set(text.match(/(https?:\/\/[^"'\s]+|["'][^"'\s]*(search|Search|listing)[^"'\s]*["'])/g) || [])].slice(0, 30).join('\n')); console.log(text.slice(0, 1500)); });
-await step('xposure public search', async () => { const { status, text } = await get('https://raj.xposureapp.com/jamaica/userId_23781'); console.log(status, text.length, strip(text).slice(0, 700)); console.log([...new Set(text.match(/["'][^"'\s]*(search|Search|ajax|json)[^"'\s]*["']/g) || [])].slice(0, 30).join('\n')); });
-await step('propertyadsja parish select', async () => {
-  const { text } = await get('https://www.propertyadsja.com/search.asp');
-  const i = text.indexOf('St. Thomas'); console.log(text.slice(i - 1500, i + 200).replace(/\s+/g, ' '));
-  console.log('paging', [...new Set(text.match(/href="[^"]*search\.asp\?[^"]*"/g) || [])].slice(0, 8));
-});
-await step('gleaner corp area houses', async () => {
-  const { text } = await get('https://www.gleanerclassifieds.com/marketplace/category/550-real-estate-for-sale/559-sale-house-apts-corp-area');
-  const blocks = text.split('<div id="advert_').slice(1, 5);
-  for (const b of blocks) console.log('AD', strip(b).slice(0, 400), '| PRICE', (b.match(/sr_ad_price">([^<]*)</) || [])[1]);
-  console.log('pager', [...new Set(text.match(/(changePage[^)]*\)|page=\d+|pageNumber[^"&]*)/gi) || [])].slice(0, 8));
-});
+for (const u of ['https://www.jacars.net/', 'https://www.jacars.net/cars/honda/civic/', 'https://www.jacars.net/search/?q=honda+civic', 'https://jacars.net/cars/toyota/86/']) {
+  await step(u, async () => { const r = await get(u); console.log(r.status, r.url, r.text.length); const t = strip(r.text); console.log(t.slice(0, 500)); console.log([...new Set(r.text.match(/href="[^"]*(civic|honda|toyota|cars\/|search|ad\/|listing)[^"]*"/gi) || [])].slice(0, 15).join(' ')); });
+}
+await step('autoadsja home form', async () => { const r = await get('https://www.autoadsja.com/'); console.log(r.status, r.text.length); const f = r.text.indexOf('<form'); console.log(r.text.slice(f, f + 2500).replace(/\s+/g, ' ')); });
+await step('autoadsja search civic', async () => { const r = await get('https://www.autoadsja.com/search.asp?SearchMake=Honda&SearchModel=Civic'); console.log(r.status, r.text.length); const i = r.text.indexOf('JMD'); console.log(r.text.slice(Math.max(0, i - 1500), i + 400).replace(/\s+/g, ' ')); console.log((strip(r.text).match(/[^.]{0,80}found/i) || [])[0]); });
+await step('gleaner autos', async () => { const r = await get('https://www.gleanerclassifieds.com/'); console.log([...new Set(r.text.match(/\/marketplace\/category\/400-transport\/[^"']+/g) || [])].join('\n')); });
+await step('JSE trade quotes', async () => { const r = await get('https://www.jamstockex.com/trading/trade-quotes/?market=50&date=2026-11-04'); console.log(r.status, r.text.length); const i = r.text.indexOf('SYMBOL'); console.log(strip(r.text.slice(i - 200, i + 3000)).slice(0, 1500)); });
+for (const u of ['https://feeds.bbci.co.uk/news/business/rss.xml', 'https://www.cnbc.com/id/100727362/device/rss/rss.html', 'https://www.aljazeera.com/xml/rss/all.xml', 'https://www.theguardian.com/business/economics/rss', 'https://feeds.npr.org/1017/rss.xml', 'https://www.ft.com/world?format=rss', 'https://oilprice.com/rss/main', 'https://www.caribbeannationalweekly.com/feed/', 'https://www.loopnews.com/rss', 'https://feeds.marketwatch.com/marketwatch/topstories/']) {
+  await step(u, async () => { const r = await get(u); const titles = (r.text.match(/<title>([\s\S]*?)<\/title>/g) || []).slice(1, 4).map((t) => t.replace(/<\/?title>|<!\[CDATA\[|\]\]>/g, '').trim()); console.log(r.status, (r.text.match(/<item/g) || []).length, 'items |', titles.join(' || ')); });
+}
