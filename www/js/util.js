@@ -16,10 +16,10 @@ async function retry(fn) {
 }
 
 // On the phone, requests go through Android's native HTTP stack (no browser CORS limits).
-async function once(url, type, timeoutMs) {
-  const nh = nativeHttp();
+async function once(url, type, timeoutMs, extra = {}) {
+  const nh = nativeHttp(); const headers = { ...HEADERS, ...extra };
   if (nh) {
-    const r = await withTimeout(nh.request({ url, method: 'GET', headers: HEADERS, responseType: type === 'bin' ? 'arraybuffer' : 'text', connectTimeout: timeoutMs, readTimeout: timeoutMs }), timeoutMs + 2000);
+    const r = await withTimeout(nh.request({ url, method: 'GET', headers, responseType: type === 'bin' ? 'arraybuffer' : 'text', connectTimeout: timeoutMs, readTimeout: timeoutMs }), timeoutMs + 2000);
     if (r.status >= 400) throw new Error(`HTTP ${r.status}`);
     if (type === 'bin') {
       const b = atob(String(r.data)); const u = new Uint8Array(b.length);
@@ -28,16 +28,16 @@ async function once(url, type, timeoutMs) {
     }
     return typeof r.data === 'string' ? r.data : JSON.stringify(r.data);
   }
-  const r = await withTimeout(fetch(url, { headers: HEADERS }), timeoutMs);
+  const r = await withTimeout(fetch(url, { headers }), timeoutMs);
   if (!r.ok) throw new Error(`HTTP ${r.status}`);
   return type === 'bin' ? new Uint8Array(await r.arrayBuffer()) : r.text();
 }
 
-export const getText = (url, timeoutMs = 25000) => retry(() => once(url, 'text', timeoutMs));
+export const getText = (url, timeoutMs = 25000, extra) => retry(() => once(url, 'text', timeoutMs, extra));
 export const getBinary = (url, timeoutMs = 40000) => retry(() => once(url, 'bin', timeoutMs));
 
-export async function getJSON(url, timeoutMs) {
-  const t = await getText(url, timeoutMs);
+export async function getJSON(url, timeoutMs, extra) {
+  const t = await getText(url, timeoutMs, extra);
   // CapacitorHttp may already hand back parsed JSON as a string of an object; handle both.
   if (typeof t === 'object') return t;
   return JSON.parse(t);
