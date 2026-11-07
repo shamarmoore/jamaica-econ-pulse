@@ -6,7 +6,8 @@ import { getText, getJSON, htmlToText, decodeEntities } from './util.js';
 export const NHT_DEFAULTS = {
   limitSingle: 9000000, limitSingleSpecial: 12000000, specialPriceCap: 14000000, limitJoint: 17000000,
   bands: [[30000.99, 0], [42000.99, 2], [100000.99, 4], [Infinity, 5]], // weekly income ceiling → rate %
-  maxTerm: 40, maxAge: 70, lotLimitPer: 0,
+  maxTerm: 40, maxAge: 70, lotSingle: 5000000, lotJoint: 7000000,
+  ltv: 95, ltvLow: 98, // NHT lends up to 95% of price/valuation; 98% for contributors under J$30,000/wk buying at or below J$14M (July 2025)
 };
 export const FIN_DEFAULTS = {
   myIncome: '', myAge: 25, myNht: true,
@@ -26,11 +27,14 @@ export function nhtRate(weeklyIncome, bands = NHT_DEFAULTS.bands) {
 }
 
 // One financing scenario for a home or lot at price P.
-// mode: 'bank' | 'nht' (you only) | 'nhtco' (you + co-applicant)
+// mode: 'bank' | 'nht' (you alone) | 'bankco' | 'nhtco' (you + co-applicant on the loan)
+export const JOINT = (mode) => mode === 'bankco' || mode === 'nhtco';
+export const USES_NHT = (mode) => mode === 'nht' || mode === 'nhtco';
 export function scenario(P, f, mode, { land = false, nht = NHT_DEFAULTS, bankRateLive = 7.6 } = {}) {
+  nht = { ...NHT_DEFAULTS, ...nht };
   const me = { inc: num(f.myIncome), age: num(f.myAge) || 25, nht: !!f.myNht };
   const co = { inc: num(f.coIncome), age: num(f.coAge) || 25, nht: !!f.coNht };
-  const people = mode === 'nhtco' && f.coOn ? [me, co] : [me];
+  const people = JOINT(mode) && f.coOn ? [me, co] : [me];
   const income = people.reduce((s, p) => s + p.inc, 0);
   const cap = (income * num(f.ratio)) / 100; // max total monthly housing payment
   const bankRate = (num(f.bankRate) || bankRateLive) + (land ? num(f.landRateAdd) : 0);
@@ -38,7 +42,7 @@ export function scenario(P, f, mode, { land = false, nht = NHT_DEFAULTS, bankRat
   const bankTerm = Math.max(5, Math.min(land ? num(f.landTerm) || 15 : num(f.bankTerm) || 30, num(nht.maxAge) - oldest));
   const ltv = (land ? num(f.landLTV) : num(f.bankLTV)) / 100;
   let nhtLoan = 0; let nhtRatePct = 0; let nhtTerm = 0; const notes = [];
-  if (mode !== 'bank') {
+  if (USES_NHT(mode)) {
     const contributors = people.filter((p) => p.nht);
     if (!contributors.length) notes.push('No NHT contributor selected.');
     else {
@@ -46,14 +50,17 @@ export function scenario(P, f, mode, { land = false, nht = NHT_DEFAULTS, bankRat
       nhtRatePct = nhtRate(avgWeekly, nht.bands);
       nhtTerm = Math.max(5, Math.min(num(nht.maxTerm), num(nht.maxAge) - youngest));
       let limit;
-      if (land) limit = num(nht.lotLimitPer) * contributors.length;
+      if (land) limit = contributors.length >= 2 ? num(nht.lotJoint) : num(nht.lotSingle);
       else if (contributors.length >= 2) limit = num(nht.limitJoint);
       else limit = P <= num(nht.specialPriceCap) ? num(nht.limitSingleSpecial) : num(nht.limitSingle);
+      // NHT never lends the full price: at least a 5% deposit (2% for lower-income buyers of homes ≤ J$14M)
+      const low = avgWeekly <= nht.bands[0][0] && P <= num(nht.specialPriceCap);
+      const maxPct = (low ? num(nht.ltvLow) || 98 : num(nht.ltv) || 95) / 100;
       // each contributor borrows what they can afford in their own right (NHT policy)
       const afford = contributors.reduce((s, p) => s + pv((p.inc * num(f.ratio)) / 100, nhtRatePct, nhtTerm), 0);
-      nhtLoan = Math.max(0, Math.min(limit, afford, P));
-      if (land && !limit) notes.push('Enter your NHT lot-loan limit in settings to include NHT for land.');
-      if (nhtLoan === afford && afford < limit) notes.push('NHT amount capped by income affordability.');
+      nhtLoan = Math.max(0, Math.min(limit, afford, P * maxPct));
+      if (nhtLoan === afford && afford < limit) notes.push('NHT amount capped by what your income can repay.');
+      else if (nhtLoan === P * maxPct) notes.push(`NHT covers up to ${Math.round(maxPct * 100)}% of the price; the rest is your deposit.`);
     }
   }
   const nhtPay = pmt(nhtLoan, nhtRatePct, nhtTerm || 1);
@@ -84,8 +91,9 @@ export function scenario(P, f, mode, { land = false, nht = NHT_DEFAULTS, bankRat
     totalInterest: nhtPay * nhtTerm * 12 + bankPay * bankTerm * 12 - nhtLoan - bankLoan };
 }
 
+export const MODES = (f) => ['bank', 'nht'].concat(f.coOn ? ['bankco', 'nhtco'] : []);
 export function bestScenario(P, f, opts) {
-  const modes = ['bank', 'nht'].concat(f.coOn ? ['nhtco'] : []);
+  const modes = MODES(f);
   const rank = { yes: 0, check: 1, stretch: 2, no: 3, unknown: 4 };
   return modes.map((m) => scenario(P, f, m, opts)).sort((a, b) => (rank[a.verdict] - rank[b.verdict]) || (a.cash - b.cash) || (a.monthly - b.monthly))[0];
 }

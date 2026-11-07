@@ -32,6 +32,12 @@
     <button data-tab="sources"><span class="ti">⌘</span>Sources</button>
   </nav>
 
+  <button id="pending" class="pending hide">New data · tap to update</button>
+  <div id="sheet" class="sheet hide" role="dialog" aria-modal="true">
+    <div class="sheet-bg" data-close></div>
+    <div class="sheet-card"><button class="sheet-x" data-close aria-label="Close">×</button><div id="sheet-body"></div></div>
+  </div>
+
   <script type="module" src="js/app.js"></script>
 </body>
 </html>

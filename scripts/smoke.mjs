@@ -21,6 +21,8 @@ for (const s of SOURCES) {
 }
 const d = Object.fromEntries(Object.entries(cache).map(([k, v]) => [k, v.data]));
 const a = analyse(d);
+if (d.imf) console.log('IMF', d.imf.edition, Object.keys(d.imf.series).length, 'series', JSON.stringify(d.imf.series['NGDP_RPCH:JAM']?.slice(-4)), JSON.stringify(d.imf.series['LUR:JAM']?.slice(-2)));
+if (d.fred) console.log('FRED', d.fred.via, Object.keys(d.fred.series).length, 'ok, failed:', d.fred.failed.join(','));
 console.log('HEADLINE:', a.headline);
 console.log('GAUGES:', JSON.stringify(a.gauges));
 for (const i of a.insights) console.log(`[${i.level}/${i.severity}] ${i.title} — ${i.signal}`);

@@ -59,16 +59,17 @@ export function rankStocks(latest, hist) {
   const key = d6 ? 'm6' : d3 ? 'm3' : null;
   const ranked = key ? rows.filter((r) => r[key] != null) : rows.filter((r) => r.offHigh != null);
   ranked.sort((a, b) => (key ? b[key] - a[key] : b.offHigh - a.offHigh));
-  return { rows: ranked, basis: key || 'offHigh', dates: { d3, d6, d12 } };
+  return { rows: ranked, all: rows, basis: key || 'offHigh', dates: { d3, d6, d12 } };
 }
 
 // ---------- TradingView symbols (charts load live from TradingView inside the app) ----------
 export const TV_SYMBOLS = [
-  ['Bitcoin', 'BITSTAMP:BTCUSD'], ['Ethereum', 'BITSTAMP:ETHUSD'], ['S&P 500', 'FOREXCOM:SPXUSD'], ['Gold', 'OANDA:XAUUSD'],
-  ['Brent oil', 'TVC:UKOIL'], ['US dollar index', 'TVC:DXY'], ['USD/JPY', 'FX:USDJPY'], ['US 10-yr yield', 'TVC:US10Y'],
+  ['S&P 500 (SPY)', 'AMEX:SPY'], ['Nasdaq 100 (QQQ)', 'NASDAQ:QQQ'], ['Apple', 'NASDAQ:AAPL'], ['Microsoft', 'NASDAQ:MSFT'], ['Nvidia', 'NASDAQ:NVDA'],
+  ['Amazon', 'NASDAQ:AMZN'], ['Alphabet', 'NASDAQ:GOOGL'], ['Meta', 'NASDAQ:META'], ['Tesla', 'NASDAQ:TSLA'], ['Berkshire B', 'NYSE:BRK.B'],
+  ['JPMorgan', 'NYSE:JPM'], ['Visa', 'NYSE:V'], ['Royal Caribbean', 'NYSE:RCL'], ['Marriott', 'NASDAQ:MAR'],
 ];
-export function tvUrl(symbol, interval = '60') {
-  const p = new URLSearchParams({ symbol, interval, hidesidetoolbar: '0', symboledit: '1', saveimage: '0', theme: 'light', style: '1', timezone: 'America/Jamaica', locale: 'en',
+export function tvUrl(symbol, interval = 'D', theme = 'light') {
+  const p = new URLSearchParams({ symbol, interval, hidesidetoolbar: '0', symboledit: '1', saveimage: '0', theme, style: '1', timezone: 'America/Jamaica', locale: 'en',
     studies: JSON.stringify(['RSI@tv-basicstudies', 'MAExp@tv-basicstudies']), withdateranges: '1', allow_symbol_change: '1' });
   return `https://s.tradingview.com/widgetembed/?${p}`;
 }

@@ -97,21 +97,50 @@ const IMF_IND = {
   BCA_NGDPD: 'Current account (% of GDP)',
   GGXCNL_NGDP: 'Fiscal balance (% of GDP)',
 };
+// Run async jobs a few at a time — phones choke on many parallel requests to one host.
+export async function pool(items, n, fn) {
+  const out = new Array(items.length); let i = 0;
+  await Promise.all(Array.from({ length: Math.min(n, items.length) }, async () => {
+    while (i < items.length) { const k = i++; try { out[k] = { ok: true, v: await fn(items[k], k) }; } catch (e) { out[k] = { ok: false, e }; } }
+  }));
+  return out;
+}
+const errText = (e) => String(e?.message || e || 'no response').slice(0, 90);
+
+// IMF's official data API (SDMX). The older DataMapper API refuses phone connections (HTTP 403).
+const CTRY = ['JAM', 'USA', 'CAN', 'GBR'];
+export function parseSdmx(xml) {
+  const out = {}; const attr = (s, k) => (new RegExp(`\\b${k}="([^"]*)"`).exec(s) || [])[1];
+  const re = /<Series\b([^>]*)>([\s\S]*?)<\/Series>/g; let m;
+  while ((m = re.exec(xml))) {
+    const c = attr(m[1], 'COUNTRY'); const ind = attr(m[1], 'INDICATOR'); if (!c || !ind) continue;
+    const pts = [...m[2].matchAll(/<Obs\b([^>]*)\/?>/g)].map((o) => ({ year: +attr(o[1], 'TIME_PERIOD'), value: parseFloat(attr(o[1], 'OBS_VALUE')) }))
+      .filter((p) => p.year >= 2015 && Number.isFinite(p.value)).sort((a, b) => a.year - b.year);
+    if (pts.length) out[`${ind}:${c}`] = pts;
+  }
+  const pub = /PUBLICATION_DATE="(\d{4}-\d{2})/.exec(xml);
+  return { series: out, edition: pub ? pub[1] : null };
+}
 async function imf() {
   const out = { labels: IMF_IND, series: {} };
-  const ids = Object.keys(IMF_IND);
-  const results = await Promise.allSettled(ids.map((id) =>
-    getJSON(`https://www.imf.org/external/datamapper/api/v1/${id}/JAM/USA/CAN/GBR`)));
-  results.forEach((r, i) => {
-    if (r.status !== 'fulfilled') return;
-    const vals = r.value?.values?.[ids[i]] || {};
-    for (const c of ['JAM', 'USA', 'CAN', 'GBR']) {
-      if (!vals[c]) continue;
-      out.series[`${ids[i]}:${c}`] = Object.entries(vals[c])
-        .map(([y, v]) => ({ year: +y, value: +v })).filter((p) => p.year >= 2015).sort((a, b) => a.year - b.year);
-    }
-  });
-  if (!Object.keys(out.series).length) throw new Error('IMF API returned nothing');
+  const ids = Object.keys(IMF_IND); let why = '';
+  try {
+    const xml = await getText(`https://api.imf.org/external/sdmx/2.1/data/IMF.RES,WEO/${CTRY.join('+')}.${ids.join('+')}.A?startPeriod=2015`, 30000, { Accept: 'application/xml' });
+    const p = parseSdmx(xml); out.series = p.series; out.edition = p.edition;
+  } catch (e) { why = `api.imf.org: ${errText(e)}`; }
+  if (!Object.keys(out.series).length) {
+    // fallback: the DataMapper API (works from some networks)
+    const results = await pool(ids, 2, (id) => getJSON(`https://www.imf.org/external/datamapper/api/v1/${id}/${CTRY.join('/')}`, 15000));
+    results.forEach((r, i) => {
+      if (!r.ok) return;
+      const vals = r.v?.values?.[ids[i]] || {};
+      for (const c of CTRY) {
+        if (!vals[c]) continue;
+        out.series[`${ids[i]}:${c}`] = Object.entries(vals[c]).map(([y, v]) => ({ year: +y, value: +v })).filter((p) => p.year >= 2015).sort((a, b) => a.year - b.year);
+      }
+    });
+    if (!Object.keys(out.series).length) throw new Error(`${why || 'api.imf.org returned no series'}; DataMapper: ${errText(results.find((r) => !r.ok)?.e)}`);
+  }
   return out;
 }
 
@@ -171,19 +200,32 @@ function parseFredCSV(csv) {
   }
   return pts;
 }
+// FRED's official API needs a free personal key (fredaccount.stlouisfed.org/apikeys). Without one we try
+// FRED's public CSV download, which works from many networks but is refused on some phone connections.
+const FRED_KEY = 'ep_fredkey_v1';
+export const fredKey = {
+  get() { try { return (globalThis.localStorage?.getItem(FRED_KEY) || globalThis.process?.env?.FRED_API_KEY || '').trim(); } catch (_) { return ''; } },
+  set(v) { try { globalThis.localStorage?.setItem(FRED_KEY, String(v || '').trim()); } catch (_) { /* ignore */ } },
+};
+async function fredApi(id, key) {
+  const j = await getJSON(`https://api.stlouisfed.org/fred/series/observations?series_id=${id}&api_key=${encodeURIComponent(key)}&file_type=json&observation_start=${isoDaysAgo(365 * FRED[id].years)}`, 20000);
+  return (j.observations || []).map((o) => ({ date: o.date, value: parseFloat(o.value) })).filter((p) => Number.isFinite(p.value));
+}
 async function fred() {
   const out = { series: {}, failed: [] };
-  const ids = Object.keys(FRED);
-  const results = await Promise.allSettled(ids.map((id) =>
-    getText(`https://fred.stlouisfed.org/graph/fredgraph.csv?id=${id}&cosd=${isoDaysAgo(365 * FRED[id].years)}`)));
-  results.forEach((r, i) => {
-    if (r.status === 'fulfilled') {
-      const s = parseFredCSV(r.value);
-      if (s.length) { out.series[ids[i]] = s; return; }
-    }
-    out.failed.push(ids[i]);
-  });
-  if (!Object.keys(out.series).length) throw new Error('FRED returned nothing');
+  const ids = Object.keys(FRED); const key = fredKey.get();
+  const csv = async (id) => parseFredCSV(await getText(`https://fred.stlouisfed.org/graph/fredgraph.csv?id=${id}&cosd=${isoDaysAgo(365 * FRED[id].years)}`, 12000));
+  let results;
+  if (key) { results = await pool(ids, 4, (id) => fredApi(id, key)); out.via = 'FRED API'; }
+  else {
+    // one quick test first so a blocked connection fails in seconds, not minutes
+    let first;
+    try { first = await csv(ids[0]); } catch (e) { throw new Error(`FRED’s public download didn’t respond on this connection (${errText(e)}). Add a free FRED API key under Sources to use the official API.`); }
+    results = [{ ok: true, v: first }, ...await pool(ids.slice(1), 4, csv)];
+    out.via = 'FRED CSV';
+  }
+  results.forEach((r, i) => { if (r.ok && r.v?.length) out.series[ids[i]] = r.v; else out.failed.push(ids[i]); });
+  if (!Object.keys(out.series).length) throw new Error(`FRED returned nothing (${errText(results.find((r) => !r.ok)?.e)})${key ? ' — check your API key under Sources' : ''}`);
   return out;
 }
 
