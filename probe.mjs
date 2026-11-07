@@ -1,4 +1,5 @@
-const ids = ['M.W00.POILBRE.USD', 'M.W00.PNGASUS.USD', 'M.W00.PWHEAMT.USD', 'M.W00.PMAIZMT.USD', 'M.W00.PALUM.USD', 'M.W00.PFOOD.IX'].map((c) => `IMF/PCPS/${c}`).join(',');
-const r = await fetch(`https://api.db.nomics.world/v22/series?series_ids=${ids}&observations=1`);
-const j = await r.json(); console.log(r.status, j.series?.num_found);
-for (const d of j.series?.docs || []) console.log(d.series_code, d.indexed_at, d.period?.slice(-3), d.value?.slice(-3));
+const u = 'https://api.imf.org/external/sdmx/2.1/data/IMF.RES,WEO/JAM+USA+CAN+GBR.NGDP_RPCH+PCPIPCH+LUR+GGXWDG_NGDP+BCA_NGDPD+GGXCNL_NGDP.A?startPeriod=2015';
+let r = await fetch(u); let t = await r.text(); console.log(r.status, r.headers.get('content-type'), t.length);
+console.log(t.slice(0, 1500).replace(/></g, '>\n<'));
+const series = [...t.matchAll(/<Series [^>]*>/g)].map((m) => m[0]); console.log('series', series.length); console.log(series.slice(0, 3).join('\n'));
+r = await fetch(u, { headers: { Accept: 'application/vnd.sdmx.data+json;version=1.0.0' } }); t = await r.text(); console.log('JSON?', r.status, r.headers.get('content-type'), t.slice(0, 300));
