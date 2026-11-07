@@ -15,13 +15,13 @@ public class Probe {
     } catch (Exception e) { return "ERR " + e; }
   }
   public static void main(String[] a) throws Exception {
-    String[] uas = {"Dalvik/2.1.0 (Linux; U; Android 14; Pixel 8 Build/AP2A.240805.005)", "curl/8.7.1", "Wget/1.21.4", "python-requests/2.32.3", "okhttp/4.12.0", "Java/17.0.10", "JAEconPulse/1.5", "Mozilla/5.0 (compatible; JAEconPulse/1.5)", "Mozilla/5.0 (X11; Linux x86_64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/130.0.0.0 Safari/537.36"};
-    String[] urls = {"https://fred.stlouisfed.org/graph/fredgraph.csv?id=DGS10&cosd=2025-11-01", "https://www.imf.org/external/datamapper/api/v1/NGDP_RPCH/JAM/USA/CAN/GBR"};
-    for (String ua : uas) for (String u : urls) System.out.println("UA[" + ua.substring(0, Math.min(40, ua.length())) + "] " + u.substring(8, 40) + " -> " + go(u, ua));
-    String[] fred = {"DCOILBRENTEU","DHHNGSP","FEDFUNDS","DGS10","UNRATE","CPIAUCSL","UMCSENT","DTWEXBGS","PFOODINDEXM","PWHEAMTUSDM","PMAIZMTUSDM","PALUMUSDM","PCU483111483111","VIXCLS","BAMLEMHBHYCRPIOAS","SP500","DTB3","LRUNTTTTCAM156S"};
-    ExecutorService ex = Executors.newFixedThreadPool(24); List<Future<String>> fs = new ArrayList<>();
-    for (String f : fred) fs.add(ex.submit(() -> go("https://fred.stlouisfed.org/graph/fredgraph.csv?id="+f+"&cosd=2024-11-01", "curl/8.7.1")));
-    for (int i = 0; i < fred.length; i++) System.out.println("PAR-CURL " + fred[i] + " -> " + fs.get(i).get());
-    ex.shutdown();
+    String[] urls = {
+      "https://api.stlouisfed.org/fred/series/observations?series_id=DGS10&file_type=json",
+      "https://api.stlouisfed.org/fred/series/observations?series_id=DGS10&file_type=json&api_key=abcdefghijklmnopqrstuvwxyz123456",
+      "https://api.imf.org/external/sdmx/2.1/data/IMF.RES,WEO/JAM.NGDP_RPCH.A?startPeriod=2020",
+      "https://api.imf.org/external/sdmx/3.0/data/dataflow/IMF.RES/WEO/+/JAM.NGDP_RPCH.A",
+      "https://sdmxcentral.imf.org/ws/public/sdmxapi/rest/data/WEO/JAM.NGDP_RPCH",
+    };
+    for (String u : urls) System.out.println("APPUA " + u + " -> " + go(u, UA));
   }
 }
