@@ -8,6 +8,3 @@ jobs:
       - uses: actions/setup-java@v4
         with: { distribution: temurin, java-version: 21 }
       - run: java Probe.java
-      - name: CORS headers
-        run: |
-          for u in "https://fred.stlouisfed.org/graph/fredgraph.csv?id=DGS10&cosd=2026-01-01" "https://www.imf.org/external/datamapper/api/v1/NGDP_RPCH/JAM" "https://api.db.nomics.world/v22/series/IMF/WEO:latest/JAM.NGDP_RPCH.pcent_change" "https://api.worldbank.org/v2/country/JM/indicator/NE.IMP.GNFS.ZS?format=json"; do echo "== $u"; curl -s -o /dev/null -D - -H "Origin: https://localhost" "$u" | grep -i -E "^HTTP|access-control|content-type|server" ; done
