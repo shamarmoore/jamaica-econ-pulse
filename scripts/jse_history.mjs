@@ -27,9 +27,9 @@ todo.reverse(); // newest first, so a capped run always keeps the recent data fr
 const batch = todo.slice(0, maxDays);
 console.log(`stored ${Object.keys(H.dates).length} days; fetching ${batch.length} of ${todo.length} missing`);
 
-let i = 0; let got = 0; let fail = 0;
+let i = 0; let got = 0; let fail = 0; let stop = false;
 async function worker() {
-  while (i < batch.length) {
+  while (i < batch.length && !stop) {
     const k = batch[i++];
     try {
       const q = parseQuotes(await getText(`https://www.jamstockex.com/trading/trade-quotes/?market=50&date=${k}`, 40000));
@@ -39,11 +39,16 @@ async function worker() {
         H.dates[k] = Object.fromEntries(syms.map((s) => [s, [q[s].close, q[s].vol || 0]]));
         H.empty = H.empty.filter((x) => x !== k); got++;
       } else if (!H.empty.includes(k)) H.empty.push(k);
-    } catch (e) { fail++; if (fail < 5) console.log('fail', k, String(e.message || e).slice(0, 80)); }
-    await new Promise((r) => setTimeout(r, 400));
+    } catch (e) {
+      fail++; const msg = String(e.message || e);
+      console.log('fail', k, msg.slice(0, 80));
+      // the site is asking us to back off — stop for today and continue on the next run
+      if (/HTTP (403|429|503)/.test(msg)) { stop = true; console.log('JSE site is rate-limiting; stopping this run politely'); }
+    }
+    await new Promise((r) => setTimeout(r, 2000));
   }
 }
-await Promise.all([worker(), worker(), worker()]);
+await worker(); // one request at a time, 2 s apart
 
 // drop holiday duplicates: a day whose every close+volume equals the previous stored day
 const keys = Object.keys(H.dates).sort(); let dup = 0;

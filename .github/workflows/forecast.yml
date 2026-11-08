@@ -4,7 +4,7 @@ on:
   workflow_dispatch:
     inputs:
       start: { description: 'History start date', default: '2021-01-04' }
-      maxdays: { description: 'Max trading days to fetch this run', default: '60' }
+      maxdays: { description: 'Max trading days to fetch this run', default: '120' }
   schedule:
     - cron: '23 23 * * 1-5'   # 6:23 pm Jamaica, weekdays, after JSE quotes post
 
@@ -20,7 +20,7 @@ jobs:
       - uses: actions/setup-node@v4
         with: { node-version: 22 }
       - name: Update JSE daily history
-        run: node scripts/jse_history.mjs "${{ inputs.start || '2021-01-04' }}" "${{ inputs.maxdays || '60' }}"
+        run: node scripts/jse_history.mjs "${{ inputs.start || '2021-01-04' }}" "${{ inputs.maxdays || '120' }}"
       - uses: actions/setup-python@v5
         with: { python-version: '3.11' }
       - name: Install Timestral (CPU)
