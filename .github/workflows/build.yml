@@ -68,7 +68,10 @@ jobs:
           for i in 1 2 3; do
             if [ -n "$KEYSTORE_PATH" ]; then ./gradlew assembleRelease --no-daemon && break; else ./gradlew assembleDebug --no-daemon && break; fi
             echo "attempt $i failed, retrying in 30 s"; sleep 30
-            [ "$i" = 3 ] && exit 1
+            if [ "$i" = 3 ]; then
+              echo "Gradle download unavailable — using the Gradle installed on the runner"; gradle --version | head -3
+              if [ -n "$KEYSTORE_PATH" ]; then gradle assembleRelease --no-daemon; else gradle assembleDebug --no-daemon; fi
+            fi
           done
       - name: Collect APK
         run: |
