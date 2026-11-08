@@ -32,7 +32,7 @@ jobs:
           pip install -q numpy pandas scipy huggingface_hub "git+https://github.com/mistralai/timestral"
       - name: Back-test (first Monday of each month, or on request)
         run: |
-          if [ "${{ inputs.backtest }}" = "yes" ] || { [ "$(date -u +%d)" -le 07 ] && [ "$(date -u +%u)" = 1 ]; }; then python scripts/backtest_ts.py 21 120; else echo "not this run"; fi
+          if [ "${{ inputs.backtest }}" = "yes" ] || { [ "$(date -u +%d)" -le 07 ] && [ "$(date -u +%u)" = 1 ]; }; then python scripts/backtest_ts.py 21 120 && python scripts/factor_study.py > /dev/null && python scripts/chance_model.py; else echo "not this run"; fi
       - name: Signal study + Edge score inputs (fast)
         run: python scripts/factor_study.py > /dev/null && echo "study ok"
       - name: Forecast every stock

@@ -656,15 +656,15 @@ async function jseBackfill() {
   }
   jseFill.running = false; jseFill.msg = ''; if (tab === 'decide' && sub === 'trade') bgRender();
 }
-const JSE_SORTS = [['edge', 'Edge score'], ['fc', '3-mo forecast'], ['health', 'Financial health'], ['hype', 'Speculation'], ['m6', '6-month trend'], ['m3', '3-month'], ['m12', '12-month'], ['offHigh', 'Near 52-wk high'], ['chg', 'Today'], ['vol', 'Most traded'], ['az', 'A–Z']];
+const JSE_SORTS = [['up', 'Chance up'], ['edge', 'Edge score'], ['fc', '3-mo forecast'], ['health', 'Financial health'], ['hype', 'Speculation'], ['m6', '6-month trend'], ['m3', '3-month'], ['m12', '12-month'], ['offHigh', 'Near 52-wk high'], ['chg', 'Today'], ['vol', 'Most traded'], ['az', 'A–Z']];
 let jseSort = 'edge'; let jseQuery = ''; let jseAll = false;
 const dark = () => matchMedia('(prefers-color-scheme: dark)').matches;
 function jseRows(d) {
   const L = d.jsequotes; const r = rankStocks(L, jseHist);
   let key = jseSort === 'm6' && !r.dates?.d6 ? (r.dates?.d3 ? 'm3' : 'offHigh') : jseSort;
-  if (['fc', 'hype', 'health', 'edge'].includes(key) && !d.forecasts?.edgeInfo) key = r.dates?.d6 ? 'm6' : 'offHigh';
+  if (['fc', 'hype', 'health', 'edge', 'up'].includes(key) && !d.forecasts?.edgeInfo) key = r.dates?.d6 ? 'm6' : 'offHigh';
   const F = d.forecasts;
-  let rows = (r.all || []).map((x) => ({ ...x, fc: fcChange(F, x.sym), hype: F?.stocks?.[x.sym]?.hype?.score ?? null, health: F?.stocks?.[x.sym]?.health?.score ?? null, edge: F?.stocks?.[x.sym]?.edge?.score ?? null }));
+  let rows = (r.all || []).map((x) => ({ ...x, fc: fcChange(F, x.sym), hype: F?.stocks?.[x.sym]?.hype?.score ?? null, health: F?.stocks?.[x.sym]?.health?.score ?? null, edge: F?.stocks?.[x.sym]?.edge?.score ?? null, up: F?.stocks?.[x.sym]?.chanceUp ?? null }));
   if (jseQuery) rows = rows.filter((x) => x.sym.includes(jseQuery.toUpperCase()));
   if (key === 'az') rows.sort((a, b) => a.sym.localeCompare(b.sym));
   else rows.sort((a, b) => ((b[key] ?? -1e9) - (a[key] ?? -1e9)));
@@ -678,9 +678,9 @@ function viewTrade(d) {
   const all = r.all || []; const up = all.filter((x) => x.chg > 0).length; const dn = all.filter((x) => x.chg < 0).length;
   const leaders = (r.rows || []).filter((x) => x.vol > 0).slice(0, 3).map((x) => x.sym);
   const shown = jseAll || jseQuery ? rows : rows.slice(0, 20);
-  const extra = key === 'health' ? [['health', 'Health']] : key === 'hype' ? [['hype', 'Spec.']] : [['edge', 'Edge']];
-  const cols = [...extra, ...(F ? [['fc', 'Fcst 3m']] : []), ['m6', '6m'], ['m12', '12m'], ['offHigh', 'vs high']].filter(([k]) => k === 'edge' || rows.some((x) => x[k] != null)).slice(0, 4);
-  const cell = (x, k) => (['health', 'hype', 'edge'].includes(k) ? (x[k] == null ? '—' : `<b class="${k === 'hype' ? hypeLabel(x[k])[1] : HEALTH_LABEL(x[k])[1]}">${x[k]}</b>`) : pct(x[k]));
+  const extra = key === 'health' ? [['health', 'Health']] : key === 'hype' ? [['hype', 'Spec.']] : key === 'up' ? [['up', 'Chance up'], ['edge', 'Edge']] : [['edge', 'Edge']];
+  const cols = [...extra, ...(F ? [['fc', 'Fcst 3m']] : []), ['m6', '6m'], ['m12', '12m'], ['offHigh', 'vs high']].filter(([k]) => k === 'edge' || k === 'up' || rows.some((x) => x[k] != null)).slice(0, 4);
+  const cell = (x, k) => (k === 'up' ? (x.up == null ? '—' : `<b class="${x.up >= 52 ? 'good' : x.up >= 42 ? 'ok' : 'bad'}">${x.up}%</b>`) : ['health', 'hype', 'edge'].includes(k) ? (x[k] == null ? '—' : `<b class="${k === 'hype' ? hypeLabel(x[k])[1] : HEALTH_LABEL(x[k])[1]}">${x[k]}</b>`) : pct(x[k]));
   return `<section class="hero-b"><div class="gname">JSE stocks · ${L ? fd(L.date) : '—'}</div>
     ${L ? `<p class="lede-s">${all.length} stocks quoted · ${up} up, ${dn} down on the day${leaders.length ? ` · strongest ${r.basis === 'm6' ? '6-month' : r.basis === 'm3' ? '3-month' : ''} trends: ${leaders.join(', ')}` : ''}</p>` : ''}
     <p class="fine prog" id="jse-prog">${jseFill.running ? `<span class="spin"></span>${esc(jseFill.msg)}` : ''}</p>
@@ -708,7 +708,8 @@ function viewTrade(d) {
 const pts = (v) => `${v >= 0.05 ? '+' : v <= -0.05 ? '−' : ''}${fmt(Math.abs(v), 1)} pts`;
 function tradeLesson(F) {
   const E = F?.edgeInfo; const t5 = E?.top5?.oos; if (!E) return '';
-  return ` <b>Edge score</b> blends ${Object.keys(E.labels).length} signals that held up in testing (cheap vs profits, dividends, steady profits, no losses, strong latest quarter, steady price, liquidity…).${t5 ? ` On data the model hadn’t seen (${fd(E.split, false)}–${fd(E.period[1], false)}), buying the <b>top 5</b>, holding 3 months and re-picking returned <b>${signed(t5.annNet, 0)}/yr</b> after trading costs vs ${signed(t5.annMarket, 0)}/yr for the market, ahead in ${t5.beatPct}% of quarters. A single pick beat the market only ${t5.singlePickBeatPct}% of the time — spread money over the top 5–10.` : ''}`;
+  const C = F.chanceInfo;
+  return `${C ? ` <b>Chance up</b> = chance the stock is higher 3 months after you buy, dividends included. A typical JSE stock was up only ${fmt(C.baseUp, 0)}% of the time; on data the model hadn’t seen, its top 10 were up ${fmt(C.top10UpRate, 0)}% of the time (average ${signed(C.top10Mean, 1)} vs ${signed(C.allMean, 1)} for all stocks). It’s built from the Edge score plus a small nudge from the Timestral forecast.` : ''} <b>Edge score</b> blends ${Object.keys(E.labels).length} signals that held up in testing (cheap vs profits, dividends, steady profits, no losses, strong latest quarter, steady price, liquidity…).${t5 ? ` On data the model hadn’t seen (${fd(E.split, false)}–${fd(E.period[1], false)}), buying the <b>top 5</b>, holding 3 months and re-picking returned <b>${signed(t5.annNet, 0)}/yr</b> after trading costs vs ${signed(t5.annMarket, 0)}/yr for the market, ahead in ${t5.beatPct}% of quarters. A single pick beat the market only ${t5.singlePickBeatPct}% of the time — spread money over the top 5–10.` : ''}`;
 }
 function bindTrade(v) {
   const rl = v.querySelector('#fc-reload'); if (rl) rl.addEventListener('click', () => { delete cache.forecasts?.at; refresh(false); });
@@ -754,6 +755,7 @@ function edgeBlock(F, sym) {
   return `<h4>Edge score · <b class="${lab[1]}">${e.score}/100</b> · #${e.rank} of ${e.of}</h4>
     ${good.length ? `<p><b>Strengths:</b> ${good.map(([k, v]) => `${esc(E.labels[k] || k)} <small class="fine">(better than ${v}%)</small>`).join(' · ')}</p>` : ''}
     ${bad.length ? `<p><b>Weak spots:</b> ${bad.map(([k, v]) => `${esc(E.labels[k] || k)} <small class="fine">(better than ${v}%)</small>`).join(' · ')}</p>` : ''}
+    ${F.stocks[sym].chanceUp != null ? `<p class="now">Chance it’s higher in 3 months (dividends included): <b>${F.stocks[sym].chanceUp}%</b> — a typical JSE stock: ${fmt(F.chanceInfo?.baseUp ?? 43, 0)}%.</p>` : ''}
     <p class="fine">${e.rank <= 5 ? 'In today’s top 5. ' : e.rank <= 10 ? 'In today’s top 10. ' : ''}Tested approach: hold the top 5–10 for about 3 months, then re-pick.${t5 ? ` On unseen data that returned ${signed(t5.annNet, 0)}/yr after costs (market ${signed(t5.annMarket, 0)}/yr); its worst quarter was ${signed(t5.worstPeriod, 1)}.` : ''}</p>`;
 }
 const LV = (F, l) => F.levels.indexOf(l);

@@ -80,6 +80,15 @@ try:
     out['edgeInfo'] = {'labels': {k: fs.FEATURE_LABELS.get(k, k) for k in chosen}, 'signs': chosen, 'period': study['period'], 'split': study['h63']['split'],
                        'oos': b['portfolio_oos_cost1pct'], 'all': b['portfolio_all_cost1pct'], 'oosIC': b['oosIC'], 'top5': study.get('top5'), 'byYear': study.get('byYear')}
     print('EDGE', sorted(((v['score'], k) for k, v in edge.items()), reverse=True)[:8])
+    # Chance up: probability of being higher in 3 months (dividends included), from the tested chance model
+    cm = json.load(open('data/chance_model.json'))
+    w = cm['w']
+    for s_, st in out['stocks'].items():
+        if st.get('edge'):
+            med = float(np.clip(st['q'][-1][10] / st['close'] - 1, -0.5, 0.5))
+            st['chanceUp'] = round(100 / (1 + np.exp(-(w[0] + w[1] * st['edge']['score'] / 100 + w[2] * med))))
+    out['chanceInfo'] = {k: cm[k] for k in ('baseUp', 'testAUC', 'testCalib', 'top10UpRate', 'top10Mean', 'allMean', 'from', 'to', 'split', 'cases')}
+    print('CHANCE UP', sorted(((st['chanceUp'], k) for k, st in out['stocks'].items() if 'chanceUp' in st), reverse=True)[:8])
 except Exception as e:
     print('edge score skipped:', e)
 json.dump(out, open('data/forecasts.json', 'w'), separators=(',', ':'))
