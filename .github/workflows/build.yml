@@ -47,6 +47,14 @@ jobs:
         env: { KEYSTORE_B64: '${{ secrets.KEYSTORE_B64 }}' }
         run: |
           if [ -n "$KEYSTORE_B64" ]; then echo "$KEYSTORE_B64" | base64 -d > "$RUNNER_TEMP/release.jks"; echo "KEYSTORE_PATH=$RUNNER_TEMP/release.jks" >> $GITHUB_ENV; fi
+      - name: Cache Gradle download
+        uses: actions/cache@v4
+        with:
+          path: |
+            ~/.gradle/wrapper/dists
+            ~/.gradle/caches
+          key: gradle-${{ hashFiles('android/gradle/wrapper/gradle-wrapper.properties', 'android/**/*.gradle') }}
+          restore-keys: gradle-
       - name: Gradle build
         working-directory: android
         env:
@@ -56,7 +64,12 @@ jobs:
           KEY_PASSWORD: ${{ secrets.KEY_PASSWORD }}
         run: |
           chmod +x gradlew
-          if [ -n "$KEYSTORE_PATH" ]; then ./gradlew assembleRelease --no-daemon; else ./gradlew assembleDebug --no-daemon; fi
+          # the Gradle download from GitHub sometimes times out — retry a few times
+          for i in 1 2 3; do
+            if [ -n "$KEYSTORE_PATH" ]; then ./gradlew assembleRelease --no-daemon && break; else ./gradlew assembleDebug --no-daemon && break; fi
+            echo "attempt $i failed, retrying in 30 s"; sleep 30
+            [ "$i" = 3 ] && exit 1
+          done
       - name: Collect APK
         run: |
           mkdir -p out
