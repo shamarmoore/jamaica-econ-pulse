@@ -15,14 +15,14 @@ idx = close.index
 N = len(idx)
 H = 63
 STEP = int(sys.argv[1]) if len(sys.argv) > 1 else 21
-MIN_CTX = 250
+MIN_CTX = int(sys.argv[2]) if len(sys.argv) > 2 else 250
 first_valid = close.apply(lambda s: s.first_valid_index())
 ff = close.ffill()
 print(f'{N} trading days {idx[0].date()} → {idx[-1].date()}, {close.shape[1]} symbols')
 
 rows = []
 t0 = time.time()
-origins = list(range(MIN_CTX + 60, N - H, STEP))
+origins = list(range(max(MIN_CTX, 130), N - H, STEP))
 for o in origins:
     d0 = idx[o]
     syms = [s for s in close.columns if first_valid[s] is not None and idx.get_loc(first_valid[s]) <= o - MIN_CTX
