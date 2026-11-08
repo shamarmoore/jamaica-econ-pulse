@@ -38,6 +38,10 @@ jobs:
       - name: Android SDK (preinstalled on runner)
         run: echo "ANDROID_HOME=$ANDROID_HOME" && ls $ANDROID_HOME/platforms | tail -3
       - run: npm ci
+      - name: Build in the read-only forecast token (repository secret FORECAST_TOKEN, if set)
+        env: { TOK: '${{ secrets.FORECAST_TOKEN }}' }
+        run: |
+          if [ -n "$TOK" ]; then printf "export const BUILT_IN_GH_TOKEN = '%s';\n" "$TOK" > www/js/config.js; echo "token built in"; else echo "no FORECAST_TOKEN secret — app will use the token entered in Sources"; fi
       - run: npx cap sync android
       - name: Restore signing key
         env: { KEYSTORE_B64: '${{ secrets.KEYSTORE_B64 }}' }

@@ -67,6 +67,21 @@ for i, s in enumerate(syms):
         'pref': is_pref(s),
         'fund': fund_summary(FUND.get(s)),
     }
+# ---- Edge score: the tested multi-signal ranking (see scripts/factor_study.py) ----
+try:
+    import factor_study as fs
+    study = json.load(open('data/factor_study.json'))
+    chosen = study['h63']['chosen']
+    edge = fs.edge_today(chosen)
+    for s_, e in edge.items():
+        if s_ in out['stocks']:
+            out['stocks'][s_]['edge'] = e
+    b = study['h63']['blends']['edge']
+    out['edgeInfo'] = {'labels': {k: fs.FEATURE_LABELS.get(k, k) for k in chosen}, 'signs': chosen, 'period': study['period'], 'split': study['h63']['split'],
+                       'oos': b['portfolio_oos_cost1pct'], 'all': b['portfolio_all_cost1pct'], 'oosIC': b['oosIC'], 'top5': study.get('top5'), 'byYear': study.get('byYear')}
+    print('EDGE', sorted(((v['score'], k) for k, v in edge.items()), reverse=True)[:8])
+except Exception as e:
+    print('edge score skipped:', e)
 json.dump(out, open('data/forecasts.json', 'w'), separators=(',', ':'))
 print('FORECASTS', len(out['stocks']), 'stocks as of', out['asof'])
 top = sorted(out['stocks'].items(), key=lambda kv: -(kv[1]['q'][-1][10] / kv[1]['close']))[:5]

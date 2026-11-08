@@ -656,15 +656,15 @@ async function jseBackfill() {
   }
   jseFill.running = false; jseFill.msg = ''; if (tab === 'decide' && sub === 'trade') bgRender();
 }
-const JSE_SORTS = [['fc', '3-mo forecast'], ['health', 'Financial health'], ['hype', 'Speculation'], ['m6', '6-month trend'], ['m3', '3-month'], ['m12', '12-month'], ['offHigh', 'Near 52-wk high'], ['chg', 'Today'], ['vol', 'Most traded'], ['az', 'A–Z']];
-let jseSort = 'health'; let jseQuery = ''; let jseAll = false;
+const JSE_SORTS = [['edge', 'Edge score'], ['fc', '3-mo forecast'], ['health', 'Financial health'], ['hype', 'Speculation'], ['m6', '6-month trend'], ['m3', '3-month'], ['m12', '12-month'], ['offHigh', 'Near 52-wk high'], ['chg', 'Today'], ['vol', 'Most traded'], ['az', 'A–Z']];
+let jseSort = 'edge'; let jseQuery = ''; let jseAll = false;
 const dark = () => matchMedia('(prefers-color-scheme: dark)').matches;
 function jseRows(d) {
   const L = d.jsequotes; const r = rankStocks(L, jseHist);
   let key = jseSort === 'm6' && !r.dates?.d6 ? (r.dates?.d3 ? 'm3' : 'offHigh') : jseSort;
-  if ((key === 'fc' || key === 'hype' || key === 'health') && !d.forecasts) key = r.dates?.d6 ? 'm6' : 'offHigh';
+  if (['fc', 'hype', 'health', 'edge'].includes(key) && !d.forecasts) key = r.dates?.d6 ? 'm6' : 'offHigh';
   const F = d.forecasts;
-  let rows = (r.all || []).map((x) => ({ ...x, fc: fcChange(F, x.sym), hype: F?.stocks?.[x.sym]?.hype?.score ?? null, health: F?.stocks?.[x.sym]?.health?.score ?? null }));
+  let rows = (r.all || []).map((x) => ({ ...x, fc: fcChange(F, x.sym), hype: F?.stocks?.[x.sym]?.hype?.score ?? null, health: F?.stocks?.[x.sym]?.health?.score ?? null, edge: F?.stocks?.[x.sym]?.edge?.score ?? null }));
   if (jseQuery) rows = rows.filter((x) => x.sym.includes(jseQuery.toUpperCase()));
   if (key === 'az') rows.sort((a, b) => a.sym.localeCompare(b.sym));
   else rows.sort((a, b) => ((b[key] ?? -1e9) - (a[key] ?? -1e9)));
@@ -678,9 +678,9 @@ function viewTrade(d) {
   const all = r.all || []; const up = all.filter((x) => x.chg > 0).length; const dn = all.filter((x) => x.chg < 0).length;
   const leaders = (r.rows || []).filter((x) => x.vol > 0).slice(0, 3).map((x) => x.sym);
   const shown = jseAll || jseQuery ? rows : rows.slice(0, 20);
-  const extra = key === 'health' ? [['health', 'Health']] : key === 'hype' ? [['hype', 'Spec.']] : [];
+  const extra = key === 'health' ? [['health', 'Health']] : key === 'hype' ? [['hype', 'Spec.']] : F ? [['edge', 'Edge']] : [];
   const cols = [...extra, ...(F ? [['fc', 'Fcst 3m']] : []), ['m6', '6m'], ['m12', '12m'], ['offHigh', 'vs high']].filter(([k]) => rows.some((x) => x[k] != null)).slice(0, 4);
-  const cell = (x, k) => (k === 'health' || k === 'hype' ? (x[k] == null ? '—' : `<b class="${k === 'health' ? HEALTH_LABEL(x[k])[1] : hypeLabel(x[k])[1]}">${x[k]}</b>`) : pct(x[k]));
+  const cell = (x, k) => (['health', 'hype', 'edge'].includes(k) ? (x[k] == null ? '—' : `<b class="${k === 'hype' ? hypeLabel(x[k])[1] : HEALTH_LABEL(x[k])[1]}">${x[k]}</b>`) : pct(x[k]));
   return `<section class="hero-b"><div class="gname">JSE stocks · ${L ? fd(L.date) : '—'}</div>
     ${L ? `<p class="lede-s">${all.length} stocks quoted · ${up} up, ${dn} down on the day${leaders.length ? ` · strongest ${r.basis === 'm6' ? '6-month' : r.basis === 'm3' ? '3-month' : ''} trends: ${leaders.join(', ')}` : ''}</p>` : ''}
     <p class="fine prog" id="jse-prog">${jseFill.running ? `<span class="spin"></span>${esc(jseFill.msg)}` : ''}</p>
@@ -694,7 +694,7 @@ function viewTrade(d) {
       ${shown.map((x) => `<tr data-sym="${esc(x.sym)}"><td><b>${esc(x.sym)}</b>${x.offHigh != null && x.offHigh < -35 ? ' <span class="bad">⚠</span>' : ''}${x.hype != null && x.hype >= 55 ? ' <span class="bad" title="Speculative trading">⚡</span>' : ''}${!x.vol ? ' <small class="fine">no trades</small>' : ''}</td><td>${fmt(x.close, 2)}</td><td>${x.chg != null && x.close ? pct((x.chg / (x.close - x.chg)) * 100) : '—'}</td>${cols.map(([k]) => `<td>${cell(x, k)}</td>`).join('')}</tr>`).join('')}
     </tbody></table></div>
     ${!jseAll && !jseQuery && rows.length > 20 ? `<button class="more" id="jse-all">Show all ${rows.length} stocks ›</button>` : ''}
-    <p class="fine">In our earlier JSE tests, the top third by 6-month trend beat the market by about 1.9 points per 3 months (3 of 4 test periods) — a lead, not a promise. ⚠ = more than 35% below its 52-week high (these kept lagging in tests). Prices exclude dividends; thinly traded stocks can be hard to buy at the quoted close. History builds up on your phone each day. Research shortlist, not advice.</p>`}
+    <p class="fine">Trend columns compare today’s close with saved closes (prices exclude dividends). In the latest tests (Mar 2023–Nov 2026, dividends included, buying the next day), 3- and 6-month trends on their own gave no reliable edge; being near the 52-week high and a positive 12-month trend helped a little and are part of the Edge score. ⚠ = more than 35% below its 52-week high. Thinly traded stocks can be hard to buy at the quoted close. Research shortlist, not advice.</p>`}
     <h2 class="sec">US & global stocks <small>live TradingView chart</small></h2>
     <div class="chips wrap">${TV_SYMBOLS.map(([l, sy]) => `<button data-tv="${sy}" class="${tvSym === sy ? 'on' : ''}">${l}</button>`).join('')}</div>
     <div class="calc2"><label>Any ticker (e.g. NASDAQ:AMD or NYSE:KO)<input id="tv-sym" value="${esc(tvSym)}" autocapitalize="characters" autocomplete="off"></label></div>
@@ -703,9 +703,8 @@ function viewTrade(d) {
 }
 const pts = (v) => `${v >= 0.05 ? '+' : v <= -0.05 ? '−' : ''}${fmt(Math.abs(v), 1)} pts`;
 function tradeLesson(F) {
-  const c = F?.backtest?.compare?.['63'] || F?.backtest?.compare?.[63]; const hs = c?.healthScoreAlone; const w = c?.withFinancials;
-  if (!hs || !w) return '';
-  return ` <b>What testing showed:</b> over 3 months, ranking by financial health picked winners best (top third ${pts(hs.topThirdExcess)} vs the market, ahead in ${hs.topThirdBeatPct}% of periods); the forecast’s own ranking was weaker (${pts(w.topThirdExcess)}) — use it for price ranges and target odds.`;
+  const E = F?.edgeInfo; const t5 = E?.top5?.oos; if (!E) return '';
+  return ` <b>Edge score</b> blends ${Object.keys(E.labels).length} signals that held up in testing (cheap vs profits, dividends, steady profits, no losses, strong latest quarter, steady price, liquidity…).${t5 ? ` On data the model hadn’t seen (${fd(E.split, false)}–${fd(E.period[1], false)}), buying the <b>top 5</b>, holding 3 months and re-picking returned <b>${signed(t5.annNet, 0)}/yr</b> after trading costs vs ${signed(t5.annMarket, 0)}/yr for the market, ahead in ${t5.beatPct}% of quarters. A single pick beat the market only ${t5.singlePickBeatPct}% of the time — spread money over the top 5–10.` : ''}`;
 }
 function bindTrade(v) {
   v.querySelectorAll('[data-tv]').forEach((b) => b.addEventListener('click', () => { tvSym = b.dataset.tv; render({ keepScroll: true }); }));
@@ -731,9 +730,10 @@ function stockSheet(sym) {
       <div class="ss">Day ${pctS(dayPct)} · volume ${(x.vol || 0).toLocaleString('en-US')}</div>${pts.length >= 2 ? spark(pts, { unit: '' }) : ''}</div>
     ${rangePos != null ? `<h4>52-week range</h4><div class="rng"><i style="left:calc(${rangePos}% - 1px)"></i></div><div class="tlab2"><span>J$${fmt(x.lo52, 2)}</span><span>${fmt(x.offHigh, 1)}% vs high</span><span>J$${fmt(x.hi52, 2)}</span></div>` : ''}
     <h4>Price change</h4><table class="yt"><tr><td>3 months</td><td>${pctS(x.m3)}</td></tr><tr><td>6 months</td><td>${pctS(x.m6)}</td></tr><tr><td>12 months</td><td>${pctS(x.m12)}</td></tr></table>
-    ${third ? `<p class="now">Ranks #${pos + 1} of ${rankList.length} by ${r.basis === 'm6' ? '6-month' : r.basis === 'm3' ? '3-month' : '52-week-high'} trend — ${third}.${third === 'top third' ? ' In our earlier JSE tests the top third tended to outperform over the next 3 months.' : third === 'bottom third' ? ' Weak trends tended to keep lagging in our earlier tests.' : ''}</p>` : ''}
+    ${third ? `<p class="fine">Ranks #${pos + 1} of ${rankList.length} by ${r.basis === 'm6' ? '6-month' : r.basis === 'm3' ? '3-month' : '52-week-high'} trend (${third}). Trend alone wasn’t a reliable signal in testing — see the Edge score.</p>` : ''}
     ${x.offHigh != null && x.offHigh < -35 ? '<p class="fine bad">⚠ More than 35% below its 52-week high — stocks like this kept lagging in our tests.</p>' : ''}
     ${!x.vol ? '<p class="fine">No shares traded on this day — the quoted price may be stale and hard to buy or sell at.</p>' : ''}
+    ${edgeBlock(d.forecasts, sym)}
     ${forecastBlock(d.forecasts, sym)}
     <h4>How to read this</h4><p class="fine">The trend figures compare today’s close with closes saved on your phone from 3, 6 and 12 months ago (prices exclude dividends). The 52-week bar shows where today’s price sits between the year’s low and high. This is a research shortlist, not a recommendation — check company results and news before buying.</p>
     <div class="btnrow"><a class="btn pri" href="https://www.jamstockex.com/trading/trade-quotes/?market=50&date=${L.date}" target="_blank" rel="noopener">JSE quotes ↗</a><button class="btn" data-close>Close</button></div>`,
@@ -741,9 +741,19 @@ function stockSheet(sym) {
 }
 
 // ---------- Timestral forecast: fan chart, target odds, speculation ----------
+function edgeBlock(F, sym) {
+  const e = F?.stocks?.[sym]?.edge; const E = F?.edgeInfo; if (!e || !E) return '';
+  const lab = HEALTH_LABEL(e.score); const sig = Object.entries(e.signals).sort((a, b) => b[1] - a[1]);
+  const good = sig.filter(([, v]) => v >= 70).slice(0, 4); const bad = sig.filter(([, v]) => v <= 30).slice(-3).reverse();
+  const t5 = E.top5?.oos;
+  return `<h4>Edge score · <b class="${lab[1]}">${e.score}/100</b> · #${e.rank} of ${e.of}</h4>
+    ${good.length ? `<p><b>Strengths:</b> ${good.map(([k, v]) => `${esc(E.labels[k] || k)} <small class="fine">(better than ${v}%)</small>`).join(' · ')}</p>` : ''}
+    ${bad.length ? `<p><b>Weak spots:</b> ${bad.map(([k, v]) => `${esc(E.labels[k] || k)} <small class="fine">(better than ${v}%)</small>`).join(' · ')}</p>` : ''}
+    <p class="fine">${e.rank <= 5 ? 'In today’s top 5. ' : e.rank <= 10 ? 'In today’s top 10. ' : ''}Tested approach: hold the top 5–10 for about 3 months, then re-pick.${t5 ? ` On unseen data that returned ${signed(t5.annNet, 0)}/yr after costs (market ${signed(t5.annMarket, 0)}/yr); its worst quarter was ${signed(t5.worstPeriod, 1)}.` : ''}</p>`;
+}
 const LV = (F, l) => F.levels.indexOf(l);
 function fanChart(F, sym, target) {
-  const s = F.stocks[sym]; const W = 340; const Hh = 180; const padL = 4; const padR = 44; const padT = 10; const padB = 22;
+  const s = F.stocks[sym]; const W = 340; const Hh = 190; const padL = 4; const padR = 92; const padT = 10; const padB = 22;
   const hist = s.hist.slice(-120); const n = hist.length; const total = n - 1 + F.horizon;
   const iq = { a: LV(F, 0.1), b: LV(F, 0.25), m: LV(F, 0.5), c: LV(F, 0.75), e: LV(F, 0.9) };
   const vals = [...hist.map((h) => h[1]), ...s.q.flatMap((q) => [q[iq.a], q[iq.e]]), ...(target ? [target] : [])];
@@ -758,7 +768,8 @@ function fanChart(F, sym, target) {
   // right-edge labels, nudged apart so they never overlap
   const labs = [[last[iq.e], ''], [last[iq.m], 'md'], [last[iq.a], ''], ...(target ? [[target, 'tg']] : [])].map(([v, c]) => ({ v, c, y: Y(v) + 3.5 })).sort((p, q) => p.y - q.y);
   for (let k = 1; k < labs.length; k++) if (labs[k].y - labs[k - 1].y < 11) labs[k].y = labs[k - 1].y + 11;
-  const labHtml = labs.map((l) => `<text x="${W - padR + 4}" y="${l.y.toFixed(1)}" class="fc-t ${l.c}">${fmt(l.v, l.v < 10 ? 2 : 1)}</text>`).join('');
+  const pc = (v) => { const p = (v / s.close - 1) * 100; return `${p >= 0 ? '+' : '−'}${fmt(Math.abs(p), Math.abs(p) < 10 ? 1 : 0)}%`; };
+  const labHtml = labs.map((l) => `<text x="${W - padR + 4}" y="${l.y.toFixed(1)}" class="fc-t ${l.c}">${fmt(l.v, l.v < 10 ? 2 : 1)} <tspan class="fc-p">${pc(l.v)}</tspan>${l.c === 'tg' ? ' target' : ''}</text>`).join('');
   return `<div class="fan" data-sym="${esc(sym)}"><svg viewBox="0 0 ${W} ${Hh}" width="100%" role="img" aria-label="Price history and 3-month forecast range">
     <path d="${band(iq.a, iq.e)}" class="fc-b1"/><path d="${band(iq.b, iq.c)}" class="fc-b2"/>
     <line x1="${X(n - 1)}" x2="${X(n - 1)}" y1="${padT}" y2="${Hh - padB}" class="fc-now"/>
@@ -767,7 +778,9 @@ function fanChart(F, sym, target) {
     <text x="${padL}" y="${Hh - 6}" class="fc-t">${fd(hist[0][0], false)}</text><text x="${X(n - 1)}" y="${Hh - 6}" class="fc-t" text-anchor="middle">today</text>
     <text x="${W - padR}" y="${Hh - 6}" class="fc-t" text-anchor="end">${fd(F.dates[F.dates.length - 1])}</text>
     <line class="fc-x" x1="0" x2="0" y1="${padT}" y2="${Hh - padB}" style="display:none"/></svg>
-    <div class="fan-read fine">Drag across the chart to read values · shaded: 50% and 80% ranges</div></div>`;
+    <div class="fan-key fine"><span><i class="k1"></i>80% range ${fmt(last[iq.a], 2)}–${fmt(last[iq.e], 2)} (${pc(last[iq.a])} to ${pc(last[iq.e])})</span>
+      <span><i class="k2"></i>middle ${fmt(last[iq.m], 2)} (${pc(last[iq.m])})</span>${target ? `<span><i class="k3"></i>target ${fmt(target, 2)} (${pc(target)})</span>` : ''}</div>
+    <div class="fan-read fine">Drag across the chart to read values</div></div>`;
 }
 function forecastBlock(F, sym) {
   const s = F?.stocks?.[sym];
@@ -859,13 +872,14 @@ function bindForecast(root, F, sym) {
 }
 function bindFan(root, F, sym) {
   const fan = root.querySelector('.fan'); if (!fan) return; const svg = fan.querySelector('svg'); const ln = svg.querySelector('.fc-x'); const rd = fan.querySelector('.fan-read');
-  const s = F.stocks[sym]; const hist = s.hist.slice(-120); const n = hist.length; const total = n - 1 + F.horizon; const W = 340; const padL = 4; const padR = 44;
+  const s = F.stocks[sym]; const hist = s.hist.slice(-120); const n = hist.length; const total = n - 1 + F.horizon; const W = 340; const padL = 4; const padR = 92;
   const move = (ev) => {
     const r = svg.getBoundingClientRect(); const x = ((ev.clientX - r.left) / r.width) * W; const i = Math.round(((x - padL) / (W - padL - padR)) * total);
     let txt; let xi;
     if (i <= n - 1) { const k = Math.max(0, i); xi = k; txt = `${fd(hist[k][0])}: J$${fmt(hist[k][1], 2)}`; }
     else { let k = F.steps.findIndex((st) => st >= i - (n - 1)); if (k < 0) k = F.steps.length - 1; xi = n - 1 + F.steps[k]; const q = s.q[k];
-      txt = `${fd(F.dates[k])} (forecast): middle J$${fmt(q[LV(F, 0.5)], 2)} · 80% range J$${fmt(q[LV(F, 0.1)], 2)}–${fmt(q[LV(F, 0.9)], 2)}`; }
+      const pp = (v) => signed((v / s.close - 1) * 100, 1);
+      txt = `${fd(F.dates[k])}: middle J$${fmt(q[LV(F, 0.5)], 2)} (${pp(q[LV(F, 0.5)])}) · 80% range J$${fmt(q[LV(F, 0.1)], 2)}–${fmt(q[LV(F, 0.9)], 2)} (${pp(q[LV(F, 0.1)])} to ${pp(q[LV(F, 0.9)])})`; }
     const px = padL + (xi / total) * (W - padL - padR); ln.setAttribute('x1', px); ln.setAttribute('x2', px); ln.style.display = ''; rd.textContent = txt;
   };
   svg.addEventListener('pointerdown', move); svg.addEventListener('pointermove', (e) => { if (e.buttons || e.pointerType !== 'mouse') move(e); });
@@ -1048,7 +1062,7 @@ function viewSources() {
       <a href="${s.home}" target="_blank" rel="noopener" class="fine">${s.home.replace('https://', '')}</a></li>`;
   }).join('')}</ul>
   <h2 class="sec">Stock forecasts <small>GitHub token, read-only</small></h2>
-  <p class="fine">Every weekday evening your GitHub runs Mistral’s Timestral model on all JSE stocks and saves the results in your private repo. To let this phone read them, make a token that can only read that one repo:</p>
+  <p class="fine">Every weekday evening your GitHub runs Mistral’s Timestral model and the Edge score on all JSE stocks and saves the results in your private repo. ${ghToken.builtIn() ? '<b class="good">A read-only token is built into this app</b> — nothing to do. You can paste a different one below to override it.' : 'To let this phone read them, make a token that can only read that one repo:'}</p>
   <ol class="fine steps"><li>Open <a href="https://github.com/settings/personal-access-tokens/new" target="_blank" rel="noopener">github.com/settings/personal-access-tokens/new</a> (fine-grained token).</li>
   <li>Name it “JA Econ Pulse”, expiration up to 1 year.</li><li>Repository access → <b>Only select repositories</b> → <b>jamaica-econ-pulse</b>.</li>
   <li>Permissions → Repository permissions → <b>Contents: Read-only</b>. Nothing else.</li><li>Generate, copy, and paste it here. It stays on this phone.</li></ol>

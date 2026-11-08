@@ -126,6 +126,26 @@ def load_fundamentals(path='data/jse_fundamentals.json'):
         return {}
 
 
+def fx_rate(f, price):
+    """J$ per unit of the company's reporting/dividend currency, relative to how its SHARE PRICE is quoted.
+    If dividends are in USD/TTD but converting them would give an absurd yield, the share itself is quoted in that
+    currency (e.g. JSE USD-market stocks), so no conversion applies."""
+    divs = [d for d in (f or {}).get('dividends', []) if d.get('ex') and d.get('amt')]
+    cur = divs[-1]['cur'] if divs else 'JMD'
+    rate = FX_TO_JMD.get(cur, 1.0)
+    if rate == 1.0 or price is None:
+        return 1.0
+    ys = []
+    for d in divs[-6:]:
+        try:
+            px = price.loc[:pd.Timestamp(d['ex'])].dropna()
+        except Exception:
+            continue
+        if len(px) and px.iloc[-1] > 0:
+            ys.append(d['amt'] * rate / px.iloc[-1])
+    return 1.0 if ys and np.median(ys) > 0.25 else rate
+
+
 def _quarter_events(f):
     """[(available_date, profit)] in time order. Quarter ends come from the fiscal year-end month (December if unknown);
     each quarter counts only 45 days after it ends (90 for the year-end quarter) so tests never peek early."""
@@ -152,8 +172,7 @@ def fundamental_series(f, price, index):
     out = pd.DataFrame(np.nan, index=index, columns=FEATS)
     if not f:
         return out
-    cur = next((d['cur'] for d in reversed(f.get('dividends', [])) if d.get('cur')), 'JMD')
-    fx = FX_TO_JMD.get(cur, 1.0)
+    fx = fx_rate(f, price)
     shares = f.get('shares')
     ev = _quarter_events(f)
     if ev and shares:
@@ -168,7 +187,7 @@ def fundamental_series(f, price, index):
         out['ey'] = (ttm_d * fx / mcap).clip(-0.5, 0.5)
         out['growth'] = ((ttm_d - prev_d) / prev_d.abs().replace(0, np.nan)).clip(-1, 2)
         out['lossq'] = loss_d
-    divs = [(pd.Timestamp(d['ex']), d['amt'] * FX_TO_JMD.get(d['cur'], 1.0)) for d in f.get('dividends', []) if d.get('ex')]
+    divs = [(pd.Timestamp(d['ex']), d['amt'] * (fx if d['cur'] != 'JMD' else 1.0)) for d in f.get('dividends', []) if d.get('ex')]
     if divs:
         ds = pd.Series([a for _, a in divs], index=pd.DatetimeIndex([d for d, _ in divs])).groupby(level=0).sum()
         daily = ds.reindex(index.union(ds.index)).fillna(0)

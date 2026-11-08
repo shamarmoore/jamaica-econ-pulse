@@ -33,6 +33,8 @@ jobs:
       - name: Back-test (first Monday of each month, or on request)
         run: |
           if [ "${{ inputs.backtest }}" = "yes" ] || { [ "$(date -u +%d)" -le 07 ] && [ "$(date -u +%u)" = 1 ]; }; then python scripts/backtest_ts.py 21 120; else echo "not this run"; fi
+      - name: Signal study + Edge score inputs (fast)
+        run: python scripts/factor_study.py > /dev/null && echo "study ok"
       - name: Forecast every stock
         run: if [ -f scripts/forecast.py ]; then python scripts/forecast.py; fi
       - name: Save

@@ -278,3 +278,9 @@ tr[data-sym] td:first-child b { text-decoration: underline dotted; text-underlin
 .fan-read { min-height: 1.4em; }
 ol.steps { padding-left: 20px; margin: 4px 0 8px; }
 ol.steps li { margin: 2px 0; }
+.fc-p { fill: var(--muted); font-weight: 400; }
+.fan-key { display: flex; flex-wrap: wrap; gap: 4px 12px; margin-top: 4px; }
+.fan-key i { display: inline-block; width: 12px; height: 8px; margin-right: 4px; vertical-align: middle; border-radius: 2px; }
+.fan-key .k1 { background: var(--ink); opacity: 0.18; }
+.fan-key .k2 { height: 0; border-top: 2px dashed var(--ink); border-radius: 0; }
+.fan-key .k3 { height: 0; border-top: 1.5px dotted var(--muted); border-radius: 0; }

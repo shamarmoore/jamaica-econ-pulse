@@ -1,3 +1,4 @@
+import { BUILT_IN_GH_TOKEN } from './config.js';
 // Every data source the app scrapes, straight from the publisher. Each fetcher returns plain JSON
 // so results can be cached on the phone. If a publisher changes its page, only that card goes stale.
 import { listings as scrapeListings, analystJobs } from './homes.js';
@@ -203,7 +204,9 @@ function parseFredCSV(csv) {
 // Nightly JSE forecasts (Timestral) live in the user's private GitHub repo; read with their read-only token.
 const GH_KEY = 'ep_ghtoken_v1';
 export const ghToken = {
-  get() { try { return (globalThis.localStorage?.getItem(GH_KEY) || globalThis.process?.env?.GH_READ_TOKEN || '').trim(); } catch (_) { return ''; } },
+  // a token typed into Sources wins; otherwise the one built into the APK; otherwise (tests) an env variable
+  get() { try { return (globalThis.localStorage?.getItem(GH_KEY) || BUILT_IN_GH_TOKEN || globalThis.process?.env?.GH_READ_TOKEN || '').trim(); } catch (_) { return ''; } },
+  builtIn: () => !!BUILT_IN_GH_TOKEN,
   set(v) { try { globalThis.localStorage?.setItem(GH_KEY, String(v || '').trim()); } catch (_) { /* ignore */ } },
 };
 export const FORECAST_REPO = 'shamarmoore/jamaica-econ-pulse';
