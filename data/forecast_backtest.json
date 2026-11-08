@@ -1,275 +1,475 @@
 {
- "origins": 41,
- "cases": 4905,
- "from": "2024-12-27",
- "to": "2026-08-04",
+ "origins": 70,
+ "cases": 8274,
+ "from": "2023-11-01",
+ "to": "2026-08-05",
  "model": "Timestral-209M",
+ "basis": "buy at the next day\u2019s close after the forecast",
  "horizons": {
   "21": {
-   "directionAcc": 61.1,
-   "directionCases": 3004,
-   "alwaysUpAcc": 40.3,
-   "momentumDirAcc": 45.8,
-   "ic": 0.251,
-   "icT": 16.71,
-   "icPositivePct": 100,
-   "momIc": -0.074,
-   "momIcT": -4.75,
-   "topThirdExcess": 2.56,
-   "topThirdBeatPct": 98,
-   "bottomThirdExcess": -1.96,
-   "momTopThirdExcess": -1.2,
-   "coverage50": 50.4,
-   "coverage80": 78.7,
-   "coverage90": 88.8
+   "ic": 0.11,
+   "icT": 6.21,
+   "icPositivePct": 83,
+   "topThirdExcess": 1.07,
+   "topThirdBeatPct": 77,
+   "bottomThirdExcess": -1.02,
+   "origins": 70,
+   "directionAcc": 53.9,
+   "alwaysUpAcc": 42.3,
+   "coverage80": 80.5,
+   "coverage50": 51.3,
+   "momTopThirdExcess": -0.4
   },
   "63": {
+   "ic": 0.083,
+   "icT": 2.6,
+   "icPositivePct": 71,
+   "topThirdExcess": 0.82,
+   "topThirdBeatPct": 69,
+   "bottomThirdExcess": -1.08,
+   "origins": 70,
    "directionAcc": 53.8,
-   "directionCases": 3746,
-   "alwaysUpAcc": 38.5,
-   "momentumDirAcc": 47.6,
-   "ic": 0.106,
-   "icT": 7.96,
-   "icPositivePct": 88,
-   "momIc": -0.043,
-   "momIcT": -2.49,
-   "topThirdExcess": 1.09,
-   "topThirdBeatPct": 63,
-   "bottomThirdExcess": -0.56,
-   "momTopThirdExcess": -0.97,
-   "coverage50": 45.8,
-   "coverage80": 73.9,
-   "coverage90": 85.3
+   "alwaysUpAcc": 41.5,
+   "coverage80": 81.3,
+   "coverage50": 52.4,
+   "momTopThirdExcess": -0.02
+  }
+ },
+ "compare": {
+  "21": {
+   "priceOnly": {
+    "ic": 0.078,
+    "icT": 4.44,
+    "icPositivePct": 80,
+    "topThirdExcess": 0.73,
+    "topThirdBeatPct": 63,
+    "bottomThirdExcess": -0.65,
+    "origins": 70
+   },
+   "withFinancials": {
+    "ic": 0.098,
+    "icT": 5.1,
+    "icPositivePct": 83,
+    "topThirdExcess": 0.94,
+    "topThirdBeatPct": 70,
+    "bottomThirdExcess": -0.93,
+    "origins": 70
+   },
+   "healthScoreAlone": {
+    "ic": 0.101,
+    "icT": 4.9,
+    "icPositivePct": 81,
+    "topThirdExcess": 0.97,
+    "topThirdBeatPct": 79,
+    "bottomThirdExcess": -0.89,
+    "origins": 70
+   },
+   "earningsYieldAlone": {
+    "ic": 0.091,
+    "icT": 4.47,
+    "icPositivePct": 80,
+    "topThirdExcess": 1.1,
+    "topThirdBeatPct": 79,
+    "bottomThirdExcess": -0.96,
+    "origins": 70
+   },
+   "profitGrowthAlone": {
+    "ic": 0.066,
+    "icT": 3.38,
+    "icPositivePct": 71,
+    "topThirdExcess": 0.72,
+    "topThirdBeatPct": 67,
+    "bottomThirdExcess": -0.94,
+    "origins": 70
+   },
+   "dividendYieldAlone": {
+    "ic": 0.061,
+    "icT": 2.96,
+    "icPositivePct": 71,
+    "topThirdExcess": 0.45,
+    "topThirdBeatPct": 54,
+    "bottomThirdExcess": -0.43,
+    "origins": 70
+   },
+   "forecastPlusHealth": {
+    "ic": 0.126,
+    "icT": 6.47,
+    "icPositivePct": 81,
+    "topThirdExcess": 1.26,
+    "topThirdBeatPct": 77,
+    "bottomThirdExcess": -1.13,
+    "origins": 70
+   },
+   "momentum6m": {
+    "ic": 0.004,
+    "icT": 0.23,
+    "icPositivePct": 54,
+    "topThirdExcess": -0.21,
+    "topThirdBeatPct": 46,
+    "bottomThirdExcess": 0.32,
+    "origins": 70
+   },
+   "coverage80": {
+    "priceOnly": 79.1,
+    "withFinancials": 80.2
+   },
+   "liquidOnly": {
+    "priceOnly": {
+     "ic": 0.072,
+     "icT": 3.73,
+     "icPositivePct": 73,
+     "topThirdExcess": 0.49,
+     "topThirdBeatPct": 64,
+     "bottomThirdExcess": -0.56,
+     "origins": 70
+    },
+    "withFinancials": {
+     "ic": 0.092,
+     "icT": 4.27,
+     "icPositivePct": 76,
+     "topThirdExcess": 0.73,
+     "topThirdBeatPct": 60,
+     "bottomThirdExcess": -0.79,
+     "origins": 70
+    },
+    "healthScoreAlone": {
+     "ic": 0.101,
+     "icT": 4.5,
+     "icPositivePct": 80,
+     "topThirdExcess": 1.0,
+     "topThirdBeatPct": 80,
+     "bottomThirdExcess": -0.78,
+     "origins": 70
+    }
+   }
+  },
+  "63": {
+   "priceOnly": {
+    "ic": 0.018,
+    "icT": 0.59,
+    "icPositivePct": 51,
+    "topThirdExcess": 0.04,
+    "topThirdBeatPct": 41,
+    "bottomThirdExcess": -0.07,
+    "origins": 70
+   },
+   "withFinancials": {
+    "ic": 0.065,
+    "icT": 1.96,
+    "icPositivePct": 73,
+    "topThirdExcess": 0.67,
+    "topThirdBeatPct": 67,
+    "bottomThirdExcess": -0.83,
+    "origins": 70
+   },
+   "healthScoreAlone": {
+    "ic": 0.176,
+    "icT": 4.76,
+    "icPositivePct": 96,
+    "topThirdExcess": 2.43,
+    "topThirdBeatPct": 89,
+    "bottomThirdExcess": -2.61,
+    "origins": 70
+   },
+   "earningsYieldAlone": {
+    "ic": 0.152,
+    "icT": 4.0,
+    "icPositivePct": 87,
+    "topThirdExcess": 2.6,
+    "topThirdBeatPct": 86,
+    "bottomThirdExcess": -2.28,
+    "origins": 70
+   },
+   "profitGrowthAlone": {
+    "ic": 0.121,
+    "icT": 3.65,
+    "icPositivePct": 86,
+    "topThirdExcess": 1.78,
+    "topThirdBeatPct": 77,
+    "bottomThirdExcess": -2.53,
+    "origins": 70
+   },
+   "dividendYieldAlone": {
+    "ic": 0.111,
+    "icT": 3.04,
+    "icPositivePct": 83,
+    "topThirdExcess": 1.49,
+    "topThirdBeatPct": 74,
+    "bottomThirdExcess": -1.19,
+    "origins": 70
+   },
+   "forecastPlusHealth": {
+    "ic": 0.14,
+    "icT": 4.09,
+    "icPositivePct": 87,
+    "topThirdExcess": 1.71,
+    "topThirdBeatPct": 76,
+    "bottomThirdExcess": -1.9,
+    "origins": 70
+   },
+   "momentum6m": {
+    "ic": 0.039,
+    "icT": 1.05,
+    "icPositivePct": 66,
+    "topThirdExcess": 0.34,
+    "topThirdBeatPct": 61,
+    "bottomThirdExcess": -0.34,
+    "origins": 70
+   },
+   "coverage80": {
+    "priceOnly": 74.9,
+    "withFinancials": 80.7
+   },
+   "liquidOnly": {
+    "priceOnly": {
+     "ic": 0.008,
+     "icT": 0.21,
+     "icPositivePct": 51,
+     "topThirdExcess": -0.54,
+     "topThirdBeatPct": 37,
+     "bottomThirdExcess": 0.11,
+     "origins": 70
+    },
+    "withFinancials": {
+     "ic": 0.051,
+     "icT": 1.34,
+     "icPositivePct": 64,
+     "topThirdExcess": 0.14,
+     "topThirdBeatPct": 59,
+     "bottomThirdExcess": -0.44,
+     "origins": 70
+    },
+    "healthScoreAlone": {
+     "ic": 0.173,
+     "icT": 4.55,
+     "icPositivePct": 93,
+     "topThirdExcess": 2.47,
+     "topThirdBeatPct": 90,
+     "bottomThirdExcess": -2.33,
+     "origins": 70
+    }
+   }
   }
  },
  "target10": {
-  "baseRate": 0.388,
-  "brier": 0.2352,
-  "brierBaseRate": 0.2374,
+  "baseRate": 0.406,
+  "brier": 0.2556,
+  "brierBaseRate": 0.2412,
   "table": [
    {
     "lo": 0,
     "hi": 0.05,
-    "n": 986,
-    "pred": 0.031,
-    "actual": 0.138
+    "n": 796,
+    "pred": 0.037,
+    "actual": 0.153
    },
    {
     "lo": 0.05,
     "hi": 0.1,
-    "n": 599,
-    "pred": 0.078,
-    "actual": 0.254
+    "n": 1065,
+    "pred": 0.079,
+    "actual": 0.239
    },
    {
     "lo": 0.1,
     "hi": 0.2,
-    "n": 1015,
-    "pred": 0.15,
-    "actual": 0.417
+    "n": 2550,
+    "pred": 0.152,
+    "actual": 0.367
    },
    {
     "lo": 0.2,
     "hi": 0.3,
-    "n": 906,
+    "n": 1988,
     "pred": 0.247,
-    "actual": 0.387
+    "actual": 0.449
    },
    {
     "lo": 0.3,
     "hi": 0.4,
-    "n": 648,
-    "pred": 0.346,
-    "actual": 0.491
+    "n": 1067,
+    "pred": 0.344,
+    "actual": 0.53
    },
    {
     "lo": 0.4,
     "hi": 0.5,
-    "n": 378,
-    "pred": 0.442,
-    "actual": 0.542
+    "n": 493,
+    "pred": 0.445,
+    "actual": 0.669
    },
    {
     "lo": 0.5,
     "hi": 0.65,
-    "n": 291,
-    "pred": 0.561,
-    "actual": 0.828
+    "n": 262,
+    "pred": 0.555,
+    "actual": 0.809
    },
    {
     "lo": 0.65,
     "hi": 1.0,
-    "n": 82,
-    "pred": 0.709,
-    "actual": 0.915
+    "n": 53,
+    "pred": 0.733,
+    "actual": 0.906
    }
   ],
-  "dateCases": 316,
-  "dateMedianErrDays": 10.0
+  "dateMedianErrDays": 7.5
  },
  "target20": {
-  "baseRate": 0.176,
-  "brier": 0.1361,
-  "brierBaseRate": 0.145,
+  "baseRate": 0.186,
+  "brier": 0.1477,
+  "brierBaseRate": 0.1513,
   "table": [
    {
     "lo": 0,
     "hi": 0.05,
-    "n": 2303,
-    "pred": 0.024,
-    "actual": 0.083
+    "n": 2703,
+    "pred": 0.033,
+    "actual": 0.087
    },
    {
     "lo": 0.05,
     "hi": 0.1,
-    "n": 780,
-    "pred": 0.076,
-    "actual": 0.195
+    "n": 2173,
+    "pred": 0.078,
+    "actual": 0.171
    },
    {
     "lo": 0.1,
     "hi": 0.2,
-    "n": 922,
-    "pred": 0.146,
-    "actual": 0.208
+    "n": 2188,
+    "pred": 0.143,
+    "actual": 0.236
    },
    {
     "lo": 0.2,
     "hi": 0.3,
-    "n": 500,
-    "pred": 0.244,
-    "actual": 0.266
+    "n": 814,
+    "pred": 0.243,
+    "actual": 0.276
    },
    {
     "lo": 0.3,
     "hi": 0.4,
-    "n": 234,
-    "pred": 0.348,
+    "n": 270,
+    "pred": 0.343,
     "actual": 0.415
    },
    {
     "lo": 0.4,
     "hi": 0.5,
-    "n": 124,
-    "pred": 0.443,
-    "actual": 0.508
+    "n": 92,
+    "pred": 0.434,
+    "actual": 0.598
    },
    {
     "lo": 0.5,
     "hi": 0.65,
-    "n": 36,
-    "pred": 0.548,
-    "actual": 0.833
+    "n": 27,
+    "pred": 0.556,
+    "actual": 0.63
    }
   ],
-  "dateCases": 34,
-  "dateMedianErrDays": 24.0
+  "dateMedianErrDays": 7.0
  },
  "target30": {
-  "baseRate": 0.098,
-  "brier": 0.0823,
-  "brierBaseRate": 0.0883,
+  "baseRate": 0.095,
+  "brier": 0.0827,
+  "brierBaseRate": 0.0863,
   "table": [
    {
     "lo": 0,
     "hi": 0.05,
-    "n": 3228,
-    "pred": 0.02,
-    "actual": 0.046
+    "n": 4710,
+    "pred": 0.03,
+    "actual": 0.052
    },
    {
     "lo": 0.05,
     "hi": 0.1,
-    "n": 701,
-    "pred": 0.075,
-    "actual": 0.165
+    "n": 1927,
+    "pred": 0.076,
+    "actual": 0.115
    },
    {
     "lo": 0.1,
     "hi": 0.2,
-    "n": 609,
-    "pred": 0.142,
-    "actual": 0.164
+    "n": 1208,
+    "pred": 0.141,
+    "actual": 0.166
    },
    {
     "lo": 0.2,
     "hi": 0.3,
-    "n": 241,
-    "pred": 0.245,
-    "actual": 0.257
+    "n": 301,
+    "pred": 0.242,
+    "actual": 0.246
    },
    {
     "lo": 0.3,
     "hi": 0.4,
-    "n": 93,
-    "pred": 0.344,
-    "actual": 0.355
+    "n": 99,
+    "pred": 0.338,
+    "actual": 0.374
    },
    {
     "lo": 0.4,
     "hi": 0.5,
-    "n": 23,
+    "n": 22,
     "pred": 0.445,
-    "actual": 0.565
+    "actual": 0.364
    }
   ],
-  "dateCases": 7,
   "dateMedianErrDays": 36.0
  },
  "calibration": [
   [
-   0.023,
+   0.032,
    0.073
   ],
   [
-   0.076,
-   0.202
+   0.077,
+   0.164
   ],
   [
-   0.147,
-   0.281
+   0.146,
+   0.278
   ],
   [
-   0.246,
-   0.332
+   0.245,
+   0.384
   ],
   [
-   0.346,
-   0.459
+   0.343,
+   0.498
   ],
   [
-   0.442,
-   0.535
+   0.443,
+   0.647
   ],
   [
-   0.559,
-   0.825
+   0.555,
+   0.787
   ],
   [
-   0.709,
-   0.898
+   0.731,
+   0.867
   ]
  ],
  "hype": {
   "21": {
-   "nHigh": 55,
-   "highMean": -0.61,
-   "lowMean": -1.13,
-   "highExcessVsMarket": -0.43,
-   "highWorsePct": 50,
-   "highSd": 20.4,
-   "lowSd": 10.7,
-   "ic": 0.094
+   "nHigh": 95,
+   "highExcessVsMarket": 0.68,
+   "highWorsePct": 58,
+   "highSd": 21.7,
+   "lowSd": 9.9
   },
   "63": {
-   "nHigh": 55,
-   "highMean": -0.61,
-   "lowMean": -1.96,
-   "highExcessVsMarket": 3.61,
-   "highWorsePct": 57,
-   "highSd": 28.2,
-   "lowSd": 16.3,
-   "ic": 0.064
+   "nHigh": 95,
+   "highExcessVsMarket": 6.61,
+   "highWorsePct": 42,
+   "highSd": 29.5,
+   "lowSd": 15.8
   }
  }
 }
