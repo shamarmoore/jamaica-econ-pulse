@@ -3,15 +3,9 @@ on: { push: { branches: [probe-fund] } }
 jobs:
   p:
     runs-on: ubuntu-latest
-    permissions: { contents: write }
     steps:
       - uses: actions/checkout@v4
-      - uses: actions/setup-node@v4
-        with: { node-version: 22 }
       - uses: actions/setup-python@v5
         with: { python-version: '3.11' }
-      - run: pip install -q torch --index-url https://download.pytorch.org/whl/cpu && pip install -q numpy huggingface_hub "git+https://github.com/mistralai/timestral" && python sig.py
-      - run: node scripts/jse_fundamentals.mjs
-      - run: |
-          git config user.name bot; git config user.email actions@users.noreply.github.com
-          git add data && git commit -qm "fund out" && git push -q
+      - run: pip install -q torch --index-url https://download.pytorch.org/whl/cpu && pip install -q numpy pandas scipy huggingface_hub "git+https://github.com/mistralai/timestral"
+      - run: timeout 1500 python -u scripts/backtest_ts.py 42 120
