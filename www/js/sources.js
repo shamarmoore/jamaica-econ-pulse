@@ -200,6 +200,23 @@ function parseFredCSV(csv) {
   }
   return pts;
 }
+// Nightly JSE forecasts (Timestral) live in the user's private GitHub repo; read with their read-only token.
+const GH_KEY = 'ep_ghtoken_v1';
+export const ghToken = {
+  get() { try { return (globalThis.localStorage?.getItem(GH_KEY) || globalThis.process?.env?.GH_READ_TOKEN || '').trim(); } catch (_) { return ''; } },
+  set(v) { try { globalThis.localStorage?.setItem(GH_KEY, String(v || '').trim()); } catch (_) { /* ignore */ } },
+};
+export const FORECAST_REPO = 'shamarmoore/jamaica-econ-pulse';
+async function jseForecasts() {
+  const tok = ghToken.get();
+  if (!tok) throw new Error('Add your read-only GitHub token under Sources to load stock forecasts.');
+  const txt = await getText(`https://api.github.com/repos/${FORECAST_REPO}/contents/data/forecasts.json?ref=main`, 30000,
+    { Authorization: `Bearer ${tok}`, Accept: 'application/vnd.github.raw+json', 'X-GitHub-Api-Version': '2022-11-28' });
+  const j = JSON.parse(txt);
+  if (!j?.stocks || !Object.keys(j.stocks).length) throw new Error('Forecast file is empty — the nightly job may not have run yet.');
+  return j;
+}
+
 // FRED's official API needs a free personal key (fredaccount.stlouisfed.org/apikeys). Without one we try
 // FRED's public CSV download, which works from many networks but is refused on some phone connections.
 const FRED_KEY = 'ep_fredkey_v1';
@@ -422,6 +439,7 @@ export const SOURCES = [
   { id: 'jobs', name: 'CaribbeanJobs', home: 'https://www.caribbeanjobs.com/analyst-jobs', scope: 'Jamaica', what: 'Job openings with “analyst” in the title', fn: analystJobs, ttlH: 8 },
   { id: 'cars', name: 'Car listings (AutoAdsJa, Gleaner Classifieds)', home: 'https://www.autoadsja.com/', scope: 'Jamaica', what: 'Recently posted Honda Civics and Toyota GT86s', fn: carListings, ttlH: 6 },
   { id: 'jsequotes', name: 'JSE Trade Quotes', home: 'https://www.jamstockex.com/trading/trade-quotes/', scope: 'Jamaica', what: 'Daily closing prices, volume and 52-week ranges for the stock picker', fn: jseQuotes, ttlH: 8 },
+  { id: 'forecasts', name: 'JSE forecasts (Timestral, nightly)', home: `https://github.com/${FORECAST_REPO}/actions`, scope: 'Jamaica', what: '3-month price ranges, target odds and speculation scores for every JSE stock, made nightly on your GitHub', fn: jseForecasts, ttlH: 6, optional: true },
   { id: 'gnews', name: 'Global news (BBC, CNBC, FT, Guardian, NPR, MarketWatch, OilPrice)', home: 'https://feeds.bbci.co.uk/news/business/', scope: 'World', what: 'World business & economy headlines tagged by how they reach Jamaica', fn: globalNews, ttlH: 2 },
   { id: 'imf', name: 'IMF World Economic Outlook', home: 'https://www.imf.org/external/datamapper/profile/JAM', scope: 'Jamaica + partners', what: 'Growth, inflation, debt, current account — history & projections', fn: imf, ttlH: 72 },
   { id: 'worldbank', name: 'World Bank', home: 'https://data.worldbank.org/country/jamaica', scope: 'Jamaica', what: 'Structural exposure: remittances, tourism, reserves, import mix', fn: worldbank, ttlH: 168 },

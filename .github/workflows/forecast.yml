@@ -5,6 +5,7 @@ on:
     inputs:
       start: { description: 'History start date', default: '2021-01-04' }
       maxdays: { description: 'Max trading days to fetch this run', default: '120' }
+      backtest: { description: 'Re-run the back-test (yes/no)', default: 'no' }
   schedule:
     - cron: '23 23 * * 1-5'   # 6:23 pm Jamaica, weekdays, after JSE quotes post
 
@@ -13,7 +14,7 @@ concurrency: { group: forecast, cancel-in-progress: false }
 jobs:
   update:
     runs-on: ubuntu-latest
-    timeout-minutes: 60
+    timeout-minutes: 240
     permissions: { contents: write }
     steps:
       - uses: actions/checkout@v4
@@ -21,12 +22,17 @@ jobs:
         with: { node-version: 22 }
       - name: Update JSE daily history
         run: node scripts/jse_history.mjs "${{ inputs.start || '2021-01-04' }}" "${{ inputs.maxdays || '120' }}"
+      - name: Update company financials (weekly per stock)
+        run: node scripts/jse_fundamentals.mjs 6 || echo "financials update skipped"
       - uses: actions/setup-python@v5
         with: { python-version: '3.11' }
       - name: Install Timestral (CPU)
         run: |
           pip install -q torch --index-url https://download.pytorch.org/whl/cpu
-          pip install -q numpy pandas huggingface_hub "git+https://github.com/mistralai/timestral"
+          pip install -q numpy pandas scipy huggingface_hub "git+https://github.com/mistralai/timestral"
+      - name: Back-test (first Monday of each month, or on request)
+        run: |
+          if [ "${{ inputs.backtest }}" = "yes" ] || { [ "$(date -u +%d)" -le 07 ] && [ "$(date -u +%u)" = 1 ]; }; then python scripts/backtest_ts.py 21 120; else echo "not this run"; fi
       - name: Forecast every stock
         run: if [ -f scripts/forecast.py ]; then python scripts/forecast.py; fi
       - name: Save

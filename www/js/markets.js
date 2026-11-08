@@ -111,3 +111,37 @@ export async function globalNews() {
   const seen = new Set();
   return { items: items.filter((x) => (seen.has(x.title.toLowerCase()) ? false : seen.add(x.title.toLowerCase()))).sort((a, b) => b.ts - a.ts) };
 }
+
+// ---------- Timestral forecast helpers (data from the nightly GitHub job) ----------
+// P(price >= target) at one forecast step, from that step's quantiles.
+export function exceed(qs, levels, target) {
+  const q = []; let m = -Infinity; for (const x of qs) { m = Math.max(m, x); q.push(m); }
+  if (target <= q[0]) return 1 - levels[0];
+  if (target >= q[q.length - 1]) return 1 - levels[levels.length - 1];
+  for (let i = 1; i < q.length; i++) {
+    if (target <= q[i]) { const f = q[i] === q[i - 1] ? 0 : (target - q[i - 1]) / (q[i] - q[i - 1]); return 1 - (levels[i - 1] + f * (levels[i] - levels[i - 1])); }
+  }
+  return 0.01;
+}
+// Apply the back-tested calibration map [[predicted, actual], ...] (piecewise linear, clamped).
+export function calibrate(p, map) {
+  if (!map?.length) return p;
+  const pts = [[0, 0], ...map, [1, Math.max(map[map.length - 1][1], 0.99)]];
+  for (let i = 1; i < pts.length; i++) if (p <= pts[i][0]) { const [x0, y0] = pts[i - 1]; const [x1, y1] = pts[i]; return y0 + (x1 === x0 ? 0 : ((p - x0) / (x1 - x0)) * (y1 - y0)); }
+  return pts[pts.length - 1][1];
+}
+// Chance of touching the target within the horizon and the first forecast date it becomes more likely than not.
+export function targetOdds(F, sym, target) {
+  const s = F?.stocks?.[sym]; if (!s || !target) return null;
+  const up = target >= s.close;
+  const probs = s.q.map((qs) => (up ? exceed(qs, F.levels, target) : 1 - exceed(qs, F.levels, target)));
+  let best = 0; let bestI = 0; probs.forEach((p, i) => { if (p > best) { best = p; bestI = i; } });
+  const firstI = probs.findIndex((p) => p >= 0.5);
+  return {
+    raw: best, p: up ? calibrate(best, F.calibration) : best, bestDate: F.dates[bestI],
+    likelyDate: firstI >= 0 ? F.dates[firstI] : null, probs, up,
+  };
+}
+export const fcAt = (F, sym, lvl, step = -1) => { const s = F?.stocks?.[sym]; if (!s) return null; const q = s.q[step < 0 ? s.q.length + step : step]; return q[F.levels.indexOf(lvl)]; };
+export const fcChange = (F, sym) => { const s = F?.stocks?.[sym]; const m = fcAt(F, sym, 0.5); return s && m != null ? (m / s.close - 1) * 100 : null; };
+export const hypeLabel = (h) => (h == null ? null : h >= 55 ? ['Speculative', 'bad'] : h >= 30 ? ['Heating up', 'warn'] : ['Calm', 'good']);

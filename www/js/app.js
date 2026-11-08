@@ -3,9 +3,9 @@ import { analyse, borrowing } from './analysis.js';
 import { decide, PROFILES, ASSETS } from './decisions.js';
 import { NHT_DEFAULTS, FIN_DEFAULTS, scenario, bestScenario, geocode, driveTimes, pmt as pmt2, MODES, JOINT } from './homes.js';
 import { EXPLAIN } from './explain.js';
-import { fredKey } from './sources.js';
+import { fredKey, ghToken } from './sources.js';
 import { MODELS, jacarsLinks } from './cars.js';
-import { quotesOn, rankStocks, TV_SYMBOLS, tvUrl, GLOBAL_TAGS } from './markets.js';
+import { quotesOn, rankStocks, TV_SYMBOLS, tvUrl, GLOBAL_TAGS, targetOdds, fcAt, fcChange, hypeLabel } from './markets.js';
 import { fmt, signed, last, changeOver, yoySeries } from './util.js';
 
 const KEY = 'ep_cache_v1';
@@ -74,7 +74,7 @@ function status() {
   const el = $('#status');
   if (running.size) { el.innerHTML = `<span class="spin"></span>Fetching ${running.size} source${running.size > 1 ? 's' : ''}…`; return; }
   const times = SOURCES.map((s) => cache[s.id]?.at).filter(Boolean);
-  const fails = SOURCES.filter((s) => cache[s.id]?.error && (!cache[s.id].at || cache[s.id].errorAt > cache[s.id].at));
+  const fails = SOURCES.filter((s) => !(s.optional && !ghToken.get()) && cache[s.id]?.error && (!cache[s.id].at || cache[s.id].errorAt > cache[s.id].at));
   const newest = times.length ? new Date(Math.max(...times)) : null;
   el.innerHTML = newest
     ? `Updated ${ago(newest)}${fails.length ? ` · <button class="linkish" data-goto="sources">${fails.length} source${fails.length > 1 ? 's' : ''} unreachable</button>` : ' · all sources live'}`
@@ -656,13 +656,15 @@ async function jseBackfill() {
   }
   jseFill.running = false; jseFill.msg = ''; if (tab === 'decide' && sub === 'trade') bgRender();
 }
-const JSE_SORTS = [['m6', '6-month trend'], ['m3', '3-month'], ['m12', '12-month'], ['offHigh', 'Near 52-wk high'], ['chg', 'Today'], ['vol', 'Most traded'], ['az', 'A–Z']];
-let jseSort = 'm6'; let jseQuery = ''; let jseAll = false;
+const JSE_SORTS = [['fc', '3-mo forecast'], ['health', 'Financial health'], ['hype', 'Speculation'], ['m6', '6-month trend'], ['m3', '3-month'], ['m12', '12-month'], ['offHigh', 'Near 52-wk high'], ['chg', 'Today'], ['vol', 'Most traded'], ['az', 'A–Z']];
+let jseSort = 'health'; let jseQuery = ''; let jseAll = false;
 const dark = () => matchMedia('(prefers-color-scheme: dark)').matches;
 function jseRows(d) {
   const L = d.jsequotes; const r = rankStocks(L, jseHist);
-  const key = jseSort === 'm6' && !r.dates?.d6 ? (r.dates?.d3 ? 'm3' : 'offHigh') : jseSort;
-  let rows = (r.all || []).slice();
+  let key = jseSort === 'm6' && !r.dates?.d6 ? (r.dates?.d3 ? 'm3' : 'offHigh') : jseSort;
+  if ((key === 'fc' || key === 'hype' || key === 'health') && !d.forecasts) key = r.dates?.d6 ? 'm6' : 'offHigh';
+  const F = d.forecasts;
+  let rows = (r.all || []).map((x) => ({ ...x, fc: fcChange(F, x.sym), hype: F?.stocks?.[x.sym]?.hype?.score ?? null, health: F?.stocks?.[x.sym]?.health?.score ?? null }));
   if (jseQuery) rows = rows.filter((x) => x.sym.includes(jseQuery.toUpperCase()));
   if (key === 'az') rows.sort((a, b) => a.sym.localeCompare(b.sym));
   else rows.sort((a, b) => ((b[key] ?? -1e9) - (a[key] ?? -1e9)));
@@ -670,13 +672,15 @@ function jseRows(d) {
 }
 function viewTrade(d) {
   const L = d.jsequotes; if (L && !jseHist[L.date]) addJseToHist();
-  const { r, rows, key } = jseRows(d);
+  const { r, rows, key } = jseRows(d); const F = d.forecasts;
   if (L && !jseFill.running && (!r.dates?.d3 || !r.dates?.d6 || !r.dates?.d12) && !jseTried) { jseTried = true; setTimeout(jseBackfill, 50); }
   const pct = (v) => (v == null ? '—' : `<span class="${v >= 0 ? 'good' : 'bad'}">${signed(v, 1)}</span>`);
   const all = r.all || []; const up = all.filter((x) => x.chg > 0).length; const dn = all.filter((x) => x.chg < 0).length;
   const leaders = (r.rows || []).filter((x) => x.vol > 0).slice(0, 3).map((x) => x.sym);
   const shown = jseAll || jseQuery ? rows : rows.slice(0, 20);
-  const cols = [['m3', '3m'], ['m6', '6m'], ['m12', '12m'], ['offHigh', 'vs high']].filter(([k]) => all.some((x) => x[k] != null));
+  const extra = key === 'health' ? [['health', 'Health']] : key === 'hype' ? [['hype', 'Spec.']] : [];
+  const cols = [...extra, ...(F ? [['fc', 'Fcst 3m']] : []), ['m6', '6m'], ['m12', '12m'], ['offHigh', 'vs high']].filter(([k]) => rows.some((x) => x[k] != null)).slice(0, 4);
+  const cell = (x, k) => (k === 'health' || k === 'hype' ? (x[k] == null ? '—' : `<b class="${k === 'health' ? HEALTH_LABEL(x[k])[1] : hypeLabel(x[k])[1]}">${x[k]}</b>`) : pct(x[k]));
   return `<section class="hero-b"><div class="gname">JSE stocks · ${L ? fd(L.date) : '—'}</div>
     ${L ? `<p class="lede-s">${all.length} stocks quoted · ${up} up, ${dn} down on the day${leaders.length ? ` · strongest ${r.basis === 'm6' ? '6-month' : r.basis === 'm3' ? '3-month' : ''} trends: ${leaders.join(', ')}` : ''}</p>` : ''}
     <p class="fine prog" id="jse-prog">${jseFill.running ? `<span class="spin"></span>${esc(jseFill.msg)}` : ''}</p>
@@ -684,9 +688,10 @@ function viewTrade(d) {
     <div class="sorts">${JSE_SORTS.map(([k, l]) => `<button data-jsort="${k}" class="${jseSort === k ? 'on' : ''}">${l}</button>`).join('')}</div>` : ''}
     </section>
     ${!L ? empty(running.has('jsequotes') ? 'Loading JSE quotes…' : 'JSE quotes haven’t loaded yet — tap refresh.') : `
+    ${!F ? `<p class="note">${ghToken.get() ? (running.has('forecasts') ? '<span class="spin"></span>Loading forecasts…' : `Forecasts didn’t load: ${esc(cache.forecasts?.error || 'not yet available')}`) : '3-month forecasts and target odds: add your read-only GitHub token under <button class="linkish" data-goto="sources">Sources</button>.'}</p>` : `<p class="fine">Forecasts as of ${fd(F.asof)} (Timestral + company financials, made nightly). ⚡ = speculative trading pattern.${tradeLesson(F)}</p>`}
     <p class="tap-hint">Sorted by ${esc(JSE_SORTS.find(([k]) => k === key)?.[1] || 'trend')}${key !== jseSort ? ' (longer history still loading)' : ''}. Tap a stock for details.</p>
     <div class="tblwrap"><table class="yt pick"><thead><tr><th>Stock</th><th>Close</th><th>Day</th>${cols.map(([, l]) => `<th>${l}</th>`).join('')}</tr></thead><tbody>
-      ${shown.map((x) => `<tr data-sym="${esc(x.sym)}"><td><b>${esc(x.sym)}</b>${x.offHigh != null && x.offHigh < -35 ? ' <span class="bad">⚠</span>' : ''}${!x.vol ? ' <small class="fine">no trades</small>' : ''}</td><td>${fmt(x.close, 2)}</td><td>${x.chg != null && x.close ? pct((x.chg / (x.close - x.chg)) * 100) : '—'}</td>${cols.map(([k]) => `<td>${pct(x[k])}</td>`).join('')}</tr>`).join('')}
+      ${shown.map((x) => `<tr data-sym="${esc(x.sym)}"><td><b>${esc(x.sym)}</b>${x.offHigh != null && x.offHigh < -35 ? ' <span class="bad">⚠</span>' : ''}${x.hype != null && x.hype >= 55 ? ' <span class="bad" title="Speculative trading">⚡</span>' : ''}${!x.vol ? ' <small class="fine">no trades</small>' : ''}</td><td>${fmt(x.close, 2)}</td><td>${x.chg != null && x.close ? pct((x.chg / (x.close - x.chg)) * 100) : '—'}</td>${cols.map(([k]) => `<td>${cell(x, k)}</td>`).join('')}</tr>`).join('')}
     </tbody></table></div>
     ${!jseAll && !jseQuery && rows.length > 20 ? `<button class="more" id="jse-all">Show all ${rows.length} stocks ›</button>` : ''}
     <p class="fine">In our earlier JSE tests, the top third by 6-month trend beat the market by about 1.9 points per 3 months (3 of 4 test periods) — a lead, not a promise. ⚠ = more than 35% below its 52-week high (these kept lagging in tests). Prices exclude dividends; thinly traded stocks can be hard to buy at the quoted close. History builds up on your phone each day. Research shortlist, not advice.</p>`}
@@ -695,6 +700,11 @@ function viewTrade(d) {
     <div class="calc2"><label>Any ticker (e.g. NASDAQ:AMD or NYSE:KO)<input id="tv-sym" value="${esc(tvSym)}" autocapitalize="characters" autocomplete="off"></label></div>
     <iframe class="tv" src="${tvUrl(tvSym, 'D', dark() ? 'dark' : 'light')}" title="TradingView chart" loading="lazy" allowtransparency="true"></iframe>
     <p class="fine">Daily candles with RSI and an exponential moving average, streamed live from TradingView (needs data). JSE stocks aren’t on TradingView, so the table above uses the JSE’s own quotes.</p>`;
+}
+function tradeLesson(F) {
+  const c = F?.backtest?.compare?.['63'] || F?.backtest?.compare?.[63]; const hs = c?.healthScoreAlone; const w = c?.withFinancials;
+  if (!hs || !w) return '';
+  return ` <b>What testing showed:</b> over 3 months, ranking by financial health picked winners best (top third ${signed(hs.topThirdExcess, 1)} pts vs the market, ${hs.topThirdBeatPct}% of periods); the forecast’s own ranking was weaker (${signed(w.topThirdExcess, 1)} pts) — use it for price ranges and target odds.`;
 }
 function bindTrade(v) {
   v.querySelectorAll('[data-tv]').forEach((b) => b.addEventListener('click', () => { tvSym = b.dataset.tv; render({ keepScroll: true }); }));
@@ -723,8 +733,134 @@ function stockSheet(sym) {
     ${third ? `<p class="now">Ranks #${pos + 1} of ${rankList.length} by ${r.basis === 'm6' ? '6-month' : r.basis === 'm3' ? '3-month' : '52-week-high'} trend — ${third}.${third === 'top third' ? ' In our earlier JSE tests the top third tended to outperform over the next 3 months.' : third === 'bottom third' ? ' Weak trends tended to keep lagging in our earlier tests.' : ''}</p>` : ''}
     ${x.offHigh != null && x.offHigh < -35 ? '<p class="fine bad">⚠ More than 35% below its 52-week high — stocks like this kept lagging in our tests.</p>' : ''}
     ${!x.vol ? '<p class="fine">No shares traded on this day — the quoted price may be stale and hard to buy or sell at.</p>' : ''}
+    ${forecastBlock(d.forecasts, sym)}
     <h4>How to read this</h4><p class="fine">The trend figures compare today’s close with closes saved on your phone from 3, 6 and 12 months ago (prices exclude dividends). The 52-week bar shows where today’s price sits between the year’s low and high. This is a research shortlist, not a recommendation — check company results and news before buying.</p>
-    <div class="btnrow"><a class="btn pri" href="https://www.jamstockex.com/trading/trade-quotes/?market=50&date=${L.date}" target="_blank" rel="noopener">JSE quotes ↗</a><button class="btn" data-close>Close</button></div>`);
+    <div class="btnrow"><a class="btn pri" href="https://www.jamstockex.com/trading/trade-quotes/?market=50&date=${L.date}" target="_blank" rel="noopener">JSE quotes ↗</a><button class="btn" data-close>Close</button></div>`,
+  (root) => bindForecast(root, d.forecasts, sym));
+}
+
+// ---------- Timestral forecast: fan chart, target odds, speculation ----------
+const LV = (F, l) => F.levels.indexOf(l);
+function fanChart(F, sym, target) {
+  const s = F.stocks[sym]; const W = 340; const Hh = 180; const padL = 4; const padR = 44; const padT = 10; const padB = 22;
+  const hist = s.hist.slice(-120); const n = hist.length; const total = n - 1 + F.horizon;
+  const iq = { a: LV(F, 0.1), b: LV(F, 0.25), m: LV(F, 0.5), c: LV(F, 0.75), e: LV(F, 0.9) };
+  const vals = [...hist.map((h) => h[1]), ...s.q.flatMap((q) => [q[iq.a], q[iq.e]]), ...(target ? [target] : [])];
+  let lo = Math.min(...vals); let hi = Math.max(...vals); const span = hi - lo || hi * 0.1 || 1; lo -= span * 0.06; hi += span * 0.06;
+  const X = (i) => padL + (i / total) * (W - padL - padR); const Y = (v) => padT + (1 - (v - lo) / (hi - lo)) * (Hh - padT - padB);
+  const fx = (k) => n - 1 + F.steps[k];
+  const band = (ia, ib) => { const top = s.q.map((q, k) => `L${X(fx(k)).toFixed(1)},${Y(q[ib]).toFixed(1)}`).join(''); const bot = s.q.map((q, k) => `L${X(fx(k)).toFixed(1)},${Y(q[ia]).toFixed(1)}`).reverse().join('');
+    return `M${X(n - 1).toFixed(1)},${Y(s.close).toFixed(1)}${top}${bot}Z`; };
+  const hp = hist.map((h, i) => `${i ? 'L' : 'M'}${X(i).toFixed(1)},${Y(h[1]).toFixed(1)}`).join('');
+  const mp = `M${X(n - 1).toFixed(1)},${Y(s.close).toFixed(1)}${s.q.map((q, k) => `L${X(fx(k)).toFixed(1)},${Y(q[iq.m]).toFixed(1)}`).join('')}`;
+  const last = s.q[s.q.length - 1];
+  // right-edge labels, nudged apart so they never overlap
+  const labs = [[last[iq.e], ''], [last[iq.m], 'md'], [last[iq.a], ''], ...(target ? [[target, 'tg']] : [])].map(([v, c]) => ({ v, c, y: Y(v) + 3.5 })).sort((p, q) => p.y - q.y);
+  for (let k = 1; k < labs.length; k++) if (labs[k].y - labs[k - 1].y < 11) labs[k].y = labs[k - 1].y + 11;
+  const labHtml = labs.map((l) => `<text x="${W - padR + 4}" y="${l.y.toFixed(1)}" class="fc-t ${l.c}">${fmt(l.v, l.v < 10 ? 2 : 1)}</text>`).join('');
+  return `<div class="fan" data-sym="${esc(sym)}"><svg viewBox="0 0 ${W} ${Hh}" width="100%" role="img" aria-label="Price history and 3-month forecast range">
+    <path d="${band(iq.a, iq.e)}" class="fc-b1"/><path d="${band(iq.b, iq.c)}" class="fc-b2"/>
+    <line x1="${X(n - 1)}" x2="${X(n - 1)}" y1="${padT}" y2="${Hh - padB}" class="fc-now"/>
+    <path d="${hp}" class="fc-h"/><path d="${mp}" class="fc-m"/>
+    ${target ? `<line x1="${padL}" x2="${W - padR}" y1="${Y(target)}" y2="${Y(target)}" class="fc-tg"/>` : ''}${labHtml}
+    <text x="${padL}" y="${Hh - 6}" class="fc-t">${fd(hist[0][0], false)}</text><text x="${X(n - 1)}" y="${Hh - 6}" class="fc-t" text-anchor="middle">today</text>
+    <text x="${W - padR}" y="${Hh - 6}" class="fc-t" text-anchor="end">${fd(F.dates[F.dates.length - 1])}</text>
+    <line class="fc-x" x1="0" x2="0" y1="${padT}" y2="${Hh - padB}" style="display:none"/></svg>
+    <div class="fan-read fine">Drag across the chart to read values · shaded: 50% and 80% ranges</div></div>`;
+}
+function forecastBlock(F, sym) {
+  const s = F?.stocks?.[sym];
+  if (!F) return `<h4>3-month forecast</h4><p class="fine">${ghToken.get() ? 'Forecasts haven’t loaded yet.' : 'Add your read-only GitHub token under Sources to see the Timestral forecast and target odds for this stock.'}</p>`;
+  if (!s) return '<h4>3-month forecast</h4><p class="fine">Not enough trading history to forecast this stock yet (needs about 6 months).</p>';
+  const m = fcAt(F, sym, 0.5); const a = fcAt(F, sym, 0.1); const e = fcAt(F, sym, 0.9);
+  const bt = F.backtest?.horizons?.['63'] || F.backtest?.horizons?.[63];
+  const h = s.hype; const hl = hypeLabel(h?.score);
+  const t0 = Math.round(s.close * 1.2 * 100) / 100;
+  return `<h4>3-month forecast · Timestral ${esc(F.model?.replace('Timestral-', '') || '')} · as of ${fd(F.asof)}</h4>
+    <div id="fan-wrap">${fanChart(F, sym, t0)}</div>
+    <p>Middle estimate for ${fd(F.dates[F.dates.length - 1])}: <b>J$${fmt(m, 2)}</b> (${signed((m / s.close - 1) * 100, 1)}). The model gives an 80% range of J$${fmt(a, 2)}–J$${fmt(e, 2)}${bt ? `; in back-testing, real prices ended inside that range ${fmt(bt.coverage80, 0)}% of the time` : ''}.</p>
+    <h4>Your target</h4>
+    <div class="calc2"><label>Target price (J$)<input id="fc-target" inputmode="decimal" value="${t0}"></label></div>
+    <div class="sorts">${[10, 20, 30, 50].map((p) => `<button data-tp="${p}">+${p}%</button>`).join('')}<button data-tp="-10">−10%</button></div>
+    <div id="fc-odds"></div>
+    ${healthBlock(s)}
+    ${h ? `<h4>Speculation</h4><p><b class="${hl[1]}">${hl[0]}</b> · ${h.score}/100</p>
+    <table class="yt"><tr><td>Volume, last 5 days vs normal</td><td>${fmt(h.volRatio, 1)}×</td></tr><tr><td>Price move, last 10 days</td><td>${signed(h.move10, 1)}</td></tr>
+      <tr><td>Above its 50-day average</td><td>${signed(h.above50, 1)}</td></tr><tr><td>Days with no trades (last 60)</td><td>${h.thinPct}%</td></tr></table>
+    ${speculationNote(F)}` : ''}
+    ${backtestNote(F)}`;
+}
+const HEALTH_LABEL = (v) => (v == null ? null : v >= 65 ? ['Strong', 'good'] : v >= 45 ? ['Fair', 'ok'] : v >= 25 ? ['Weak', 'warn'] : ['Poor', 'bad']);
+function healthBlock(s) {
+  const hl = s.health; const f = s.fund;
+  if (!hl && !f) return '<h4>Financial health</h4><p class="fine">No financial results on the JSE page for this stock yet.</p>';
+  const lab = HEALTH_LABEL(hl?.score);
+  const pe = hl?.ey > 0 ? fmt(100 / hl.ey, 1) : null;
+  const big = (v) => (v == null ? '—' : Math.abs(v) >= 1e9 ? `${fmt(v / 1e9, 2)}B` : Math.abs(v) >= 1e6 ? `${fmt(v / 1e6, 1)}M` : fmt(v, 0));
+  const qs = (f?.lastQuarters || []).slice(-6);
+  return `<h4>Financial health${hl ? ` · <b class="${lab[1]}">${lab[0]}</b> ${hl.score}/100` : ''}</h4>
+    ${hl ? `<table class="yt">
+      <tr><td>Earnings yield${pe ? ` (P/E ${pe})` : ''}</td><td class="${hl.ey == null ? '' : hl.ey > 0 ? 'good' : 'bad'}">${hl.ey == null ? '—' : `${fmt(hl.ey, 1)}%`}</td></tr>
+      <tr><td>Profit, last 12 months vs year before</td><td class="${hl.growth == null ? '' : hl.growth >= 0 ? 'good' : 'bad'}">${hl.growth == null ? '—' : signed(hl.growth, 0)}</td></tr>
+      <tr><td>Dividend yield, last 12 months</td><td>${hl.dy == null ? '—' : `${fmt(hl.dy, 1)}%`}</td></tr>
+      <tr><td>Loss-making quarters (last 4)</td><td class="${hl.lossq ? 'bad' : 'good'}">${hl.lossq ?? '—'}</td></tr></table>` : ''}
+    ${qs.length ? `<p class="fine">Net profit by quarter (reported currency): ${qs.map(([q, v]) => `${esc(q)} <b class="${v < 0 ? 'bad' : ''}">${big(v)}</b>`).join(' · ')}</p>` : ''}
+    <p class="fine">From the company’s results on the JSE website. These figures also feed into the forecast above, counted only from about 45 days after each quarter ends (when results are usually out).</p>`;
+}
+function speculationNote(F) {
+  const b = F.backtest?.hype?.['63'] || F.backtest?.hype?.[63];
+  const base = 'High scores mean sudden volume and price jumps the stock’s usual behaviour doesn’t explain — often buzz-driven buying. Prices can keep running, but swings both ways are bigger.';
+  if (!b || b.highExcessVsMarket == null) return `<p class="fine">${base}</p>`;
+  return `<p class="fine">${base} On past JSE data, stocks scoring 50+ then ${b.highExcessVsMarket >= 0 ? 'beat' : 'trailed'} the market by ${fmt(Math.abs(b.highExcessVsMarket), 1)} points over 3 months on average, with returns ${fmt(b.highSd / Math.max(1, b.lowSd), 1)}× as spread out as calm stocks.</p>`;
+}
+function backtestNote(F) {
+  const B = F.backtest; const g = (o, h) => o?.[String(h)] ?? o?.[h];
+  const m1 = g(B?.horizons, 21); const m3 = g(B?.horizons, 63); if (!m3) return '';
+  const c3 = g(B?.compare, 63); const c1 = g(B?.compare, 21);
+  const ex = (v) => `${v >= 0 ? 'beat' : 'trailed'} the market by ${fmt(Math.abs(v), 1)} pts`;
+  const cmp = (c) => (c?.priceOnly && c?.withFinancials ? `price only ${signed(c.priceOnly.topThirdExcess, 1)} pts → with financial health ${signed(c.withFinancials.topThirdExcess, 1)} pts` : '');
+  return `<h4>How much to trust it</h4>
+    <p class="fine">Tested on ${(B.cases || 0).toLocaleString('en-US')} past JSE forecasts (${fd(B.from, false)}–${fd(B.to, false)}), buying at the next day’s close the way you realistically would.</p>
+    <table class="yt">
+      ${m1 ? `<tr><td>1 month: top third of forecasts</td><td>${ex(m1.topThirdExcess)} (${m1.topThirdBeatPct}% of months)</td></tr>` : ''}
+      <tr><td>3 months: top third of forecasts</td><td>${ex(m3.topThirdExcess)} (${m3.topThirdBeatPct}% of periods)</td></tr>
+      <tr><td>80% range held the actual price</td><td>${fmt(m3.coverage80, 0)}% of the time</td></tr>
+      ${c3 ? `<tr><td>Adding financial health (3 months)</td><td>${cmp(c3)}</td></tr>` : ''}
+      ${c3?.healthScoreAlone ? `<tr><td>Financial-health score alone (3 months)</td><td>top third ${ex(c3.healthScoreAlone.topThirdExcess)} (${c3.healthScoreAlone.topThirdBeatPct}% of periods)</td></tr>` : ''}
+      ${c1 ? `<tr><td>Adding financial health (1 month)</td><td>${cmp(c1)}</td></tr>` : ''}
+    </table>
+    <p class="fine">Target odds are adjusted using how the model’s past odds actually turned out. Thinly traded stocks can be hard to buy at the quoted price. Use this as one input next to company news — not a promise.</p>`;
+}
+function bindForecast(root, F, sym) {
+  const s = F?.stocks?.[sym]; if (!s) return;
+  const inp = root.querySelector('#fc-target'); const out = root.querySelector('#fc-odds');
+  const draw = () => {
+    const t = parseFloat(String(inp.value).replace(/[,\s$J]/g, ''));
+    root.querySelector('#fan-wrap').innerHTML = fanChart(F, sym, t > 0 ? t : null); bindFan(root, F, sym);
+    if (!(t > 0)) { out.innerHTML = ''; return; }
+    const o = targetOdds(F, sym, t); const pct = (t / s.close - 1) * 100;
+    const word = o.up ? 'reaching' : 'dropping to';
+    const pp = Math.round(o.p * 100);
+    out.innerHTML = `<div class="c-big"><span>Chance of ${word} J$${fmt(t, 2)} (${signed(pct, 1)}) by ${fd(F.dates[F.dates.length - 1])}</span><b class="${o.up ? (pp >= 50 ? 'good' : pp >= 25 ? 'warn' : 'bad') : ''}">${pp < 2 ? '<2' : pp > 97 ? '>97' : pp}%</b></div>
+      <p class="fine">${o.likelyDate ? `More likely than not from about <b>${fd(o.likelyDate)}</b>.` : `Not more likely than not within 3 months; best odds around ${fd(o.bestDate)}.`}
+      ${o.up && o.raw !== o.p ? ` Model’s raw estimate was ${Math.round(o.raw * 100)}%; adjusted for how its past odds turned out.` : ''} Dates count trading days only, so they may run a day or two early around holidays.</p>`;
+  };
+  inp.addEventListener('input', draw);
+  root.querySelectorAll('[data-tp]').forEach((b) => b.addEventListener('click', () => { inp.value = (Math.round(s.close * (1 + +b.dataset.tp / 100) * 100) / 100).toFixed(2); draw(); }));
+  draw();
+}
+function bindFan(root, F, sym) {
+  const fan = root.querySelector('.fan'); if (!fan) return; const svg = fan.querySelector('svg'); const ln = svg.querySelector('.fc-x'); const rd = fan.querySelector('.fan-read');
+  const s = F.stocks[sym]; const hist = s.hist.slice(-120); const n = hist.length; const total = n - 1 + F.horizon; const W = 340; const padL = 4; const padR = 44;
+  const move = (ev) => {
+    const r = svg.getBoundingClientRect(); const x = ((ev.clientX - r.left) / r.width) * W; const i = Math.round(((x - padL) / (W - padL - padR)) * total);
+    let txt; let xi;
+    if (i <= n - 1) { const k = Math.max(0, i); xi = k; txt = `${fd(hist[k][0])}: J$${fmt(hist[k][1], 2)}`; }
+    else { let k = F.steps.findIndex((st) => st >= i - (n - 1)); if (k < 0) k = F.steps.length - 1; xi = n - 1 + F.steps[k]; const q = s.q[k];
+      txt = `${fd(F.dates[k])} (forecast): middle J$${fmt(q[LV(F, 0.5)], 2)} · 80% range J$${fmt(q[LV(F, 0.1)], 2)}–${fmt(q[LV(F, 0.9)], 2)}`; }
+    const px = padL + (xi / total) * (W - padL - padR); ln.setAttribute('x1', px); ln.setAttribute('x2', px); ln.style.display = ''; rd.textContent = txt;
+  };
+  svg.addEventListener('pointerdown', move); svg.addEventListener('pointermove', (e) => { if (e.buttons || e.pointerType !== 'mouse') move(e); });
 }
 
 // ---------- Analyst jobs ----------
@@ -903,6 +1039,12 @@ function viewSources() {
       <div class="fine">${c.at ? `Last success ${ago(new Date(c.at))}` : ''}${bad ? ` · <span class="bad">${esc(c.error)}</span>` : ''} · refreshes every ${s.ttlH < 24 ? `${s.ttlH} h` : `${s.ttlH / 24} days`}</div>
       <a href="${s.home}" target="_blank" rel="noopener" class="fine">${s.home.replace('https://', '')}</a></li>`;
   }).join('')}</ul>
+  <h2 class="sec">Stock forecasts <small>GitHub token, read-only</small></h2>
+  <p class="fine">Every weekday evening your GitHub runs Mistral’s Timestral model on all JSE stocks and saves the results in your private repo. To let this phone read them, make a token that can only read that one repo:</p>
+  <ol class="fine steps"><li>Open <a href="https://github.com/settings/personal-access-tokens/new" target="_blank" rel="noopener">github.com/settings/personal-access-tokens/new</a> (fine-grained token).</li>
+  <li>Name it “JA Econ Pulse”, expiration up to 1 year.</li><li>Repository access → <b>Only select repositories</b> → <b>jamaica-econ-pulse</b>.</li>
+  <li>Permissions → Repository permissions → <b>Contents: Read-only</b>. Nothing else.</li><li>Generate, copy, and paste it here. It stays on this phone.</li></ol>
+  <section class="calc"><label class="wide">GitHub token<input id="gh-token" value="${esc(ghToken.get())}" placeholder="github_pat_…" autocomplete="off" autocapitalize="none" spellcheck="false"></label></section>
   <h2 class="sec">FRED API key <small>optional, free</small></h2>
   <p class="fine">FRED (oil, US rates, food and grain prices on the World tab) refuses some phone connections to its public download. Its official API always works but needs a free personal key: sign in at <a href="https://fredaccount.stlouisfed.org/apikeys" target="_blank" rel="noopener">fredaccount.stlouisfed.org/apikeys</a>, tap “Request API Key”, and paste the 32-character key here. It stays on this phone.</p>
   <section class="calc"><label class="wide">FRED API key<input id="fred-key" value="${esc(fredKey.get())}" placeholder="Paste key (optional)" autocomplete="off" autocapitalize="none" spellcheck="false"></label></section>
@@ -952,6 +1094,7 @@ function render(opts = {}) {
   }
   if (tab === 'decide' && sub === 'trade') bindTrade(v);
   if (tab === 'decide' && sub === 'jobs') { const c = document.getElementById('jobs-ja'); if (c) c.onchange = () => { jobsJamaica = c.checked; render({ keepScroll: true }); }; }
+  if (tab === 'sources') { const g = document.getElementById('gh-token'); if (g) g.onchange = () => { ghToken.set(g.value); delete cache.forecasts?.at; refresh(false); }; }
   if (tab === 'sources') { const k = document.getElementById('fred-key'); if (k) k.onchange = () => { fredKey.set(k.value); delete cache.fred?.at; refresh(false); }; }
 }
 
@@ -1006,6 +1149,7 @@ $('#view').addEventListener('click', (e) => {
   if (sb) { sub = sb.dataset.sub; saveUi(); if (tab !== 'decide') { setTab('decide'); return; } window.scrollTo(0, 0); render(); return; }
   const pf = e.target.closest('[data-profile]');
   if (pf) { profile = pf.dataset.profile; try { localStorage.setItem(PROFILE_KEY, profile); } catch (_) { /* ignore */ } render({ keepScroll: true }); return; }
+  const gt = e.target.closest('[data-goto]'); if (gt) { setTab(gt.dataset.goto); return; }
   if (e.target.closest('a, input, select, textarea, summary, label')) return;
   const li = e.target.closest('[data-li]'); if (li) { listingSheet(+li.dataset.li); return; }
   const ci = e.target.closest('[data-ci]'); if (ci) { carSheet(ci.dataset.ci); return; }

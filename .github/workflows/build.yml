@@ -17,6 +17,7 @@ jobs:
       - uses: actions/setup-node@v4
         with: { node-version: 22 }
       - run: node scripts/smoke.mjs
+        env: { GH_READ_TOKEN: '${{ github.token }}' }
       - name: Print data snapshot (for previews)
         run: echo "SNAPSHOT:$(gzip -c smoke-cache.json | base64 -w0)"
       - uses: actions/upload-artifact@v4
