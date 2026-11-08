@@ -5,7 +5,7 @@ import { NHT_DEFAULTS, FIN_DEFAULTS, scenario, bestScenario, geocode, driveTimes
 import { EXPLAIN } from './explain.js';
 import { fredKey, ghToken } from './sources.js';
 import { MODELS, jacarsLinks } from './cars.js';
-import { quotesOn, rankStocks, TV_SYMBOLS, tvUrl, GLOBAL_TAGS, targetOdds, fcAt, fcChange, hypeLabel } from './markets.js';
+import { quotesOn, rankStocks, TV_SYMBOLS, tvUrl, GLOBAL_TAGS, targetOdds, fcAt, fcChange, hypeLabel, calibrate } from './markets.js';
 import { fmt, signed, last, changeOver, yoySeries } from './util.js';
 
 const KEY = 'ep_cache_v1';
@@ -701,10 +701,11 @@ function viewTrade(d) {
     <iframe class="tv" src="${tvUrl(tvSym, 'D', dark() ? 'dark' : 'light')}" title="TradingView chart" loading="lazy" allowtransparency="true"></iframe>
     <p class="fine">Daily candles with RSI and an exponential moving average, streamed live from TradingView (needs data). JSE stocks aren’t on TradingView, so the table above uses the JSE’s own quotes.</p>`;
 }
+const pts = (v) => `${v >= 0.05 ? '+' : v <= -0.05 ? '−' : ''}${fmt(Math.abs(v), 1)} pts`;
 function tradeLesson(F) {
   const c = F?.backtest?.compare?.['63'] || F?.backtest?.compare?.[63]; const hs = c?.healthScoreAlone; const w = c?.withFinancials;
   if (!hs || !w) return '';
-  return ` <b>What testing showed:</b> over 3 months, ranking by financial health picked winners best (top third ${signed(hs.topThirdExcess, 1)} pts vs the market, ${hs.topThirdBeatPct}% of periods); the forecast’s own ranking was weaker (${signed(w.topThirdExcess, 1)} pts) — use it for price ranges and target odds.`;
+  return ` <b>What testing showed:</b> over 3 months, ranking by financial health picked winners best (top third ${pts(hs.topThirdExcess)} vs the market, ahead in ${hs.topThirdBeatPct}% of periods); the forecast’s own ranking was weaker (${pts(w.topThirdExcess)}) — use it for price ranges and target odds.`;
 }
 function bindTrade(v) {
   v.querySelectorAll('[data-tv]').forEach((b) => b.addEventListener('click', () => { tvSym = b.dataset.tv; render({ keepScroll: true }); }));
@@ -812,14 +813,14 @@ function speculationNote(F) {
   const b = F.backtest?.hype?.['63'] || F.backtest?.hype?.[63];
   const base = 'High scores mean sudden volume and price jumps the stock’s usual behaviour doesn’t explain — often buzz-driven buying. Prices can keep running, but swings both ways are bigger.';
   if (!b || b.highExcessVsMarket == null) return `<p class="fine">${base}</p>`;
-  return `<p class="fine">${base} On past JSE data, stocks scoring 50+ then ${b.highExcessVsMarket >= 0 ? 'beat' : 'trailed'} the market by ${fmt(Math.abs(b.highExcessVsMarket), 1)} points over 3 months on average, with returns ${fmt(b.highSd / Math.max(1, b.lowSd), 1)}× as spread out as calm stocks.</p>`;
+  return `<p class="fine">${base} On past JSE data, stocks scoring 50+ then ${b.highExcessVsMarket >= 0 ? 'beat' : 'trailed'} the market by ${fmt(Math.abs(b.highExcessVsMarket), 1)} points over 3 months on average${b.highWorsePct != null ? ` — but did worse than the market in ${b.highWorsePct}% of periods` : ''}, with returns ${fmt(b.highSd / Math.max(1, b.lowSd), 1)}× as spread out as calm stocks. A few big winners drive the average, so treat it like a lottery ticket.</p>`;
 }
 function backtestNote(F) {
   const B = F.backtest; const g = (o, h) => o?.[String(h)] ?? o?.[h];
   const m1 = g(B?.horizons, 21); const m3 = g(B?.horizons, 63); if (!m3) return '';
   const c3 = g(B?.compare, 63); const c1 = g(B?.compare, 21);
   const ex = (v) => `${v >= 0 ? 'beat' : 'trailed'} the market by ${fmt(Math.abs(v), 1)} pts`;
-  const cmp = (c) => (c?.priceOnly && c?.withFinancials ? `price only ${signed(c.priceOnly.topThirdExcess, 1)} pts → with financial health ${signed(c.withFinancials.topThirdExcess, 1)} pts` : '');
+  const cmp = (c) => (c?.priceOnly && c?.withFinancials ? `price only ${pts(c.priceOnly.topThirdExcess)} → with financial health ${pts(c.withFinancials.topThirdExcess)}` : '');
   return `<h4>How much to trust it</h4>
     <p class="fine">Tested on ${(B.cases || 0).toLocaleString('en-US')} past JSE forecasts (${fd(B.from, false)}–${fd(B.to, false)}), buying at the next day’s close the way you realistically would.</p>
     <table class="yt">
@@ -832,6 +833,11 @@ function backtestNote(F) {
     </table>
     <p class="fine">Target odds are adjusted using how the model’s past odds actually turned out. Thinly traded stocks can be hard to buy at the quoted price. Use this as one input next to company news — not a promise.</p>`;
 }
+// chance of having touched the target by ~1, 2 and 3 months (running maximum of the per-day odds, then calibrated)
+function byMonth(F, o) {
+  const marks = [21, 42, 63].map((t) => F.steps.findIndex((st) => st >= t)).map((i) => (i < 0 ? F.steps.length - 1 : i));
+  return marks.map((i) => { const raw = Math.max(...o.probs.slice(0, i + 1)); const p = o.up ? calibrate(raw, F.calibration) : raw; return [F.dates[i], Math.max(1, Math.min(99, Math.round(p * 100)))]; });
+}
 function bindForecast(root, F, sym) {
   const s = F?.stocks?.[sym]; if (!s) return;
   const inp = root.querySelector('#fc-target'); const out = root.querySelector('#fc-odds');
@@ -843,7 +849,8 @@ function bindForecast(root, F, sym) {
     const word = o.up ? 'reaching' : 'dropping to';
     const pp = Math.round(o.p * 100);
     out.innerHTML = `<div class="c-big"><span>Chance of ${word} J$${fmt(t, 2)} (${signed(pct, 1)}) by ${fd(F.dates[F.dates.length - 1])}</span><b class="${o.up ? (pp >= 50 ? 'good' : pp >= 25 ? 'warn' : 'bad') : ''}">${pp < 2 ? '<2' : pp > 97 ? '>97' : pp}%</b></div>
-      <p class="fine">${o.likelyDate ? `More likely than not from about <b>${fd(o.likelyDate)}</b>.` : `Not more likely than not within 3 months; best odds around ${fd(o.bestDate)}.`}
+      <table class="yt">${byMonth(F, o).map(([dt, p]) => `<tr><td>${o.up ? 'Reached' : 'Dropped to it'} by ${fd(dt)}</td><td>${p}%</td></tr>`).join('')}</table>
+      <p class="fine">${o.likelyDate ? `More likely than not from about <b>${fd(o.likelyDate)}</b>.` : 'Not more likely than not within 3 months.'}${o.up ? '' : ' Downside odds aren’t adjusted by the back-test.'}
       ${o.up && o.raw !== o.p ? ` Model’s raw estimate was ${Math.round(o.raw * 100)}%; adjusted for how its past odds turned out.` : ''} Dates count trading days only, so they may run a day or two early around holidays.</p>`;
   };
   inp.addEventListener('input', draw);
