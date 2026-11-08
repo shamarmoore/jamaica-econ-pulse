@@ -51,11 +51,11 @@ async function worker() {
 await worker(); // one request at a time, 2 s apart
 
 // drop holiday duplicates: a day whose every close+volume equals the previous stored day
-const keys = Object.keys(H.dates).sort(); let dup = 0;
+const keys = Object.keys(H.dates).sort(); let dup = 0; let prev = keys[0];
 for (let j = 1; j < keys.length; j++) {
-  const a = H.dates[keys[j - 1]]; const b = H.dates[keys[j]];
-  const same = Object.keys(b).length === Object.keys(a).length && Object.keys(b).every((s) => a[s] && a[s][0] === b[s][0] && a[s][1] === b[s][1]);
-  if (same) { delete H.dates[keys[j]]; if (!H.empty.includes(keys[j])) H.empty.push(keys[j]); dup++; }
+  const a = H.dates[prev]; const b = H.dates[keys[j]];
+  const same = a && b && Object.keys(b).length === Object.keys(a).length && Object.keys(b).every((s) => a[s] && a[s][0] === b[s][0] && a[s][1] === b[s][1]);
+  if (same) { delete H.dates[keys[j]]; if (!H.empty.includes(keys[j])) H.empty.push(keys[j]); dup++; } else prev = keys[j];
 }
 H.updated = new Date().toISOString();
 const sorted = {}; for (const k of Object.keys(H.dates).sort()) sorted[k] = H.dates[k];
