@@ -1,0 +1,37 @@
+name: JSE history & forecasts
+
+on:
+  workflow_dispatch:
+    inputs:
+      start: { description: 'History start date', default: '2021-01-04' }
+      maxdays: { description: 'Max trading days to fetch this run', default: '60' }
+  schedule:
+    - cron: '23 23 * * 1-5'   # 6:23 pm Jamaica, weekdays, after JSE quotes post
+
+concurrency: { group: forecast, cancel-in-progress: false }
+
+jobs:
+  update:
+    runs-on: ubuntu-latest
+    timeout-minutes: 60
+    permissions: { contents: write }
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with: { node-version: 22 }
+      - name: Update JSE daily history
+        run: node scripts/jse_history.mjs "${{ inputs.start || '2021-01-04' }}" "${{ inputs.maxdays || '60' }}"
+      - uses: actions/setup-python@v5
+        with: { python-version: '3.11' }
+      - name: Install Timestral (CPU)
+        run: |
+          pip install -q torch --index-url https://download.pytorch.org/whl/cpu
+          pip install -q numpy pandas huggingface_hub "git+https://github.com/mistralai/timestral"
+      - name: Forecast every stock
+        run: if [ -f scripts/forecast.py ]; then python scripts/forecast.py; fi
+      - name: Save
+        run: |
+          git config user.name "jse-bot"; git config user.email "actions@users.noreply.github.com"
+          git add data/
+          git diff --cached --quiet || git commit -m "data: JSE history & forecasts $(date -u +%F) [skip ci]"
+          git pull --rebase -q && git push -q

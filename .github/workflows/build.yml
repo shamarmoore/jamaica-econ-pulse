@@ -3,6 +3,7 @@ name: Build APK & check sources
 on:
   push:
     branches: [main]
+    paths-ignore: ['data/**']
   workflow_dispatch:
   schedule:
     - cron: '17 11 * * 1'   # every Monday: re-check that every source still parses
