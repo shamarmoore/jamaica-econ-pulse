@@ -8,7 +8,7 @@ import numpy as np
 import pandas as pd
 from scipy.stats import spearmanr
 sys.path.insert(0, 'scripts')
-from tslib import load_history, load_fundamentals, fundamental_series, forecast, hit_odds, hype, health, FEATS
+from tslib import load_history, load_fundamentals, fundamental_series, forecast, hit_odds, hype, health, FEATS, is_pref
 
 close, vol = load_history()
 FUND = load_fundamentals()
@@ -26,7 +26,7 @@ rows = []
 t0 = time.time()
 for o in range(max(MIN_CTX, 130), N - H - 1, STEP):
     d0 = idx[o]
-    syms = [s for s in close.columns if first_valid[s] is not None and idx.get_loc(first_valid[s]) <= o - MIN_CTX
+    syms = [s for s in close.columns if not is_pref(s) and first_valid[s] is not None and idx.get_loc(first_valid[s]) <= o - MIN_CTX
             and ff[s].iloc[o] > 0 and vol[s].iloc[o - 60:o + 1].gt(0).mean() > 0.2]
     if len(syms) < 12:
         continue

@@ -106,6 +106,14 @@ def hype(close, vol, sym, asof=None):
 
 
 # ---------- company financial health (from JSE instrument pages) ----------
+PREF_RE = r'\d\.\d|PREF|\d{2}$'
+
+
+def is_pref(sym):
+    import re as _re
+    return bool(_re.search(PREF_RE, sym))
+
+
 FX_TO_JMD = {'JMD': 1.0, 'USD': 157.0, 'TTD': 23.2}
 FEATS = ['ey', 'growth', 'dy', 'lossq']
 FEAT_NAMES = {'ey': 'Earnings yield (profit ÷ market value)', 'growth': 'Profit growth vs a year earlier', 'dy': 'Dividend yield (last 12 months)', 'lossq': 'Loss-making quarters (last 4)'}

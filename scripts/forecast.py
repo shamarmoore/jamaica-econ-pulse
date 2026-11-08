@@ -4,7 +4,7 @@ import json, sys, time
 import numpy as np
 import pandas as pd
 sys.path.insert(0, 'scripts')
-from tslib import load_history, load_fundamentals, fundamental_series, forecast, hype, health, LEVELS, MODEL_ID, FEATS, FEAT_NAMES
+from tslib import is_pref, load_history, load_fundamentals, fundamental_series, forecast, hype, health, LEVELS, MODEL_ID, FEATS, FEAT_NAMES
 
 H = 63
 STEPS = list(range(2, H, 3)) + [H - 1]  # every 3rd trading day, 0-based step index, always incl. the last
@@ -63,7 +63,8 @@ for i, s in enumerate(syms):
         'hist': [[str(d.date()), round(float(x), 4)] for d, x in hist.items()],
         'vol20': round(float(v.iloc[-20:].mean())),
         'hype': hype(close, vol, s),
-        'health': health(feats[s].iloc[-1]),
+        'health': None if is_pref(s) else health(feats[s].iloc[-1]),
+        'pref': is_pref(s),
         'fund': fund_summary(FUND.get(s)),
     }
 json.dump(out, open('data/forecasts.json', 'w'), separators=(',', ':'))

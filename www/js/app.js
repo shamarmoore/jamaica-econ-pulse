@@ -793,6 +793,7 @@ function forecastBlock(F, sym) {
 const HEALTH_LABEL = (v) => (v == null ? null : v >= 65 ? ['Strong', 'good'] : v >= 45 ? ['Fair', 'ok'] : v >= 25 ? ['Weak', 'warn'] : ['Poor', 'bad']);
 function healthBlock(s) {
   const hl = s.health; const f = s.fund;
+  if (s.pref) return '<h4>Financial health</h4><p class="fine">This is a preference share: it pays a fixed dividend and its price barely moves with company profits, so it isn’t scored or ranked on financial health.</p>';
   if (!hl && !f) return '<h4>Financial health</h4><p class="fine">No financial results on the JSE page for this stock yet.</p>';
   const lab = HEALTH_LABEL(hl?.score);
   const pe = hl?.ey > 0 ? fmt(100 / hl.ey, 1) : null;
