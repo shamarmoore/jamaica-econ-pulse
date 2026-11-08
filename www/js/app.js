@@ -39,7 +39,7 @@ const saveUi = () => { try { localStorage.setItem(UI_KEY, JSON.stringify({ tab, 
 
 function save() { try { localStorage.setItem(KEY, JSON.stringify(cache)); } catch (_) { /* storage full */ } }
 function data() { const d = {}; for (const s of SOURCES) d[s.id] = cache[s.id]?.data; return d; }
-const stale = (s) => !cache[s.id]?.at || (Date.now() - cache[s.id].at) > s.ttlH * 3600e3;
+const stale = (s) => !cache[s.id]?.at || (Date.now() - cache[s.id].at) > s.ttlH * 3600e3 || !!(s.outdated && cache[s.id]?.data && s.outdated(cache[s.id].data));
 
 async function refresh(force = false) {
   const todo = SOURCES.filter((s) => force || stale(s));
@@ -662,7 +662,7 @@ const dark = () => matchMedia('(prefers-color-scheme: dark)').matches;
 function jseRows(d) {
   const L = d.jsequotes; const r = rankStocks(L, jseHist);
   let key = jseSort === 'm6' && !r.dates?.d6 ? (r.dates?.d3 ? 'm3' : 'offHigh') : jseSort;
-  if (['fc', 'hype', 'health', 'edge'].includes(key) && !d.forecasts) key = r.dates?.d6 ? 'm6' : 'offHigh';
+  if (['fc', 'hype', 'health', 'edge'].includes(key) && !d.forecasts?.edgeInfo) key = r.dates?.d6 ? 'm6' : 'offHigh';
   const F = d.forecasts;
   let rows = (r.all || []).map((x) => ({ ...x, fc: fcChange(F, x.sym), hype: F?.stocks?.[x.sym]?.hype?.score ?? null, health: F?.stocks?.[x.sym]?.health?.score ?? null, edge: F?.stocks?.[x.sym]?.edge?.score ?? null }));
   if (jseQuery) rows = rows.filter((x) => x.sym.includes(jseQuery.toUpperCase()));
@@ -678,8 +678,8 @@ function viewTrade(d) {
   const all = r.all || []; const up = all.filter((x) => x.chg > 0).length; const dn = all.filter((x) => x.chg < 0).length;
   const leaders = (r.rows || []).filter((x) => x.vol > 0).slice(0, 3).map((x) => x.sym);
   const shown = jseAll || jseQuery ? rows : rows.slice(0, 20);
-  const extra = key === 'health' ? [['health', 'Health']] : key === 'hype' ? [['hype', 'Spec.']] : F ? [['edge', 'Edge']] : [];
-  const cols = [...extra, ...(F ? [['fc', 'Fcst 3m']] : []), ['m6', '6m'], ['m12', '12m'], ['offHigh', 'vs high']].filter(([k]) => rows.some((x) => x[k] != null)).slice(0, 4);
+  const extra = key === 'health' ? [['health', 'Health']] : key === 'hype' ? [['hype', 'Spec.']] : [['edge', 'Edge']];
+  const cols = [...extra, ...(F ? [['fc', 'Fcst 3m']] : []), ['m6', '6m'], ['m12', '12m'], ['offHigh', 'vs high']].filter(([k]) => k === 'edge' || rows.some((x) => x[k] != null)).slice(0, 4);
   const cell = (x, k) => (['health', 'hype', 'edge'].includes(k) ? (x[k] == null ? '—' : `<b class="${k === 'hype' ? hypeLabel(x[k])[1] : HEALTH_LABEL(x[k])[1]}">${x[k]}</b>`) : pct(x[k]));
   return `<section class="hero-b"><div class="gname">JSE stocks · ${L ? fd(L.date) : '—'}</div>
     ${L ? `<p class="lede-s">${all.length} stocks quoted · ${up} up, ${dn} down on the day${leaders.length ? ` · strongest ${r.basis === 'm6' ? '6-month' : r.basis === 'm3' ? '3-month' : ''} trends: ${leaders.join(', ')}` : ''}</p>` : ''}
@@ -688,7 +688,11 @@ function viewTrade(d) {
     <div class="sorts">${JSE_SORTS.map(([k, l]) => `<button data-jsort="${k}" class="${jseSort === k ? 'on' : ''}">${l}</button>`).join('')}</div>` : ''}
     </section>
     ${!L ? empty(running.has('jsequotes') ? 'Loading JSE quotes…' : 'JSE quotes haven’t loaded yet — tap refresh.') : `
-    ${!F ? `<p class="note">${ghToken.get() ? (running.has('forecasts') ? '<span class="spin"></span>Loading forecasts…' : `Forecasts didn’t load: ${esc(cache.forecasts?.error || 'not yet available')}`) : '3-month forecasts and target odds: add your read-only GitHub token under <button class="linkish" data-goto="sources">Sources</button>.'}</p>` : `<p class="fine">Forecasts as of ${fd(F.asof)} (Timestral + company financials, made nightly). ⚡ = speculative trading pattern.${tradeLesson(F)}</p>`}
+    ${!F?.edgeInfo ? `<div class="note"><b>Edge score, forecasts and target odds aren’t loaded.</b> ${!ghToken.get()
+      ? 'They come from the nightly file in your private GitHub repo, which needs a read-only token: add it under <button class="linkish" data-goto="sources">Sources → Stock forecasts</button> (or build it into the app with the FORECAST_TOKEN secret).'
+      : running.has('forecasts') ? '<span class="spin"></span>Loading now…'
+      : `Last attempt: ${esc(cache.forecasts?.error || (F ? 'saved copy is from before the Edge score existed' : 'not loaded yet'))}. <button class="linkish" id="fc-reload">Load now</button>`}</div>`
+      : `<p class="fine">Edge scores & forecasts as of ${fd(F.asof)} (made nightly). ⚡ = speculative trading pattern.${tradeLesson(F)}</p>`}
     <p class="tap-hint">Sorted by ${esc(JSE_SORTS.find(([k]) => k === key)?.[1] || 'trend')}${key !== jseSort ? ' (longer history still loading)' : ''}. Tap a stock for details.</p>
     <div class="tblwrap"><table class="yt pick"><thead><tr><th>Stock</th><th>Close</th><th>Day</th>${cols.map(([, l]) => `<th>${l}</th>`).join('')}</tr></thead><tbody>
       ${shown.map((x) => `<tr data-sym="${esc(x.sym)}"><td><b>${esc(x.sym)}</b>${x.offHigh != null && x.offHigh < -35 ? ' <span class="bad">⚠</span>' : ''}${x.hype != null && x.hype >= 55 ? ' <span class="bad" title="Speculative trading">⚡</span>' : ''}${!x.vol ? ' <small class="fine">no trades</small>' : ''}</td><td>${fmt(x.close, 2)}</td><td>${x.chg != null && x.close ? pct((x.chg / (x.close - x.chg)) * 100) : '—'}</td>${cols.map(([k]) => `<td>${cell(x, k)}</td>`).join('')}</tr>`).join('')}
@@ -707,6 +711,7 @@ function tradeLesson(F) {
   return ` <b>Edge score</b> blends ${Object.keys(E.labels).length} signals that held up in testing (cheap vs profits, dividends, steady profits, no losses, strong latest quarter, steady price, liquidity…).${t5 ? ` On data the model hadn’t seen (${fd(E.split, false)}–${fd(E.period[1], false)}), buying the <b>top 5</b>, holding 3 months and re-picking returned <b>${signed(t5.annNet, 0)}/yr</b> after trading costs vs ${signed(t5.annMarket, 0)}/yr for the market, ahead in ${t5.beatPct}% of quarters. A single pick beat the market only ${t5.singlePickBeatPct}% of the time — spread money over the top 5–10.` : ''}`;
 }
 function bindTrade(v) {
+  const rl = v.querySelector('#fc-reload'); if (rl) rl.addEventListener('click', () => { delete cache.forecasts?.at; refresh(false); });
   v.querySelectorAll('[data-tv]').forEach((b) => b.addEventListener('click', () => { tvSym = b.dataset.tv; render({ keepScroll: true }); }));
   const ts = v.querySelector('#tv-sym'); if (ts) ts.addEventListener('change', () => { const t = ts.value.trim().toUpperCase(); if (t) { tvSym = t; render({ keepScroll: true }); } });
   v.querySelectorAll('[data-jsort]').forEach((b) => b.addEventListener('click', () => { jseSort = b.dataset.jsort; render({ keepScroll: true }); }));
