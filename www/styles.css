@@ -284,3 +284,6 @@ ol.steps li { margin: 2px 0; }
 .fan-key .k1 { background: var(--ink); opacity: 0.18; }
 .fan-key .k2 { height: 0; border-top: 2px dashed var(--ink); border-radius: 0; }
 .fan-key .k3 { height: 0; border-top: 1.5px dotted var(--muted); border-radius: 0; }
+.papers li { cursor: pointer; }
+.papers .l-t { font-size: 15.5px; }
+.tag.good { border-color: var(--good, #2f7d5b); color: var(--good, #2f7d5b); }

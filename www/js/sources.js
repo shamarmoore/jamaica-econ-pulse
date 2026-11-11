@@ -1,4 +1,5 @@
 import { BUILT_IN_GH_TOKEN } from './config.js';
+import { research } from './research.js';
 // Every data source the app scrapes, straight from the publisher. Each fetcher returns plain JSON
 // so results can be cached on the phone. If a publisher changes its page, only that card goes stale.
 import { listings as scrapeListings, analystJobs } from './homes.js';
@@ -443,6 +444,7 @@ export const SOURCES = [
   { id: 'cars', name: 'Car listings (AutoAdsJa, Gleaner Classifieds)', home: 'https://www.autoadsja.com/', scope: 'Jamaica', what: 'Recently posted Honda Civics and Toyota GT86s', fn: carListings, ttlH: 6 },
   { id: 'jsequotes', name: 'JSE Trade Quotes', home: 'https://www.jamstockex.com/trading/trade-quotes/', scope: 'Jamaica', what: 'Daily closing prices, volume and 52-week ranges for the stock picker', fn: jseQuotes, ttlH: 8 },
   { id: 'forecasts', name: 'JSE forecasts (Timestral, nightly)', home: `https://github.com/${FORECAST_REPO}/actions`, scope: 'Jamaica', what: '3-month price ranges, target odds and speculation scores for every JSE stock, made nightly on your GitHub', fn: jseForecasts, ttlH: 6, optional: true, outdated: (d) => !d?.edgeInfo },
+  { id: 'research', name: 'Research papers (arXiv + OpenAlex)', home: 'https://openalex.org/', scope: 'Research', what: 'Recent papers on AI forecasting, logistics management and sales innovation', fn: research, ttlH: 24 },
   { id: 'gnews', name: 'Global news (BBC, CNBC, FT, Guardian, NPR, MarketWatch, OilPrice)', home: 'https://feeds.bbci.co.uk/news/business/', scope: 'World', what: 'World business & economy headlines tagged by how they reach Jamaica', fn: globalNews, ttlH: 2 },
   { id: 'imf', name: 'IMF World Economic Outlook', home: 'https://www.imf.org/external/datamapper/profile/JAM', scope: 'Jamaica + partners', what: 'Growth, inflation, debt, current account — history & projections', fn: imf, ttlH: 72 },
   { id: 'worldbank', name: 'World Bank', home: 'https://data.worldbank.org/country/jamaica', scope: 'Jamaica', what: 'Structural exposure: remittances, tourism, reserves, import mix', fn: worldbank, ttlH: 168 },

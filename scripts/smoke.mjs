@@ -21,6 +21,7 @@ for (const s of SOURCES) {
 }
 const d = Object.fromEntries(Object.entries(cache).map(([k, v]) => [k, v.data]));
 const a = analyse(d);
+if (d.research) for (const [k, l] of Object.entries(d.research.topics)) console.log('RESEARCH', k, l.length, 'papers; e.g.', JSON.stringify(l.slice(0, 3).map((p) => `${p.date} ${p.title.slice(0, 70)} (${p.src}${p.cites != null ? `, ${p.cites} cites` : ''})`)));
 if (d.imf) console.log('IMF', d.imf.edition, Object.keys(d.imf.series).length, 'series', JSON.stringify(d.imf.series['NGDP_RPCH:JAM']?.slice(-4)), JSON.stringify(d.imf.series['LUR:JAM']?.slice(-2)));
 if (d.fred) console.log('FRED', d.fred.via, Object.keys(d.fred.series).length, 'ok, failed:', d.fred.failed.join(','));
 console.log('HEADLINE:', a.headline);

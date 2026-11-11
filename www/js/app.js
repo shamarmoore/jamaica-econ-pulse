@@ -1029,9 +1029,42 @@ const TAGS = [
 ];
 let newsFilter = true; let newsScope = 'local'; let gFilter = true;
 function viewNews(d) {
-  const seg = `<div class="seg3 two"><button data-nscope="local" class="${newsScope === 'local' ? 'on' : ''}">Jamaica</button><button data-nscope="global" class="${newsScope === 'global' ? 'on' : ''}">Global</button></div>`;
+  const seg = `<div class="seg3"><button data-nscope="local" class="${newsScope === 'local' ? 'on' : ''}">Jamaica</button><button data-nscope="global" class="${newsScope === 'global' ? 'on' : ''}">Global</button><button data-nscope="research" class="${newsScope === 'research' ? 'on' : ''}">Research</button></div>`;
   if (newsScope === 'global') return seg + viewGlobal(d);
+  if (newsScope === 'research') return seg + viewResearch(d);
   return seg + viewLocal(d);
+}
+// ---------- Research papers ----------
+let rTopic = 'ai'; let rSort = 'best'; let rOA = false; let rShown = [];
+const R_LABEL = { ai: 'AI forecasting', logistics: 'Logistics', sales: 'Sales innovation' };
+function viewResearch(d) {
+  const R = d.research;
+  const chips = `<div class="sorts">${Object.entries(R_LABEL).map(([k, l]) => `<button data-rtopic="${k}" class="${rTopic === k ? 'on' : ''}">${l}${R?.topics?.[k] ? ` · ${R.topics[k].length}` : ''}</button>`).join('')}</div>`;
+  if (!R?.topics) return chips + empty(running.has('research') ? 'Finding recent papers…' : `Papers haven’t loaded yet${cache.research?.error ? ` (${esc(cache.research.error)})` : ''} — tap refresh.`);
+  let list = (R.topics[rTopic] || []).slice();
+  if (rOA) list = list.filter((p) => p.oa);
+  list.sort(rSort === 'cited' ? (a, b) => (b.cites ?? -1) - (a.cites ?? -1) || (b.date || '').localeCompare(a.date || '')
+    : rSort === 'new' ? (a, b) => (b.date || '').localeCompare(a.date || '') : (a, b) => (a.rank ?? 99) - (b.rank ?? 99));
+  rShown = list;
+  const yr = (p) => (p.date ? fd(p.date.length === 4 ? `${p.date}-01-01` : p.date, p.date.length > 4) : '');
+  return `${chips}
+    <div class="newsbar"><label><input type="checkbox" id="roa" ${rOA ? 'checked' : ''}> Free to read only</label>
+      <span class="sorts" style="margin:0"><button data-rsort="best" class="${rSort === 'best' ? 'on' : ''}">Best match</button><button data-rsort="new" class="${rSort === 'new' ? 'on' : ''}">Newest</button><button data-rsort="cited" class="${rSort === 'cited' ? 'on' : ''}">Most cited</button></span></div>
+    <p class="fine">From arXiv (preprints, not yet peer-reviewed) and OpenAlex (English-language journal articles and reviews from the last 2 years). Refreshes daily. Tap a paper for its summary.</p>
+    ${list.length ? `<ul class="news papers">${list.map((p, i) => `<li data-paper="${i}"><b class="l-t">${esc(p.title)}</b>
+      <div class="nmeta">${esc(p.authors || 'Unknown authors')} · ${esc(p.venue)}${p.date ? ` · ${yr(p)}` : ''}</div>
+      <div class="nmeta">${p.preprint ? '<span class="tag">Preprint</span>' : ''}${p.oa ? '<span class="tag good">Free to read</span>' : ''}${p.cites != null ? `<span class="tag">${p.cites} citation${p.cites === 1 ? '' : 's'}</span>` : ''}</div>
+      ${p.abstract ? `<div class="why1">${esc(p.abstract.slice(0, 180))}${p.abstract.length > 180 ? '…' : ''}</div>` : ''}</li>`).join('')}</ul>` : empty('No papers match — try turning off “Free to read only”.')}
+    ${R.errors?.length ? `<p class="fine">Some searches didn’t load: ${esc(R.errors.join('; '))}</p>` : ''}`;
+}
+function paperSheet(i) {
+  const p = rShown[i]; if (!p) return;
+  openSheet(`<h3>${esc(p.title)}</h3>
+    <p class="fine">${esc(p.authors || 'Unknown authors')}<br>${esc(p.venue)}${p.date ? ` · ${esc(p.date)}` : ''}${p.cites != null ? ` · cited ${p.cites} time${p.cites === 1 ? '' : 's'}` : ''}</p>
+    <p class="nmeta">${p.preprint ? '<span class="tag">Preprint — not yet peer-reviewed</span>' : '<span class="tag">Journal article</span>'}${p.oa ? '<span class="tag good">Free to read</span>' : '<span class="tag">May need access</span>'}</p>
+    <h4>Summary (from the authors)</h4><p>${esc(p.abstract || 'No abstract available.')}</p>
+    <div class="btnrow"><a class="btn pri" href="${esc(p.url)}" target="_blank" rel="noopener">Read paper ↗</a>${p.pdf && p.pdf !== p.url ? `<a class="btn" href="${esc(p.pdf)}" target="_blank" rel="noopener">PDF ↗</a>` : ''}<button class="btn" data-close>Close</button></div>
+    <p class="fine">Source: ${esc(p.src)}${p.doi ? ` · DOI ${esc(p.doi)}` : ''}</p>`);
 }
 function viewGlobal(d) {
   const items = d.gnews?.items || []; if (!items.length) return empty(running.has('gnews') ? 'Loading world headlines…' : 'Global headlines haven’t loaded yet.');
@@ -1111,6 +1144,9 @@ function render(opts = {}) {
   const nf = $('#nf'); if (nf) nf.onchange = () => { newsFilter = nf.checked; render({ keepScroll: true }); };
   const gf = $('#gf'); if (gf) gf.onchange = () => { gFilter = gf.checked; render({ keepScroll: true }); };
   v.querySelectorAll('[data-nscope]').forEach((b) => b.addEventListener('click', () => { newsScope = b.dataset.nscope; render(); }));
+  v.querySelectorAll('[data-rtopic]').forEach((b) => b.addEventListener('click', () => { rTopic = b.dataset.rtopic; render({ keepScroll: true }); }));
+  v.querySelectorAll('[data-rsort]').forEach((b) => b.addEventListener('click', () => { rSort = b.dataset.rsort; render({ keepScroll: true }); }));
+  const roa = v.querySelector('#roa'); if (roa) roa.onchange = () => { rOA = roa.checked; render({ keepScroll: true }); };
   if (tab === 'decide' && sub === 'borrow') { v.querySelectorAll('.calc input').forEach((i) => i.addEventListener('input', updateCalc)); updateCalc(); }
   if (tab === 'decide' && sub === 'home') bindFin(v);
   if (tab === 'decide' && sub === 'listings') {
@@ -1183,6 +1219,7 @@ $('#view').addEventListener('click', (e) => {
   const li = e.target.closest('[data-li]'); if (li) { listingSheet(+li.dataset.li); return; }
   const ci = e.target.closest('[data-ci]'); if (ci) { carSheet(ci.dataset.ci); return; }
   const sy = e.target.closest('[data-sym]'); if (sy) { stockSheet(sy.dataset.sym); return; }
+  const pp = e.target.closest('[data-paper]'); if (pp) { paperSheet(+pp.dataset.paper); return; }
   const xk = e.target.closest('[data-x]'); if (xk) { explainSheet(xk.dataset.x, xk.classList.contains('ib') ? xk.closest('.dcard, .hero-b') : xk); }
 });
 document.addEventListener('visibilitychange', () => { if (!document.hidden) refresh(false); });
