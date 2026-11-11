@@ -5,7 +5,7 @@ import { getText, getJSON, htmlToText } from './util.js';
 export const RESEARCH_TOPICS = {
   ai: {
     label: 'AI forecasting',
-    arxiv: 'ti:forecasting AND (abs:"time series" OR abs:demand OR abs:sales OR abs:"supply chain" OR abs:"foundation model") AND (cat:cs.LG OR cat:stat.ML OR cat:cs.AI)',
+    arxiv: '(ti:forecasting OR ti:forecast) AND (abs:demand OR abs:sales OR abs:retail OR abs:"supply chain" OR abs:inventory OR abs:economic OR abs:inflation) AND (cat:cs.LG OR cat:stat.ML OR cat:cs.AI OR cat:econ.EM OR cat:q-fin.ST)',
     openalex: '("demand forecasting" OR "sales forecasting" OR "time series forecasting") AND ("machine learning" OR "deep learning" OR "artificial intelligence")',
   },
   logistics: {
@@ -60,7 +60,7 @@ export function parseOpenAlex(j) {
       id: `oa:${(w.id || '').split('/').pop()}`, title: htmlToText(w.display_name || w.title || '').trim(), authors: authorsShort(authors),
       venue: src?.display_name || (w.type ? w.type.replace(/-/g, ' ') : 'Journal article'), date: w.publication_date || String(w.publication_year || ''),
       cites: w.cited_by_count ?? null, url: w.doi || w.primary_location?.landing_page_url || w.id, pdf: w.open_access?.oa_url || w.primary_location?.pdf_url || null,
-      oa: !!w.open_access?.is_oa, preprint: w.type === 'preprint', abstract: clip(unInvert(w.abstract_inverted_index), 1400), doi, src: 'OpenAlex',
+      oa: !!w.open_access?.is_oa, preprint: w.type === 'preprint', abstract: clip(unInvert(w.abstract_inverted_index).replace(/^(abstract|summary)[:.\s]+/i, ''), 1400), doi, src: 'OpenAlex',
     };
   }).filter((p) => p.title);
 }
@@ -69,12 +69,14 @@ const norm = (t) => t.toLowerCase().replace(/[^a-z0-9]+/g, ' ').trim().slice(0, 
 
 async function arxivSearch(q, n = 12) {
   const xml = await getText(`https://export.arxiv.org/api/query?search_query=${encodeURIComponent(q)}&sortBy=submittedDate&sortOrder=descending&max_results=${n}`, 30000);
-  return parseArxiv(xml);
+  return parseArxiv(xml).map((p, i) => ({ ...p, rank: i + 0.5 }));  // interleave newest preprints with best journal matches
 }
-async function openAlexSearch(q, n = 20, sinceDays = 540) {
+async function openAlexSearch(q, n = 25, sinceDays = 730) {
   const sel = 'id,doi,display_name,publication_date,publication_year,type,cited_by_count,open_access,primary_location,authorships,abstract_inverted_index';
-  const j = await getJSON(`https://api.openalex.org/works?search=${encodeURIComponent(q)}&filter=from_publication_date:${isoAgo(sinceDays)},has_abstract:true&per-page=${n}&select=${sel}`, 30000);
-  return parseOpenAlex(j);
+  // English journal articles and reviews only (no theses, book chapters or datasets)
+  const filter = `from_publication_date:${isoAgo(sinceDays)},has_abstract:true,language:en,type:article|review,primary_location.source.type:journal`;
+  const j = await getJSON(`https://api.openalex.org/works?search=${encodeURIComponent(q)}&filter=${filter}&per-page=${n}&select=${sel}`, 30000);
+  return parseOpenAlex(j).map((p, i) => ({ ...p, rank: i }));
 }
 
 export async function research() {
