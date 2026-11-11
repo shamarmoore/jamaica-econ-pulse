@@ -1,3 +1,6 @@
-import { SOURCES } from './www/js/sources.js';
-for (const id of ['imf', 'fred']) { const s = SOURCES.find((x) => x.id === id); const t = Date.now();
-  try { const d = await s.fn(); console.log('OK', id, Date.now() - t, 'ms', d.edition || d.via, Object.keys(d.series).length, JSON.stringify(Object.entries(d.series).slice(0, 2)).slice(0, 300)); } catch (e) { console.log('FAIL', id, e.message); } }
+import fs from 'node:fs';
+import { research } from './www/js/research.js';
+const t = Date.now(); const r = await research();
+fs.writeFileSync('data/research.json', JSON.stringify(r));
+console.log('TOOK', Date.now() - t, 'ms; errors', r.errors);
+for (const [k, l] of Object.entries(r.topics)) { console.log('TOPIC', k, l.length); for (const p of l.slice(0, 20)) console.log('  ', p.date, '|', p.src, '|', p.cites ?? '-', '|', p.title.slice(0, 95), '|', p.venue.slice(0, 40)); }
