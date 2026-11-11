@@ -3,13 +3,25 @@
 import { getText, getJSON, htmlToText } from './util.js';
 
 export const RESEARCH_TOPICS = {
-  ai: {
-    label: 'AI forecasting',
-    arxiv: '(ti:forecasting OR ti:forecast) AND (abs:demand OR abs:sales OR abs:retail OR abs:"supply chain" OR abs:inventory OR abs:economic OR abs:inflation) AND (cat:cs.LG OR cat:stat.ML OR cat:cs.AI OR cat:econ.EM OR cat:q-fin.ST)',
-    openalex: '("demand forecasting" OR "sales forecasting" OR "time series forecasting") AND ("machine learning" OR "deep learning" OR "artificial intelligence")',
+  airesearch: {
+    label: 'AI research',
+    // general AI: newest notable preprints + the most relevant recent papers (AI work is mostly preprints/conferences, so not journal-only)
+    arxiv: '(cat:cs.AI OR cat:cs.CL OR cat:cs.LG) AND (ti:"language model" OR ti:"language models" OR ti:agent OR ti:agents OR ti:reasoning OR ti:"foundation model" OR ti:multimodal OR ti:alignment)',
+    openalex: '("large language models" OR "generative AI" OR "AI agents" OR "foundation models" OR "artificial intelligence") AND (capabilities OR reasoning OR evaluation OR adoption OR survey)',
+    oaFilter: 'type:article|review|preprint', sinceDays: 365,
+  },
+  fmcg: {
+    label: 'FMCG forecasting',
+    arxiv: '(ti:forecasting OR ti:forecast OR ti:"demand prediction") AND (abs:retail OR abs:grocery OR abs:"consumer goods" OR abs:FMCG OR abs:CPG OR abs:"demand forecasting" OR abs:SKU OR abs:promotion) AND (cat:cs.LG OR cat:stat.ML OR cat:cs.AI OR cat:stat.AP)',
+    openalex: '("demand forecasting" OR "sales forecasting") AND (FMCG OR "fast-moving consumer goods" OR "consumer goods" OR "consumer packaged goods" OR retail OR grocery OR beverage OR SKU OR promotion)',
+  },
+  markets: {
+    label: 'Market forecasting',
+    arxiv: '(ti:forecasting OR ti:forecast OR ti:prediction OR ti:predicting OR ti:predictability OR abs:"return prediction") AND (cat:q-fin.ST OR cat:q-fin.PM OR cat:q-fin.TR OR cat:q-fin.CP OR cat:q-fin.GN)',
+    openalex: '("stock price prediction" OR "stock return prediction" OR "return predictability" OR "stock market forecasting" OR "portfolio" OR "factor investing") AND ("machine learning" OR "deep learning" OR forecasting OR "emerging markets" OR "frontier markets")',
   },
   logistics: {
-    label: 'Logistics management',
+    label: 'Logistics',
     arxiv: '(ti:logistics OR ti:"supply chain" OR ti:inventory OR ti:"vehicle routing" OR ti:warehouse) AND (cat:math.OC OR cat:cs.AI OR cat:cs.LG OR cat:econ.GN)',
     openalex: '("logistics management" OR "supply chain management" OR "last-mile delivery" OR "distribution logistics" OR "inventory management")',
   },
@@ -20,6 +32,7 @@ export const RESEARCH_TOPICS = {
   },
 };
 
+const sleep = (ms) => new Promise((r) => setTimeout(r, ms));
 const isoAgo = (days) => new Date(Date.now() - days * 864e5).toISOString().slice(0, 10);
 const clip = (s, n) => (s && s.length > n ? `${s.slice(0, n).replace(/\s+\S*$/, '')}…` : s || '');
 const authorsShort = (list) => (list.length > 3 ? `${list.slice(0, 3).join(', ')} et al.` : list.join(', '));
@@ -75,19 +88,25 @@ async function arxivSearch(q, n = 12) {
   const xml = await getText(`https://export.arxiv.org/api/query?search_query=${encodeURIComponent(q)}&sortBy=submittedDate&sortOrder=descending&max_results=${n}`, 30000);
   return parseArxiv(xml).map((p, i) => ({ ...p, rank: i + 0.5 }));  // interleave newest preprints with best journal matches
 }
-async function openAlexSearch(q, n = 25, sinceDays = 730) {
+async function openAlexSearch(q, n = 25, sinceDays = 730, typeFilter = 'type:article|review,primary_location.source.type:journal') {
   const sel = 'id,doi,display_name,publication_date,publication_year,type,cited_by_count,open_access,primary_location,authorships,abstract_inverted_index';
   // English journal articles and reviews only (no theses, book chapters or datasets)
-  const filter = `from_publication_date:${isoAgo(sinceDays)},has_abstract:true,language:en,type:article|review,primary_location.source.type:journal`;
-  const j = await getJSON(`https://api.openalex.org/works?search=${encodeURIComponent(q)}&filter=${filter}&per-page=${n}&select=${sel}`, 30000);
+  const filter = `from_publication_date:${isoAgo(sinceDays)},has_abstract:true,language:en,${typeFilter}`;
+  const url = `https://api.openalex.org/works?search=${encodeURIComponent(q)}&filter=${filter}&per-page=${n}&select=${sel}`;
+  let j;
+  try { j = await getJSON(url, 30000); } catch (e) {
+    if (!/HTTP 429/.test(String(e.message || e))) throw e;
+    await sleep(4000); j = await getJSON(url, 30000); // rate-limited: wait and try once more
+  }
   return parseOpenAlex(j).map((p, i) => ({ ...p, rank: i }));
 }
 
 export async function research() {
   const topics = {}; const errors = [];
   for (const [k, t] of Object.entries(RESEARCH_TOPICS)) {
-    const jobs = [t.openalex ? openAlexSearch(t.openalex) : null, t.arxiv ? arxivSearch(t.arxiv) : null].filter(Boolean);
+    const jobs = [t.openalex ? openAlexSearch(t.openalex, 25, t.sinceDays || 730, t.oaFilter) : null, t.arxiv ? arxivSearch(t.arxiv) : null].filter(Boolean);
     const res = await Promise.allSettled(jobs);
+    await sleep(1200); // space out OpenAlex calls (free tier, shared allowance)
     const seen = new Set(); const papers = [];
     for (const r of res) {
       if (r.status !== 'fulfilled') { errors.push(`${t.label}: ${String(r.reason?.message || r.reason).slice(0, 60)}`); continue; }

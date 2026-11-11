@@ -1035,8 +1035,8 @@ function viewNews(d) {
   return seg + viewLocal(d);
 }
 // ---------- Research papers ----------
-let rTopic = 'ai'; let rSort = 'best'; let rOA = false; let rShown = [];
-const R_LABEL = { ai: 'AI forecasting', logistics: 'Logistics', sales: 'Sales innovation' };
+let rTopic = 'airesearch'; let rSort = 'best'; let rOA = false; let rShown = [];
+const R_LABEL = { airesearch: 'AI research', fmcg: 'FMCG forecasting', markets: 'Market forecasting', logistics: 'Logistics', sales: 'Sales innovation' };
 function viewResearch(d) {
   const R = d.research;
   const chips = `<div class="sorts">${Object.entries(R_LABEL).map(([k, l]) => `<button data-rtopic="${k}" class="${rTopic === k ? 'on' : ''}">${l}${R?.topics?.[k] ? ` · ${R.topics[k].length}` : ''}</button>`).join('')}</div>`;
@@ -1050,7 +1050,7 @@ function viewResearch(d) {
   return `${chips}
     <div class="newsbar"><label><input type="checkbox" id="roa" ${rOA ? 'checked' : ''}> Free to read only</label>
       <span class="sorts" style="margin:0"><button data-rsort="best" class="${rSort === 'best' ? 'on' : ''}">Best match</button><button data-rsort="new" class="${rSort === 'new' ? 'on' : ''}">Newest</button><button data-rsort="cited" class="${rSort === 'cited' ? 'on' : ''}">Most cited</button></span></div>
-    <p class="fine">From arXiv (preprints, not yet peer-reviewed) and OpenAlex (English-language journal articles and reviews from the last 2 years). Refreshes daily. Tap a paper for its summary.</p>
+    <p class="fine">From arXiv (preprints, not yet peer-reviewed) and OpenAlex (English-language articles and reviews from the last 1–2 years). Refreshes daily. Tap a paper for its summary.</p>
     ${list.length ? `<ul class="news papers">${list.map((p, i) => `<li data-paper="${i}"><b class="l-t">${esc(p.title)}</b>
       <div class="nmeta">${esc(p.authors || 'Unknown authors')} · ${esc(p.venue)}${p.date ? ` · ${yr(p)}` : ''}</div>
       <div class="nmeta">${p.preprint ? '<span class="tag">Preprint</span>' : ''}${p.oa ? '<span class="tag good">Free to read</span>' : ''}${p.cites != null ? `<span class="tag">${p.cites} citation${p.cites === 1 ? '' : 's'}</span>` : ''}</div>
