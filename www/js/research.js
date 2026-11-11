@@ -32,6 +32,7 @@ export const RESEARCH_TOPICS = {
   },
 };
 
+const sleep = (ms) => new Promise((r) => setTimeout(r, ms));
 const isoAgo = (days) => new Date(Date.now() - days * 864e5).toISOString().slice(0, 10);
 const clip = (s, n) => (s && s.length > n ? `${s.slice(0, n).replace(/\s+\S*$/, '')}…` : s || '');
 const authorsShort = (list) => (list.length > 3 ? `${list.slice(0, 3).join(', ')} et al.` : list.join(', '));
@@ -91,7 +92,12 @@ async function openAlexSearch(q, n = 25, sinceDays = 730, typeFilter = 'type:art
   const sel = 'id,doi,display_name,publication_date,publication_year,type,cited_by_count,open_access,primary_location,authorships,abstract_inverted_index';
   // English journal articles and reviews only (no theses, book chapters or datasets)
   const filter = `from_publication_date:${isoAgo(sinceDays)},has_abstract:true,language:en,${typeFilter}`;
-  const j = await getJSON(`https://api.openalex.org/works?search=${encodeURIComponent(q)}&filter=${filter}&per-page=${n}&select=${sel}`, 30000);
+  const url = `https://api.openalex.org/works?search=${encodeURIComponent(q)}&filter=${filter}&per-page=${n}&select=${sel}`;
+  let j;
+  try { j = await getJSON(url, 30000); } catch (e) {
+    if (!/HTTP 429/.test(String(e.message || e))) throw e;
+    await sleep(4000); j = await getJSON(url, 30000); // rate-limited: wait and try once more
+  }
   return parseOpenAlex(j).map((p, i) => ({ ...p, rank: i }));
 }
 
@@ -100,6 +106,7 @@ export async function research() {
   for (const [k, t] of Object.entries(RESEARCH_TOPICS)) {
     const jobs = [t.openalex ? openAlexSearch(t.openalex, 25, t.sinceDays || 730, t.oaFilter) : null, t.arxiv ? arxivSearch(t.arxiv) : null].filter(Boolean);
     const res = await Promise.allSettled(jobs);
+    await sleep(1200); // space out OpenAlex calls (free tier, shared allowance)
     const seen = new Set(); const papers = [];
     for (const r of res) {
       if (r.status !== 'fulfilled') { errors.push(`${t.label}: ${String(r.reason?.message || r.reason).slice(0, 60)}`); continue; }
