@@ -501,5 +501,157 @@
    "2026-11-11"
   ],
   "explain": "USD/JMD 20-day change (daily rates from March 2024). \u201cJ$ weakening fast\u201d = more than 0.5% in 20 trading days. USD-linked = stocks quoted in or paying dividends in US dollars."
+ },
+ "insiders": {
+  "buy21": {
+   "n": 336,
+   "months": 54,
+   "avgExcess": -2.34,
+   "median": -3.65,
+   "winRate": 29,
+   "t": -4.64,
+   "firstHalf": -2.8,
+   "secondHalf": -2.0,
+   "verdict": "negative edge (avoid)"
+  },
+  "buy63": {
+   "n": 320,
+   "months": 52,
+   "avgExcess": -2.14,
+   "median": -4.22,
+   "winRate": 34,
+   "t": -1.95,
+   "firstHalf": -4.21,
+   "secondHalf": -0.42,
+   "verdict": "weak negative"
+  },
+  "directorBuy63": {
+   "n": 159,
+   "months": 48,
+   "avgExcess": -1.58,
+   "median": -3.14,
+   "winRate": 36,
+   "t": -1.8,
+   "firstHalf": -2.86,
+   "secondHalf": -0.11,
+   "verdict": "weak negative"
+  },
+  "connectedBuy63": {
+   "n": 170,
+   "months": 50,
+   "avgExcess": -2.39,
+   "median": -4.79,
+   "winRate": 33,
+   "t": -1.82,
+   "firstHalf": -5.72,
+   "secondHalf": -0.16,
+   "verdict": "weak negative"
+  },
+  "bigBuy63": {
+   "n": 113,
+   "months": 44,
+   "avgExcess": -2.49,
+   "median": -2.75,
+   "winRate": 39,
+   "t": -1.79,
+   "firstHalf": -6.28,
+   "secondHalf": 0.02,
+   "verdict": "no reliable edge"
+  },
+  "clusterBuy63": {
+   "n": 151,
+   "months": 47,
+   "avgExcess": -1.93,
+   "median": -4.46,
+   "winRate": 36,
+   "t": -1.51,
+   "firstHalf": -3.86,
+   "secondHalf": -0.35,
+   "verdict": "weak negative"
+  },
+  "sell21": {
+   "n": 285,
+   "months": 54,
+   "avgExcess": -2.8,
+   "median": -3.54,
+   "winRate": 29,
+   "t": -5.14,
+   "firstHalf": -3.54,
+   "secondHalf": -2.18,
+   "verdict": "negative edge (avoid)"
+  },
+  "sell63": {
+   "n": 271,
+   "months": 52,
+   "avgExcess": -2.74,
+   "median": -3.58,
+   "winRate": 32,
+   "t": -2.78,
+   "firstHalf": -4.85,
+   "secondHalf": -0.8,
+   "verdict": "negative edge (avoid)"
+  },
+  "bigSell63": {
+   "n": 105,
+   "months": 45,
+   "avgExcess": -3.3,
+   "median": -4.12,
+   "winRate": 30,
+   "t": -3.02,
+   "firstHalf": -4.25,
+   "secondHalf": -2.62,
+   "verdict": "negative edge (avoid)"
+  },
+  "buyback63": {
+   "n": 36,
+   "months": 28,
+   "avgExcess": -1.94,
+   "median": -4.56,
+   "winRate": 31,
+   "t": -1.26,
+   "firstHalf": -1.73,
+   "secondHalf": -2.33,
+   "verdict": "no reliable edge"
+  },
+  "buy63_holding": {
+   "n": 320,
+   "months": 52,
+   "avgExcess": 0.86,
+   "median": -1.22,
+   "winRate": 45,
+   "t": 0.57,
+   "firstHalf": -1.21,
+   "secondHalf": 2.58,
+   "verdict": "no reliable edge"
+  },
+  "sell63_holding": {
+   "n": 271,
+   "months": 52,
+   "avgExcess": 0.26,
+   "median": -0.58,
+   "winRate": 48,
+   "t": 0.25,
+   "firstHalf": -1.85,
+   "secondHalf": 2.2,
+   "verdict": "no reliable edge"
+  },
+  "bigSell63_holding": {
+   "n": 105,
+   "months": 45,
+   "avgExcess": -0.3,
+   "median": -1.12,
+   "winRate": 47,
+   "t": -0.41,
+   "firstHalf": -1.25,
+   "secondHalf": 0.38,
+   "verdict": "no reliable edge"
+  },
+  "eventsParsed": 2922,
+  "eventsTested": 1498,
+  "period": [
+   "2018-11-28",
+   "2026-11-11"
+  ],
+  "explain": "Parsed from the JSE\u2019s \u201cTrading in shares\u201d notices (directors, senior officers, connected parties; company buybacks separately). Buy at the close of the trading day after the notice (most notices come after the 1 pm close), hold 1 or 3 months, 1.5% costs each way, compared with the average JSE stock over the same days. Big = at least J$1M and 3\u00d7 the stock\u2019s normal daily trading. Cluster = a second buy notice within a month."
  }
 }
