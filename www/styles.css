@@ -298,3 +298,14 @@ ol.steps li { margin: 2px 0; }
 span.warn, p.warn { color: var(--warn); }
 .bigtxt { width: 100%; min-height: 140px; font: 12px/1.4 ui-monospace, monospace; color: var(--ink); background: var(--paper); border: 1px solid var(--rule); border-radius: 3px; padding: 8px; box-sizing: border-box; }
 .btnrow .btn { margin-bottom: 6px; }
+/* announcements + on-device AI */
+.news { display: flex; flex-direction: column; gap: 6px; margin: 6px 0 8px; }
+.news-i { background: var(--card); border: 1px solid var(--rule); border-radius: 3px; padding: 8px 10px; }
+.news-i summary { cursor: pointer; list-style: none; font-size: 14px; line-height: 1.35; }
+.news-i summary::-webkit-details-marker { display: none; }
+.news-i p { margin: 6px 0; }
+.tag.badtag { border-color: var(--bad); color: var(--bad); }
+.ai-btn { width: 100%; margin: 6px 0; }
+.ai-out { background: var(--card); border: 1px solid var(--rule); border-left: 3px solid var(--accent); border-radius: 3px; padding: 8px 12px; margin: 4px 0 10px; }
+.ai-out ul { margin: 4px 0; padding-left: 18px; } .ai-out li { margin: 3px 0; }
+.ai-out.hide { display: none; }

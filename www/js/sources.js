@@ -221,6 +221,16 @@ async function jseForecasts() {
   return j;
 }
 
+async function jseNews() {
+  const tok = ghToken.get();
+  if (!tok) throw new Error('Add your read-only GitHub token under Sources to load JSE announcements.');
+  const txt = await getText(`https://api.github.com/repos/${FORECAST_REPO}/contents/data/news_feed.json?ref=main`, 30000,
+    { Authorization: `Bearer ${tok}`, Accept: 'application/vnd.github.raw+json', 'X-GitHub-Api-Version': '2022-11-28' });
+  const j = JSON.parse(txt);
+  if (!Array.isArray(j?.posts)) throw new Error('Announcements file is empty — the nightly job may not have run yet.');
+  return j;
+}
+
 // FRED's official API needs a free personal key (fredaccount.stlouisfed.org/apikeys). Without one we try
 // FRED's public CSV download, which works from many networks but is refused on some phone connections.
 const FRED_KEY = 'ep_fredkey_v1';
@@ -444,6 +454,7 @@ export const SOURCES = [
   { id: 'cars', name: 'Car listings (AutoAdsJa, Gleaner Classifieds)', home: 'https://www.autoadsja.com/', scope: 'Jamaica', what: 'Recently posted Honda Civics and Toyota GT86s', fn: carListings, ttlH: 6 },
   { id: 'jsequotes', name: 'JSE Trade Quotes', home: 'https://www.jamstockex.com/trading/trade-quotes/', scope: 'Jamaica', what: 'Daily closing prices, volume and 52-week ranges for the stock picker', fn: jseQuotes, ttlH: 8 },
   { id: 'forecasts', name: 'JSE forecasts (Timestral, nightly)', home: `https://github.com/${FORECAST_REPO}/actions`, scope: 'Jamaica', what: '3-month price ranges, target odds and speculation scores for every JSE stock, made nightly on your GitHub', fn: jseForecasts, ttlH: 6, optional: true, outdated: (d) => !d?.edgeInfo },
+  { id: 'jsenews', name: 'JSE announcements (nightly)', home: 'https://www.jamstockex.com/category/trading-in-shares/', scope: 'Jamaica', what: 'Company notices from the last 90 days — results, dividends, insider trades — with symbols matched, for the stock pages and the on-phone AI summaries', fn: jseNews, ttlH: 6, optional: true },
   { id: 'research', name: 'Research papers (arXiv + OpenAlex)', home: 'https://openalex.org/', scope: 'Research', what: 'Recent papers on AI forecasting, logistics management and sales innovation', fn: research, ttlH: 24 },
   { id: 'gnews', name: 'Global news (BBC, CNBC, FT, Guardian, NPR, MarketWatch, OilPrice)', home: 'https://feeds.bbci.co.uk/news/business/', scope: 'World', what: 'World business & economy headlines tagged by how they reach Jamaica', fn: globalNews, ttlH: 2 },
   { id: 'imf', name: 'IMF World Economic Outlook', home: 'https://www.imf.org/external/datamapper/profile/JAM', scope: 'Jamaica + partners', what: 'Growth, inflation, debt, current account — history & projections', fn: imf, ttlH: 72 },

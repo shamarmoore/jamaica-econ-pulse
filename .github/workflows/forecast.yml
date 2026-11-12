@@ -43,7 +43,9 @@ jobs:
       - name: Signal study + Edge score inputs (fast)
         run: python scripts/factor_study.py > /dev/null && echo "study ok"
       - name: Idea tests (macro, sectors, spreads, events)
-        run: python scripts/idea_tests.py > /dev/null && echo "ideas ok" || echo "idea tests skipped"
+        run: |
+          python scripts/insiders.py || echo "announcement feed skipped"
+          python scripts/idea_tests.py > /dev/null && echo "ideas ok" || echo "idea tests skipped"
       - name: Forecast every stock
         run: if [ -f scripts/forecast.py ]; then python scripts/forecast.py; fi
       - name: Save

@@ -46,7 +46,25 @@ def sectors(IDXS, macro):
 SECT_IDX = {'Financial': 'Financial Index', 'Manufacturing & Distribution': 'Manufacturing & Distribution Index', 'Junior Market': 'Junior Market Index', 'Other': 'Index'}
 
 
+def _insiders():
+    try:
+        import insiders as INS
+        by = {}
+        for e in INS.events():
+            by.setdefault(e['sym'], []).append(e)
+        return by
+    except Exception:
+        return {}
+
+
+INS_BY = {}
+INS_SINCE = ''
+
+
 def compute():
+    global INS_BY, INS_SINCE
+    INS_BY = _insiders()
+    INS_SINCE = (pd.Timestamp.today() - pd.Timedelta(days=90)).strftime('%Y-%m-%d')
     det, macro = _detail(), _macro()
     IDXS = pd.DataFrame({d: v.get('i', {}) for d, v in det.items()}).T if det else pd.DataFrame()
     if len(IDXS):
@@ -107,6 +125,13 @@ def compute():
             if col in IDXS.columns and pd.notna(IDXS[col].iloc[T - 63]):
                 rs = round(float((p.iloc[T] / p.iloc[T - 63] - 1) - (IDXS[col].iloc[T] / IDXS[col].iloc[T - 63] - 1)) * 100, 1)
             sig['sector'] = {'name': sec, 'rs63': rs}
+        ins = INS_BY.get(s)
+        if ins:
+            recent = [e for e in ins if e['date'] >= INS_SINCE and e['who'] != 'company']
+            if recent:
+                l = recent[-1]
+                sig['insider'] = {'buys': sum(1 for e in recent if e['side'] == 'buy'), 'sells': sum(1 for e in recent if e['side'] == 'sell'),
+                                  'last': {'date': l['date'], 'side': l['side'], 'who': l['who'], 'shares': l['shares']}}
         out[s] = sig
     # ---- market regime ----
     reg = {}

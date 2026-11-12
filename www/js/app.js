@@ -7,6 +7,7 @@ import { fredKey, ghToken } from './sources.js';
 import { MODELS, jacarsLinks } from './cars.js';
 import { quotesOn, rankStocks, TV_SYMBOLS, tvUrl, GLOBAL_TAGS, targetOdds, fcAt, fcChange, hypeLabel, calibrate } from './markets.js';
 import { fmt, signed, last, changeOver, yoySeries } from './util.js';
+import { nano, nanoCheck, nanoDownload, nanoAsk, nanoCached, nanoForget, nanoLabel, explainPrompt, newsPrompt, digestPrompt } from './nano.js';
 
 const KEY = 'ep_cache_v1';
 const PREV = 'ep_prev_gauges_v1';
@@ -688,6 +689,7 @@ function viewTrade(d) {
     <div class="sorts">${JSE_SORTS.map(([k, l]) => `<button data-jsort="${k}" class="${jseSort === k ? 'on' : ''}">${l}</button>`).join('')}</div>` : ''}
     </section>
     ${positionsCard(d)}
+    ${newsCard(d)}
     ${!L ? empty(running.has('jsequotes') ? 'Loading JSE quotes…' : 'JSE quotes haven’t loaded yet — tap refresh.') : `
     ${!F?.edgeInfo ? `<div class="note"><b>Edge score, forecasts and target odds aren’t loaded.</b> ${!ghToken.get()
       ? 'They come from the nightly file in your private GitHub repo, which needs a read-only token: add it under <button class="linkish" data-goto="sources">Sources → Stock forecasts</button> (or build it into the app with the FORECAST_TOKEN secret).'
@@ -717,6 +719,7 @@ function tradeLesson(F) {
 }
 function bindTrade(v) {
   const ib = v.querySelector('#ideas-btn'); if (ib) ib.addEventListener('click', () => ideasSheet(data().forecasts));
+  const dg = v.querySelector('#ai-digest'); if (dg) dg.addEventListener('click', () => runAi(dg, v.querySelector('#ai-digest-out'), dg.dataset.aikey, digestPrompt(relevantNews(data()).slice(0, 25)), { maxTokens: 450 }));
   const pa = v.querySelector('#pos-add'); if (pa) pa.addEventListener('click', () => posForm(data()));
   const pe = v.querySelector('#pos-export'); if (pe) pe.addEventListener('click', posBackup);
   const pi = v.querySelector('#pos-import'); if (pi) pi.addEventListener('click', posRestore);
@@ -753,10 +756,11 @@ function stockSheet(sym) {
     ${edgeBlock(d.forecasts, sym)}
     ${signalsBlock(d.forecasts, sym)}
     ${forecastBlock(d.forecasts, sym)}
+    ${newsBlock(d, sym)}
     <h4>How to read this</h4><p class="fine">The trend figures compare today’s close with closes saved on your phone from 3, 6 and 12 months ago (prices exclude dividends). The 52-week bar shows where today’s price sits between the year’s low and high. This is a research shortlist, not a recommendation — check company results and news before buying.</p>
     ${positions.some((p) => p.sym === sym && !p.exit) ? `<p class="fine">You hold this stock — see My positions on the Trade page.</p>` : ''}
     <div class="btnrow"><button class="btn pri" id="buy-this">I bought this</button><a class="btn" href="https://www.jamstockex.com/trading/trade-quotes/?market=50&date=${L.date}" target="_blank" rel="noopener">JSE quotes ↗</a><button class="btn" data-close>Close</button></div>`,
-  (root) => { bindForecast(root, d.forecasts, sym); root.querySelector('#buy-this').addEventListener('click', () => posForm(d, { sym })); });
+  (root) => { bindForecast(root, d.forecasts, sym); bindNews(root, d, sym); root.querySelector('#buy-this').addEventListener('click', () => posForm(d, { sym })); });
 }
 
 // ---------- Timestral forecast: fan chart, target odds, speculation ----------
@@ -797,6 +801,9 @@ function signalsBlock(F, sym) {
   if (lq?.turnoverZ != null) { const T_ = g2(I, 'liquidity', 'turnoverSurge'); rows.push(['Turnover vs normal', `${lq.turnoverZ >= 0 ? '+' : ''}${fmt(lq.turnoverZ, 1)} standard deviations vs its 6-month norm`, T_, `High-turnover stocks (top third) beat the market by ${ptsTxt(T_?.avgExcess)} per 3 months — small but consistent; part of the Edge score.`]); }
   if (x.spread) { const T_ = g2(I, 'bid_ask_spread', 'tighterThanUsual_factor'); rows.push(['Bid–ask spread', `${fmt(x.spread.pct, 1)}% (z ${x.spread.z >= 0 ? '+' : ''}${fmt(x.spread.z, 1)} vs its 20-day norm)`, T_, T_ ? `Stocks with spreads tighter than usual: ${ptsTxt(T_.avgExcess)} vs the market over the next month.` : 'Spread history is still being collected.']); const C_ = g2(I, 'bid_ask_spread', 'suddenTighteningWithUpClose_trade21'); if (x.spread.chase && C_) rows.push(['Don’t chase today', 'Spread just snapped tight on an up day', C_, `Buying right after a sudden spread tightening on an up close went on to ${ptsTxt(C_.avgExcess)} vs the market over the next month after costs (won ${C_.winRate}% of ${C_.n} cases). Wait a few days or use a limit order below today’s price.`]); }
   if (x.sector) { const T_ = g2(I, 'sector_strength', 'relativeStrength'); rows.push(['Sector strength', `Moves with the ${esc(x.sector.name)} index${x.sector.rs63 != null ? ` · ${ptsTxt(x.sector.rs63, 'pts')} vs its sector over 3 months` : ''}`, T_, T_ ? `Stocks beating their sector (top third) went on to ${ptsTxt(T_.avgExcess)} vs the market per 3 months.` : 'Sector history is still being collected.']); }
+  if (x.insider) { const L_ = x.insider.last; const T_ = L_.side === 'buy' ? g2(I, 'insiders', 'buy63') : g2(I, 'insiders', 'sell63_holding');
+    rows.push(['Insider trades (90 days)', `${x.insider.buys} buy and ${x.insider.sells} sell notice${x.insider.sells === 1 ? '' : 's'} · latest ${fd(L_.date)}: ${esc(WHO_LABEL[L_.who] || 'an insider')} ${L_.side === 'buy' ? 'bought' : 'sold'}${L_.shares ? ` ${Math.round(L_.shares).toLocaleString('en-US')} shares` : ''}`, T_,
+      L_.side === 'buy' ? `Buying the day after insider buy notices went on to ${ptsTxt(T_?.avgExcess)} vs the market over 3 months after costs (${ptsTxt(g2(I, 'insiders', 'buy63_holding')?.avgExcess)} before costs) — on the JSE, insiders buying hasn’t been a reliable signal.` : `If you already held, stocks did ${ptsTxt(T_?.avgExcess)} vs the market over the 3 months after insider sell notices — not a reason to sell on its own.`]); }
   if (lq) rows.push(['Liquidity', `Trades ${lq.tradedPct}% of days · about J$${(lq.adv20 / 1e6).toFixed(lq.adv20 >= 1e7 ? 0 : 1)}M a day`, null, 'Used for position sizing: a position you can build in a few days without pushing the price.']);
   return `<h4>Signals & what testing showed</h4><div class="sigs">${rows.map(([t, state, T_, why]) => `<div class="sig"><div class="sig-h"><b>${t}</b>${T_ ? VCHIP(T_.verdict) : ''}</div><div>${state}</div><div class="fine">${why}</div></div>`).join('')}</div>`;
 }
@@ -1016,6 +1023,107 @@ function posRestore() {
     } catch (e) { root.querySelector('#pr-msg').textContent = `Couldn’t restore: ${e.message}`; }
   }));
 }
+// ---------- JSE announcements + on-device Gemini Nano ----------
+const KIND_LABEL = { results: 'Results', dividend: 'Dividend', insider: 'Insider trade', meeting: 'Meeting', board: 'Board', capital: 'Capital', notice: 'Notice' };
+const WHO_LABEL = { director: 'a director', officer: 'an officer', connected: 'a connected party', company: 'the company (buyback)' };
+function insChip(p) {
+  const i = p.ins; if (!i) return '';
+  const lab = i.side === 'buy' ? 'Bought' : i.side === 'sell' ? 'Sold' : 'Bought & sold';
+  return ` <span class="tag ${i.side === 'buy' ? 'good' : i.side === 'sell' ? 'badtag' : ''}">${lab}${i.who ? ` · ${esc(WHO_LABEL[i.who] || i.who)}` : ''}${i.shares ? ` · ${Math.round(i.shares).toLocaleString('en-US')} sh` : ''}</span>`;
+}
+function newsItem(p, showSym = false) {
+  return `<details class="news-i"><summary><span class="fine">${fd(p.d.slice(0, 10))}${showSym && p.s ? ` · <b>${esc(p.s)}</b>` : ''} · ${KIND_LABEL[p.k] || 'Notice'}</span><br>${esc(p.t)}${insChip(p)}</summary>
+    ${p.x ? `<p class="fine">${esc(p.x)}${p.x.length >= 900 ? '…' : ''}</p>` : ''}${p.u ? `<a class="fine" href="${esc(p.u)}" target="_blank" rel="noopener">Open on jamstockex.com ↗</a>` : ''}</details>`;
+}
+function aiOut(id, key) {
+  const t = nanoCached(key);
+  return `<div class="ai-out${t ? '' : ' hide'}" id="${id}">${t ? aiHtml(t) : ''}</div>`;
+}
+function aiHtml(t) {
+  const lines = String(t).split(/\n+/).map((l) => l.trim()).filter(Boolean);
+  const li = lines.filter((l) => /^[•*-]\s/.test(l)); const other = lines.filter((l) => !/^[•*-]\s/.test(l));
+  return `${li.length ? `<ul>${li.map((l) => `<li>${esc(l.replace(/^[•*-]\s*/, '').replace(/\*\*/g, ''))}</li>`).join('')}</ul>` : ''}${other.map((l) => `<p>${esc(l.replace(/\*\*/g, ''))}</p>`).join('')}
+    <p class="fine">Written on your phone by ${esc(nanoLabel())} from the app’s numbers. It can misread things — check against the figures above.</p>`;
+}
+function aiButton(id, label, key) {
+  const st = nano.status?.status;
+  if (st === 'available') return `<button class="btn ai-btn" id="${id}" data-aikey="${esc(key)}">${nanoCached(key) ? '↻ ' : '✦ '}${label}</button>`;
+  if (st === 'downloadable' || st === 'downloading') return `<p class="fine">✦ ${label} needs the Gemini Nano model — <button class="linkish" data-goto="sources">download it under Sources</button>.</p>`;
+  return '';
+}
+async function runAi(btn, outEl, key, prompt, opts) {
+  if (!btn || !outEl) return;
+  const lab = btn.textContent; btn.disabled = true; btn.innerHTML = '<span class="spin"></span>Thinking on your phone… (first run can take a minute)';
+  outEl.classList.remove('hide'); outEl.innerHTML = '<p class="fine">Working…</p>';
+  try {
+    if (lab.startsWith('↻')) nanoForget(key); // re-run asked for a fresh answer
+    const text = await nanoAsk(key, prompt, opts);
+    outEl.innerHTML = aiHtml(text);
+  } catch (e) { outEl.innerHTML = `<p class="fine bad">${esc(e.message || e)}</p>`; }
+  btn.disabled = false; btn.textContent = lab.replace(/^✦ /, '↻ ');
+}
+function stockFacts(d, sym) {
+  const F = d.forecasts; const s = F?.stocks?.[sym] || {}; const q = (rankStocks(d.jsequotes, jseHist).all || []).find((z) => z.sym === sym);
+  const I = F?.ideas; const L = [];
+  L.push(`Stock: ${sym}. Price J$${fmt(q?.close ?? s.close, 2)}${q?.offHigh != null ? `, ${fmt(q.offHigh, 0)}% vs 52-week high` : ''}${q?.m12 != null ? `, 12-month price change ${signed(q.m12, 0)}` : ''}.`);
+  if (s.edge) L.push(`Edge score ${s.edge.score}/100, rank ${s.edge.rank} of ${s.edge.of} (tested: top 5 by Edge beat the market after costs; outside the top 20 the tested rule sells). Strongest parts: ${Object.entries(s.edge.signals || {}).sort((a, b) => b[1] - a[1]).slice(0, 3).map(([k]) => F.edgeInfo?.labels?.[k] || k).join(', ')}.`);
+  if (s.chanceUp != null) L.push(`Chance the price is higher in 3 months: ${s.chanceUp}% (typical JSE stock ${fmt(F.chanceInfo?.baseUp, 0)}%).`);
+  const fc = fcChange(F, sym); if (fc != null) L.push(`Timestral 3-month median forecast change: ${signed(fc, 1)} (wide uncertainty).`);
+  const x = s.signals || {};
+  if (x.intrinsic) L.push(`Estimated fair value J$${fmt(x.intrinsic.fair, 2)}; price is ${Math.abs(x.intrinsic.mos)}% ${x.intrinsic.mos >= 0 ? 'below' : 'above'} it (tested: cheapest third beat the market by ${fmt(I?.intrinsic_value?.blend?.avgExcess, 1)} pts per 3 months).`);
+  if (x.results) L.push(`Latest results: profit ${x.results.yoy >= 0 ? 'up' : 'down'} ${Math.abs(x.results.yoy)}% on the year, public about ${x.results.daysAgo} days ago${x.results.kind === 'weak' ? ` (tested warning: after weak results stocks trailed the market by ${fmt(Math.abs(I?.post_earnings_drift?.weakResults63?.avgExcess ?? 0), 1)} pts over 3 months)` : ''}.`);
+  if (s.health) L.push(`Financial health score ${s.health.score}/100.`);
+  if (s.hype?.score >= 55) L.push(`Trading pattern looks speculative (score ${s.hype.score}).`);
+  if (x.liquidity) L.push(`Trades on ${x.liquidity.tradedPct}% of days, about J$${fmt(x.liquidity.adv20 / 1e6, 1)}M a day.`);
+  if (x.spread?.chase) L.push('Bid-ask spread just tightened sharply on an up day (tested: a bad moment to chase).');
+  if (x.insider) L.push(`Insider trades in the last 90 days: ${x.insider.buys} buy notices, ${x.insider.sells} sell notices${x.insider.last ? `; latest ${x.insider.last.date}: ${x.insider.last.who || 'insider'} ${x.insider.last.side === 'buy' ? 'bought' : 'sold'}` : ''}.`);
+  const pos = positions.find((p) => p.sym === sym && !p.exit); if (pos) { const ps = posStats(pos, d); L.push(`The investor holds ${pos.shares} shares bought at J$${pos.price} on ${pos.date}; P/L ${signed(ps.plPct ?? 0, 1)} after costs; 3-month review ${ps.review}.`); }
+  const news = (d.jsenews?.posts || []).filter((p) => p.s === sym).slice(0, 4);
+  if (news.length) L.push(`Recent announcements: ${news.map((p) => `[${p.d.slice(0, 10)}] ${p.t}`).join('; ')}.`);
+  return L.join('\n');
+}
+function newsBlock(d, sym) {
+  const L = (d.jsenews?.posts || []).filter((p) => p.s === sym).slice(0, 8);
+  const ex = `ai-x-${sym}-${d.forecasts?.asof || ''}`; const nk = `ai-n-${sym}-${L.map((p) => p.id).join('.')}`;
+  return `<h4>Ask the on-phone AI</h4>${nano.status?.status === 'available' ? '' : `<p class="fine">${nano.status?.status === 'unsupported' ? 'Gemini Nano summaries work in the Android app.' : nano.status?.status === 'downloadable' || nano.status?.status === 'downloading' ? '' : 'Gemini Nano isn’t available on this phone right now (it needs Android AICore).'}</p>`}
+    ${aiButton('ai-explain', 'Explain this stock', ex)}${aiOut('ai-explain-out', ex)}
+    <h4>Company announcements <small class="fine">last 90 days</small></h4>
+    ${L.length ? `<div class="news">${L.map((p) => newsItem(p)).join('')}</div>${aiButton('ai-news', 'Summarise these announcements', nk)}${aiOut('ai-news-out', nk)}` : `<p class="fine">${d.jsenews ? 'No announcements matched to this stock in the last 90 days.' : 'Announcements load from your GitHub with the forecasts.'}</p>`}`;
+}
+function bindNews(root, d, sym) {
+  const L = (d.jsenews?.posts || []).filter((p) => p.s === sym).slice(0, 8);
+  const b1 = root.querySelector('#ai-explain'); if (b1) b1.addEventListener('click', () => runAi(b1, root.querySelector('#ai-explain-out'), b1.dataset.aikey, explainPrompt(stockFacts(d, sym)), { maxTokens: 380 }));
+  const b2 = root.querySelector('#ai-news'); if (b2) b2.addEventListener('click', () => runAi(b2, root.querySelector('#ai-news-out'), b2.dataset.aikey, newsPrompt(sym, L.slice(0, 6)), { maxTokens: 450 }));
+}
+function relevantNews(d) {
+  const F = d.forecasts; const held = new Set(positions.filter((p) => !p.exit).map((p) => p.sym));
+  const top = new Set(Object.entries(F?.stocks || {}).filter(([, v]) => v.edge && v.edge.rank <= 20).map(([k]) => k));
+  return (d.jsenews?.posts || []).filter((p) => p.s && (held.has(p.s) || top.has(p.s) || p.ins)).slice(0, 40)
+    .map((p) => ({ ...p, why: held.has(p.s) ? 'held' : top.has(p.s) ? 'top' : 'ins' }));
+}
+function newsCard(d) {
+  if (!d.jsenews) return '';
+  const R = relevantNews(d); if (!R.length) return '';
+  const shown = R.slice(0, 10); const key = `ai-dig-${R.slice(0, 25).map((p) => p.id).join('.')}`;
+  return `<h2 class="sec">Announcements <small>your stocks, Edge top 20, insider trades</small></h2>
+    <div class="news">${shown.map((p) => newsItem(p, true)).join('')}</div>
+    ${aiButton('ai-digest', 'Digest the latest news', key)}${aiOut('ai-digest-out', key)}
+    <p class="fine">From the JSE’s own announcements, refreshed nightly. Tap one to read it. ${insiderNote(d.forecasts)}</p>`;
+}
+function insiderNote(F) {
+  const T = g2(F, 'ideas', 'insiders', 'buy63'); if (!T || T.n == null) return '';
+  return `Tested: after an insider buy notice, the stock went on to ${ptsTxt(T.avgExcess)} vs the market over 3 months after costs (${T.n} cases, ${T.verdict}).`;
+}
+function nanoSection() {
+  const s = nano.status; const st = s?.status;
+  const what = 'It writes plain-English explanations of a stock from the app’s own numbers and summarises JSE announcements. Nothing is sent anywhere, and nothing it writes changes the Edge score.';
+  if (!s) return `<p class="fine"><span class="spin"></span>Checking…</p>`;
+  if (st === 'unsupported') return `<p class="fine">Only works inside the Android app. ${what}</p>`;
+  if (st === 'available') return `<p class="fine"><span class="dot good"></span><b>Ready</b> — ${esc(nanoLabel())}${s.stage ? ` · ${s.stage === 'preview' ? 'AICore developer preview' : 'stable'} model` : ''}. ${what} Look for ✦ buttons on stock pages and the Trade page.</p>`;
+  if (st === 'downloadable') return `<p class="fine">The model can be downloaded to this phone (about 1–3 GB over Wi-Fi). ${what}</p><button class="btn pri" id="nano-dl">Download Gemini Nano</button>`;
+  if (st === 'downloading') return `<p class="fine"><span class="spin"></span>Downloading the model${s.downloadedBytes ? ` (${fmt(s.downloadedBytes / 1e9, 2)} GB so far)` : ''}… keep the phone on Wi-Fi.</p><button class="btn" id="nano-re">Check again</button>`;
+  return `<p class="fine">Not available on this phone right now${s.error ? ` (${esc(s.error)})` : ''}. On a Pixel 8a: Settings → System → Developer options → AICore settings → turn on on-device GenAI, and for Gemini Nano 4 join the AICore developer preview and pick the model in the AICore app. ${what}</p><button class="btn" id="nano-re">Check again</button>`;
+}
 const IDEA_ROWS = [
   ['Intrinsic value (earnings power + dividends)', (I) => g2(I, 'intrinsic_value', 'blend'), (T_) => `top third ${ptsTxt(T_?.avgExcess)} / 3 mo`, (I) => I?.intrinsic_value?.explain],
   ['Post-earnings drift: buy strong results at once', (I) => g2(I, 'post_earnings_drift', 'strongImmediate63'), (T_) => `${ptsTxt(T_?.avgExcess)} / 3 mo after costs`, (I) => I?.post_earnings_drift?.explain],
@@ -1034,6 +1142,13 @@ const IDEA_ROWS = [
   ['…when its sector is flat or falling', (I) => g2(I, 'sector_strength', 'relativeStrengthWhenSectorFlatOrDown'), (T_) => `${ptsTxt(T_?.avgExcess)} / 3 mo`, () => ''],
   ['Bid–ask spread tightening', (I) => g2(I, 'bid_ask_spread', 'tighterThanUsual_factor'), (T_) => `${ptsTxt(T_?.avgExcess)} / 1 mo`, (I) => I?.bid_ask_spread?.explain],
   ['Sudden spread tightening + up close', (I) => g2(I, 'bid_ask_spread', 'suddenTighteningWithUpClose_trade21'), (T_) => `${ptsTxt(T_?.avgExcess)} / 1 mo after costs`, () => ''],
+  ['Insider buy notice (buy the next day)', (I) => g2(I, 'insiders', 'buy63'), (T_) => `${ptsTxt(T_?.avgExcess)} / 3 mo after costs`, (I) => I?.insiders?.explain],
+  ['…director or senior officer buying', (I) => g2(I, 'insiders', 'directorBuy63'), (T_) => `${ptsTxt(T_?.avgExcess)} / 3 mo after costs`, () => ''],
+  ['…big insider buy (≥ J$1M and 3× normal trading)', (I) => g2(I, 'insiders', 'bigBuy63'), (T_) => `${ptsTxt(T_?.avgExcess)} / 3 mo after costs`, () => ''],
+  ['…cluster (second buy notice within a month)', (I) => g2(I, 'insiders', 'clusterBuy63'), (T_) => `${ptsTxt(T_?.avgExcess)} / 3 mo after costs`, () => ''],
+  ['Insider buy notice — if you already hold', (I) => g2(I, 'insiders', 'buy63_holding'), (T_) => `${ptsTxt(T_?.avgExcess)} / 3 mo, no trading cost`, () => ''],
+  ['Insider sell notice — if you already hold', (I) => g2(I, 'insiders', 'sell63_holding'), (T_) => `${ptsTxt(T_?.avgExcess)} / 3 mo, no trading cost`, () => 'Insider selling alone was not a reason to sell.'],
+  ['Company buyback notice', (I) => g2(I, 'insiders', 'buyback63'), (T_) => `${ptsTxt(T_?.avgExcess)} / 3 mo after costs`, () => ''],
 ];
 function ideasSheet(F) {
   const I = F?.ideas; if (!I) return;
@@ -1381,7 +1496,7 @@ function viewLocal(d) {
 
 function viewSources() {
   return `<h2 class="sec">Where the numbers come from</h2>
-  <p class="fine">Everything is fetched directly from these publishers by your phone — no middleman server, no AI. Each source refreshes on its own schedule; tap refresh to force all.</p>
+  <p class="fine">Everything is fetched directly from these publishers by your phone — no middleman server. The only AI is Gemini Nano, which runs on the phone itself. Each source refreshes on its own schedule; tap refresh to force all.</p>
   <ul class="srcs">${SOURCES.map((s) => {
     const c = cache[s.id] || {}; const bad = c.error && (!c.at || c.errorAt > c.at);
     const st = running.has(s.id) ? '<span class="dot run"></span>fetching' : bad ? `<span class="dot bad"></span>${c.at ? 'using saved copy' : 'unreachable'}` : c.at ? '<span class="dot good"></span>live' : '<span class="dot"></span>not yet fetched';
@@ -1396,6 +1511,8 @@ function viewSources() {
   <li>Name it “JA Econ Pulse”, expiration up to 1 year.</li><li>Repository access → <b>Only select repositories</b> → <b>jamaica-econ-pulse</b>.</li>
   <li>Permissions → Repository permissions → <b>Contents: Read-only</b>. Nothing else.</li><li>Generate, copy, and paste it here. It stays on this phone.</li></ol>
   <section class="calc"><label class="wide">GitHub token<input id="gh-token" value="${esc(ghToken.get())}" placeholder="github_pat_…" autocomplete="off" autocapitalize="none" spellcheck="false"></label></section>
+  <h2 class="sec">Gemini Nano <small>on-device AI</small></h2>
+  ${nanoSection()}
   <h2 class="sec">FRED API key <small>optional, free</small></h2>
   <p class="fine">FRED (oil, US rates, food and grain prices on the World tab) refuses some phone connections to its public download. Its official API always works but needs a free personal key: sign in at <a href="https://fredaccount.stlouisfed.org/apikeys" target="_blank" rel="noopener">fredaccount.stlouisfed.org/apikeys</a>, tap “Request API Key”, and paste the 32-character key here. It stays on this phone.</p>
   <section class="calc"><label class="wide">FRED API key<input id="fred-key" value="${esc(fredKey.get())}" placeholder="Paste key (optional)" autocomplete="off" autocapitalize="none" spellcheck="false"></label></section>
@@ -1449,6 +1566,7 @@ function render(opts = {}) {
   if (tab === 'decide' && sub === 'trade') bindTrade(v);
   if (tab === 'decide' && sub === 'jobs') { const c = document.getElementById('jobs-ja'); if (c) c.onchange = () => { jobsJamaica = c.checked; render({ keepScroll: true }); }; }
   if (tab === 'sources') { const g = document.getElementById('gh-token'); if (g) g.onchange = () => { ghToken.set(g.value); delete cache.forecasts?.at; refresh(false); }; }
+  if (tab === 'sources') { const nb = document.getElementById('nano-dl'); if (nb) nb.onclick = async () => { nb.disabled = true; nb.textContent = 'Starting download…'; await nanoDownload(); render({ keepScroll: true }); }; const nr = document.getElementById('nano-re'); if (nr) nr.onclick = async () => { nr.disabled = true; await nanoCheck(true); render({ keepScroll: true }); }; }
   if (tab === 'sources') { const k = document.getElementById('fred-key'); if (k) k.onchange = () => { fredKey.set(k.value); delete cache.fred?.at; refresh(false); }; }
 }
 
@@ -1517,4 +1635,5 @@ $('#today').textContent = new Date().toLocaleDateString('en-JM', { weekday: 'lon
 
 document.querySelectorAll('#tabs button').forEach((x) => x.classList.toggle('on', x.dataset.tab === tab));
 status(); render(); refresh(false);
+nanoCheck().then(() => { if ((tab === 'decide' && sub === 'trade') || tab === 'sources') bgRender(); });
 setInterval(status, 60000);

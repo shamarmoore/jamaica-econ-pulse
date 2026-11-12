@@ -498,6 +498,71 @@ if len(FXD) > 200:
                      'period': [str(fxs.dropna().index[0].date()), str(idx[-1].date())],
                      'explain': 'USD/JMD 20-day change (daily rates from March 2024). “J$ weakening fast” = more than 0.5% in 20 trading days. USD-linked = stocks quoted in or paying dividends in US dollars.'}
 
+# ---------------------------------------------------------------- insider trades (JSE "Trading in shares" notices)
+def insider_tests():
+    try:
+        import insiders as INS
+        EV = INS.events()
+    except Exception as e:
+        print('insider tests skipped:', e)
+        return None
+    cats = {k: ([], []) for k in ('buy21', 'buy63', 'directorBuy63', 'connectedBuy63', 'bigBuy63', 'clusterBuy63', 'sell21', 'sell63', 'bigSell63', 'buyback63')}
+    last = {}
+    recent_buys = {}
+    used = 0
+    for e in EV:
+        s = e['sym']
+        if s not in P.columns:
+            continue
+        t = int(idx.searchsorted(pd.Timestamp(e['date']), side='right')) - 1  # info known by the close of the notice day (most come after 1 pm)
+        if t < 130 or t >= N - 2 or not UNIV[s].iloc[t]:
+            continue
+        used += 1
+        px = P[s].iloc[t]; val = (e['shares'] or 0) * px; adv = float(JV[s].iloc[t - 20:t].mean() or 0)
+        big = val >= max(1e6, 3 * adv)
+        def add(cat, h):
+            k = (cat, s)
+            if t - last.get(k, -99) < 21:
+                return
+            r = fwd_excess(s, t, h)
+            if r is not None:
+                cats[cat][0].append(r); cats[cat][1].append(idx[t]); last[k] = t
+        if e['who'] == 'company':
+            add('buyback63', 63)
+            continue
+        if e['side'] == 'buy':
+            add('buy21', 21); add('buy63', 63)
+            if e['who'] in ('director', 'officer'):
+                add('directorBuy63', 63)
+            if e['who'] == 'connected':
+                add('connectedBuy63', 63)
+            if big:
+                add('bigBuy63', 63)
+            rb = [x for x in recent_buys.get(s, []) if t - x <= 21] + [t]
+            recent_buys[s] = rb
+            if len(rb) >= 2:
+                add('clusterBuy63', 63)
+        elif e['side'] == 'sell':
+            add('sell21', 21); add('sell63', 63)
+            if big:
+                add('bigSell63', 63)
+    out = {k: summarize(v[0], v[1], COST) for k, v in cats.items()}
+    # for someone already holding the stock no trade is needed, so also show the same events without costs
+    for k in ('buy63', 'sell63', 'bigSell63'):
+        out[k + '_holding'] = summarize(cats[k][0], cats[k][1], 0.0)
+    out['eventsParsed'] = len(EV); out['eventsTested'] = used
+    out['period'] = [EV[0]['date'], EV[-1]['date']] if EV else None
+    out['explain'] = ('Parsed from the JSE’s “Trading in shares” notices (directors, senior officers, connected parties; company buybacks separately). '
+                      'Buy at the close of the trading day after the notice (most notices come after the 1 pm close), hold 1 or 3 months, '
+                      '1.5% costs each way, compared with the average JSE stock over the same days. Big = at least J$1M and 3× the stock’s normal daily trading. '
+                      'Cluster = a second buy notice within a month.')
+    return out
+
+
+_ins = insider_tests()
+if _ins:
+    RESULTS['insiders'] = _ins
+
 json.dump(RESULTS, open('data/idea_tests.json', 'w'), indent=1, default=float)
 for k, v in RESULTS.items():
     print('\n==', k)
