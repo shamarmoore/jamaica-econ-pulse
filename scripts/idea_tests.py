@@ -459,7 +459,21 @@ if TB:
         eq.append(m1); tbr.append(tb1); sw.append(tb1 if r.regime == 'rising' else m1)
     ann = lambda x: (np.prod(1 + np.array(x)) ** (12 / len(x)) - 1) * 100
     dd = lambda x: float((np.cumprod(1 + np.array(x)) / np.maximum.accumulate(np.cumprod(1 + np.array(x))) - 1).min() * 100)
-    RESULTS['rates'] = {'byRegime': reg, 'corrRateChangeVsNext3mMarket': round(corr, 2), 'monthsTested': len(rd),
+    # breakouts by rate regime (does a T-bill spike lower the win rate of breakouts?)
+    reg_of = {pd.Period(r.p): r.regime for _, r in rd.iterrows()}
+    bo = {'rising': [], 'falling': [], 'steady': []}
+    for s in syms:
+        p_ = P[s]; v_ = V[s]; last = -99
+        for t in range(130, N - 70):
+            if t - last < 20 or not UNIV[s].iloc[t]:
+                continue
+            if p_.iloc[t] > p_.iloc[t - 60:t].max() and v_.iloc[t - 20:t].mean() > 0 and v_.iloc[t] >= 2 * v_.iloc[t - 20:t].mean():
+                rg = reg_of.get(idx[t].to_period('M') - 1)
+                e = fwd_excess(s, t, 63)
+                if rg and e is not None:
+                    bo[rg].append(e); last = t
+    bo_out = {k: {'n': len(v), 'winRate': round(float(np.mean(np.array(v) > 0)) * 100) if v else None, 'avgExcessBeforeCosts': round(float(np.mean(v)) * 100, 2) if v else None} for k, v in bo.items()}
+    RESULTS['rates'] = {'byRegime': reg, 'breakoutsByRegime': bo_out, 'corrRateChangeVsNext3mMarket': round(corr, 2), 'monthsTested': len(rd),
                         'stocksVsTbills': {'alwaysStocks': {'ann': round(ann(eq), 1), 'maxDD': round(dd(eq), 1)}, 'alwaysTbills': {'ann': round(ann(tbr), 1), 'maxDD': round(dd(tbr), 1)},
                                            'switchOnRisingYields': {'ann': round(ann(sw), 1), 'maxDD': round(dd(sw), 1)}},
                         'explain': 'Rate regime = change in the 3-month T-bill yield over the previous 3 months (rising > +0.25 pts, falling < −0.25). Financials and Junior Market = average of those stocks vs the whole market over the next 3 months. Switch rule = hold T-bills for the next month when yields are rising, otherwise the market. Few independent periods, so treat as indicative.'}
