@@ -25,6 +25,8 @@ jobs:
         run: node scripts/jse_history.mjs "${{ inputs.start || '2021-01-04' }}" "${{ inputs.maxdays || '120' }}"
       - name: Index values, bid/ask and day range (backfills gently)
         run: node scripts/jse_detail.mjs "${{ inputs.detailpages || '120' }}" || echo "detail skipped"
+      - name: Company announcements (insider trades, results, dividends)
+        run: node scripts/jse_announcements.mjs 80 || echo "announcements skipped"
       - name: Macro history (USD/JMD, T-bills, Junior Market list)
         run: node scripts/macro_history.mjs || echo "macro skipped"
       - name: Update company financials (weekly per stock)
