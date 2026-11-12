@@ -108,14 +108,14 @@
    "reachedResistancePct": 9
   },
   "withoutVolume": {
-   "n": 356,
-   "months": 50,
-   "avgExcess": -6.11,
+   "n": 360,
+   "months": 51,
+   "avgExcess": -6.18,
    "median": -9.1,
-   "winRate": 23,
-   "t": -8.45,
+   "winRate": 22,
+   "t": -8.66,
    "firstHalf": -7.06,
-   "secondHalf": -5.18,
+   "secondHalf": -5.34,
    "verdict": "negative edge (avoid)",
    "avgDaysHeld": 31.8,
    "reachedResistancePct": 14
@@ -234,9 +234,9 @@
   "monthEnd": {
    "last3Days": 1.64,
    "first3DaysNextMonth": -0.57,
-   "typical3Days": 0.11,
-   "tLast3": 8.81,
-   "tFirst3": -4.83,
+   "typical3Days": 0.1,
+   "tLast3": 8.83,
+   "tFirst3": -4.82,
    "months": 54,
    "verdict": "edge for timing: prices tend to rise into month end and give some back early next month",
    "tradeAfterCosts": -1.36
@@ -396,17 +396,17 @@
    "verdict": "no reliable edge"
   },
   "suddenTighteningWithUpClose_trade21": {
-   "n": 1386,
+   "n": 1389,
    "months": 53,
-   "avgExcess": -3.88,
+   "avgExcess": -3.89,
    "median": -4.33,
    "winRate": 29,
-   "t": -12.13,
+   "t": -12.64,
    "firstHalf": -4.05,
-   "secondHalf": -3.68,
+   "secondHalf": -3.7,
    "verdict": "negative edge (avoid)"
   },
-  "coverageDays": 1260,
+  "coverageDays": 1261,
   "explain": "Spread = (closing ask \u2212 closing bid) \u00f7 mid-price. Z-score compares today\u2019s spread with its own 20-day average; a big negative z means buyers and sellers suddenly agree on price."
  },
  "rates": {
@@ -498,20 +498,20 @@
   ],
   "period": [
    "2024-03-04",
-   "2026-11-11"
+   "2026-11-12"
   ],
   "explain": "USD/JMD 20-day change (daily rates from March 2024). \u201cJ$ weakening fast\u201d = more than 0.5% in 20 trading days. USD-linked = stocks quoted in or paying dividends in US dollars."
  },
  "insiders": {
   "buy21": {
-   "n": 336,
+   "n": 338,
    "months": 54,
-   "avgExcess": -2.34,
-   "median": -3.65,
-   "winRate": 29,
-   "t": -4.64,
+   "avgExcess": -2.41,
+   "median": -3.7,
+   "winRate": 28,
+   "t": -4.98,
    "firstHalf": -2.8,
-   "secondHalf": -2.0,
+   "secondHalf": -2.11,
    "verdict": "negative edge (avoid)"
   },
   "buy63": {
@@ -605,13 +605,13 @@
   "buyback63": {
    "n": 36,
    "months": 28,
-   "avgExcess": -1.94,
+   "avgExcess": -3.78,
    "median": -4.56,
    "winRate": 31,
-   "t": -1.26,
-   "firstHalf": -1.73,
+   "t": -2.45,
+   "firstHalf": -4.6,
    "secondHalf": -2.33,
-   "verdict": "no reliable edge"
+   "verdict": "negative edge (avoid)"
   },
   "buy63_holding": {
    "n": 320,
