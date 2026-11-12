@@ -100,7 +100,7 @@ def compute():
         sig['liquidity'] = {'adv20': round(adv), 'tradedPct': round(float((v.iloc[-60:] > 0).mean()) * 100), 'vol63': round(float(vol63[s]) * 100, 2) if pd.notna(vol63[s]) else None,
                             'turnoverZ': round(float(fs.TURN_Z[s].iloc[T]), 2) if pd.notna(fs.TURN_Z[s].iloc[T]) else None}
         if s in spr_z:
-            sig['spread'] = {'pct': spr_z[s][0], 'z': spr_z[s][1]}
+            sig['spread'] = {'pct': spr_z[s][0], 'z': spr_z[s][1], 'chase': bool(spr_z[s][1] <= -1.5 and p.iloc[T] > p.iloc[T - 1])}
         if s in sect:
             sec = sect[s]; col = SECT_IDX.get(sec)
             rs = None
