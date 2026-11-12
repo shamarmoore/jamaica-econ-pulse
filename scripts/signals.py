@@ -26,9 +26,9 @@ def _macro():
 
 def sectors(IDXS, macro):
     out = {}
-    if not {'Financial Index', 'Manufacturing Distribution Index'} <= set(IDXS.columns):
+    if not {'Financial Index', 'Manufacturing & Distribution Index'} <= set(IDXS.columns):
         return out
-    fin = IDXS['Financial Index'].pct_change(); md = IDXS['Manufacturing Distribution Index'].pct_change()
+    fin = IDXS['Financial Index'].pct_change(); md = IDXS['Manufacturing & Distribution Index'].pct_change()
     for s in syms:
         r = R[s].where(V[s] > 0).iloc[-500:]
         m = r.notna() & fin.iloc[-500:].notna()
@@ -42,7 +42,7 @@ def sectors(IDXS, macro):
     return out
 
 
-SECT_IDX = {'Financial': 'Financial Index', 'Manufacturing & Distribution': 'Manufacturing Distribution Index', 'Junior Market': 'Junior Market Index', 'Other': 'Index'}
+SECT_IDX = {'Financial': 'Financial Index', 'Manufacturing & Distribution': 'Manufacturing & Distribution Index', 'Junior Market': 'Junior Market Index', 'Other': 'Index'}
 
 
 def compute():

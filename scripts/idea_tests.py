@@ -367,15 +367,14 @@ if len(IDXS):
 
 
 def sectors():
-    """Data-driven sector: which JSE sector index a stock moves with (first half of the period only)."""
+    """Data-driven sector label: which JSE sector index a stock moves with (a stable property of the company)."""
     out = {}
-    if not {'Financial Index', 'Manufacturing Distribution Index'} <= set(IDXS.columns):
+    if not {'Financial Index', 'Manufacturing & Distribution Index'} <= set(IDXS.columns):
         return out
-    fin = IDXS['Financial Index'].pct_change(); md = IDXS['Manufacturing Distribution Index'].pct_change()
-    h = idx < HALF
+    fin = IDXS['Financial Index'].pct_change(); md = IDXS['Manufacturing & Distribution Index'].pct_change()
     for s in syms:
         r = R[s].where(V[s] > 0)
-        m = h & r.notna() & fin.notna()
+        m = r.notna() & fin.notna()
         if m.sum() < 80:
             continue
         cf, cm = r[m].corr(fin[m]), r[m].corr(md[m])
@@ -387,7 +386,7 @@ def sectors():
 
 
 SECTOR = sectors()
-SECT_IDX = {'Financial': 'Financial Index', 'Manufacturing & Distribution': 'Manufacturing Distribution Index', 'Junior Market': 'Junior Market Index', 'Other': 'Index'}
+SECT_IDX = {'Financial': 'Financial Index', 'Manufacturing & Distribution': 'Manufacturing & Distribution Index', 'Junior Market': 'Junior Market Index', 'Other': 'Index'}
 
 if len(IDXS) and SECTOR:
     # ---------------- sector relative strength
