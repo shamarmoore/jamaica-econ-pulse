@@ -36,6 +36,25 @@ async function once(url, type, timeoutMs, extra = {}) {
 export const getText = (url, timeoutMs = 25000, extra) => retry(() => once(url, 'text', timeoutMs, extra));
 export const getBinary = (url, timeoutMs = 40000) => retry(() => once(url, 'bin', timeoutMs));
 
+// POST a JSON body and parse the JSON reply (used for the optional cloud AI model). No retry: calls cost money.
+export async function postJSON(url, body, extra = {}, timeoutMs = 60000) {
+  const nh = nativeHttp(); const headers = { 'Content-Type': 'application/json', Accept: 'application/json', ...extra };
+  let status; let txt;
+  if (nh) {
+    const r = await withTimeout(nh.request({ url, method: 'POST', headers, data: body, responseType: 'text', connectTimeout: timeoutMs, readTimeout: timeoutMs }), timeoutMs + 2000);
+    status = r.status; txt = typeof r.data === 'string' ? r.data : JSON.stringify(r.data);
+  } else {
+    const r = await withTimeout(fetch(url, { method: 'POST', headers, body: JSON.stringify(body) }), timeoutMs);
+    status = r.status; txt = await r.text();
+  }
+  let j = null; try { j = JSON.parse(txt); } catch (_) { /* not JSON */ }
+  if (status >= 400) {
+    const m = (Array.isArray(j) ? j[0] : j)?.error?.message || (typeof j?.error === 'string' ? j.error : '') || String(txt).slice(0, 160);
+    const e = new Error(`HTTP ${status}${m ? `: ${m}` : ''}`); e.status = status; throw e;
+  }
+  return j;
+}
+
 export async function getJSON(url, timeoutMs, extra) {
   const t = await getText(url, timeoutMs, extra);
   // CapacitorHttp may already hand back parsed JSON as a string of an object; handle both.

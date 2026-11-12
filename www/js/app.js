@@ -7,7 +7,7 @@ import { fredKey, ghToken } from './sources.js';
 import { MODELS, jacarsLinks } from './cars.js';
 import { quotesOn, rankStocks, TV_SYMBOLS, tvUrl, GLOBAL_TAGS, targetOdds, fcAt, fcChange, hypeLabel, calibrate } from './markets.js';
 import { fmt, signed, last, changeOver, yoySeries } from './util.js';
-import { nano, nanoCheck, nanoDownload, nanoAsk, nanoCached, nanoForget, nanoLabel, nanoUsed, nanoSetMode, MODEL_NAME, explainPrompt, newsPrompt, digestPrompt } from './nano.js';
+import { nano, nanoCheck, nanoDownload, nanoAsk, nanoCached, nanoForget, nanoLabel, nanoUsed, nanoSetMode, MODEL_NAME, aiReady, aiLabel, cloud, PROVIDERS, cloudTest, willUseCloud, explainPrompt, newsPrompt, digestPrompt } from './nano.js';
 
 const KEY = 'ep_cache_v1';
 const PREV = 'ep_prev_gauges_v1';
@@ -1043,13 +1043,13 @@ function aiHtml(t, used) {
   const lines = String(t).split(/\n+/).map((l) => l.trim()).filter(Boolean);
   const li = lines.filter((l) => /^[•*-]\s/.test(l)); const other = lines.filter((l) => !/^[•*-]\s/.test(l));
   return `${li.length ? `<ul>${li.map((l) => `<li>${esc(l.replace(/^[•*-]\s*/, '').replace(/\*\*/g, ''))}</li>`).join('')}</ul>` : ''}${other.map((l) => `<p>${esc(l.replace(/\*\*/g, ''))}</p>`).join('')}
-    <p class="fine">Written on your phone by ${esc(nanoLabel(used))} from the app’s numbers. It can misread things — check against the figures above.</p>`;
+    <p class="fine">Written by ${esc(aiLabel(used))} from the app’s numbers. It can misread things — check against the figures above.</p>`;
 }
 function aiButton(id, label, key) {
   const st = nano.status?.status;
-  if (st === 'available') return `<button class="btn ai-btn" id="${id}" data-aikey="${esc(key)}">${nanoCached(key) ? '↻ ' : '✦ '}${label}</button>`;
-  if (st === 'downloadable' || st === 'downloading') return `<p class="fine">✦ ${label} needs the Gemini Nano model — <button class="linkish" data-goto="sources">download it under Sources</button>.</p>`;
-  return '';
+  if (aiReady()) return `<button class="btn ai-btn" id="${id}" data-aikey="${esc(key)}">${nanoCached(key) ? '↻ ' : '✦ '}${label}</button>`;
+  if (st === 'downloadable' || st === 'downloading') return `<p class="fine">✦ ${label} needs the Gemini Nano model or a cloud AI key — <button class="linkish" data-goto="sources">set it up under Sources → AI</button>.</p>`;
+  return `<p class="fine">✦ ${label}: <button class="linkish" data-goto="sources">add a low-cost cloud AI key under Sources → AI</button>.</p>`;
 }
 async function runAi(btn, outEl, key, prompt, opts) {
   if (!btn || !outEl) return;
@@ -1077,7 +1077,7 @@ function stockFacts(d, sym) {
   if (x.liquidity) L.push(`Trades on ${x.liquidity.tradedPct}% of days, about J$${fmt(x.liquidity.adv20 / 1e6, 1)}M a day.`);
   if (x.spread?.chase) L.push('Bid-ask spread just tightened sharply on an up day (tested: a bad moment to chase).');
   if (x.insider) L.push(`Insider trades in the last 90 days: ${x.insider.buys} buy notices, ${x.insider.sells} sell notices${x.insider.last ? `; latest ${x.insider.last.date}: ${x.insider.last.who || 'insider'} ${x.insider.last.side === 'buy' ? 'bought' : 'sold'}` : ''}.`);
-  const pos = positions.find((p) => p.sym === sym && !p.exit); if (pos) { const ps = posStats(pos, d); L.push(`The investor holds ${pos.shares} shares bought at J$${pos.price} on ${pos.date}; P/L ${signed(ps.plPct ?? 0, 1)} after costs; 3-month review ${ps.review}.`); }
+  const pos = (!willUseCloud() || cloud.get().sharePositions) && positions.find((p) => p.sym === sym && !p.exit); if (pos) { const ps = posStats(pos, d); L.push(`The investor holds ${pos.shares} shares bought at J$${pos.price} on ${pos.date}; P/L ${signed(ps.plPct ?? 0, 1)} after costs; 3-month review ${ps.review}.`); }
   const news = (d.jsenews?.posts || []).filter((p) => p.s === sym).slice(0, 4);
   if (news.length) L.push(`Recent announcements: ${news.map((p) => `[${p.d.slice(0, 10)}] ${p.t}`).join('; ')}.`);
   return L.join('\n');
@@ -1085,7 +1085,7 @@ function stockFacts(d, sym) {
 function newsBlock(d, sym) {
   const L = (d.jsenews?.posts || []).filter((p) => p.s === sym).slice(0, 8);
   const ex = `ai-x-${sym}-${d.forecasts?.asof || ''}`; const nk = `ai-n-${sym}-${L.map((p) => p.id).join('.')}`;
-  return `<h4>Ask the on-phone AI</h4>${nano.status?.status === 'available' ? '' : `<p class="fine">${nano.status?.status === 'unsupported' ? 'Gemini Nano summaries work in the Android app.' : nano.status?.status === 'downloadable' || nano.status?.status === 'downloading' ? '' : 'Gemini Nano isn’t available on this phone right now (it needs Android AICore).'}</p>`}
+  return `<h4>Ask the AI</h4>
     ${aiButton('ai-explain', 'Explain this stock', ex)}${aiOut('ai-explain-out', ex)}
     <h4>Company announcements <small class="fine">last 90 days</small></h4>
     ${L.length ? `<div class="news">${L.map((p) => newsItem(p)).join('')}</div>${aiButton('ai-news', 'Summarise these announcements', nk)}${aiOut('ai-news-out', nk)}` : `<p class="fine">${d.jsenews ? 'No announcements matched to this stock in the last 90 days.' : 'Announcements load from your GitHub with the forecasts.'}</p>`}`;
@@ -1113,6 +1113,34 @@ function newsCard(d) {
 function insiderNote(F) {
   const T = g2(F, 'ideas', 'insiders', 'buy63'); if (!T || T.n == null) return '';
   return `Tested: after an insider buy notice, the stock went on to ${ptsTxt(T.avgExcess)} vs the market over 3 months after costs (${T.n} cases, ${T.verdict}).`;
+}
+function aiSection() {
+  const c = cloud.get(); const P = PROVIDERS[c.provider] || PROVIDERS.custom;
+  return `<p class="fine">The ✦ buttons write plain-English explanations and news summaries from the app’s own numbers. Nothing they write changes the Edge score. Choose where they run:</p>
+  <div class="seg seg-ap" id="ai-engine">${[['auto', 'Auto'], ['cloud', 'Cloud only'], ['nano', 'Phone only']].map(([k, l]) => `<button data-aieng="${k}" class="${c.engine === k ? 'on' : ''}">${l}</button>`).join('')}</div>
+  <p class="fine">Auto: the cloud model when a key is set, Gemini Nano if the cloud call fails (or when there’s no key). ${willUseCloud() ? `<b>Now using ${esc(cloud.model())} via ${esc(P.name)}.</b>` : cloud.ready() ? '' : '<b>No cloud key yet.</b>'}</p>
+  <section class="calc">
+    <label class="wide">Cloud provider<select id="ai-prov">${Object.entries(PROVIDERS).map(([k, v]) => `<option value="${k}" ${c.provider === k ? 'selected' : ''}>${esc(v.name)}</option>`).join('')}</select></label>
+    <label class="wide">API key<input id="ai-key" type="password" autocomplete="off" placeholder="paste your key" value="${esc(c.key)}"></label>
+    <label class="wide">Model<input id="ai-model" autocomplete="off" placeholder="${esc(P.model || 'model id')}" value="${esc(c.model)}"></label>
+    ${c.provider === 'custom' ? `<label class="wide">Endpoint URL<input id="ai-url" autocomplete="off" placeholder="https://…/v1/chat/completions" value="${esc(c.url)}"></label>` : ''}
+  </section>
+  <p class="fine">${esc(P.note)}${P.keyUrl ? ` Get a key: <a href="${P.keyUrl}" target="_blank" rel="noopener">${esc(P.keyUrl.replace('https://', ''))}</a>.` : ''} The key stays on this phone and is sent only to ${esc(P.name)}.</p>
+  <label class="chk"><input type="checkbox" id="ai-sharepos" ${c.sharePositions ? 'checked' : ''}> Include my positions (shares, price paid) in cloud prompts</label>
+  <div class="btnrow"><button class="btn" id="ai-test" ${cloud.ready() ? '' : 'disabled'}>Test cloud model</button><span class="fine" id="ai-test-out"></span></div>`;
+}
+function bindAiSection() {
+  const $ = (id) => document.getElementById(id);
+  document.querySelectorAll('[data-aieng]').forEach((b) => { b.onclick = () => { cloud.set({ engine: b.dataset.aieng }); render({ keepScroll: true }); }; });
+  const pv = $('ai-prov'); if (pv) pv.onchange = () => { cloud.set({ provider: pv.value, model: '', url: '' }); render({ keepScroll: true }); };
+  const save = (id, field) => { const el = $(id); if (el) el.onchange = () => { cloud.set({ [field]: el.value.trim() }); render({ keepScroll: true }); }; };
+  save('ai-key', 'key'); save('ai-model', 'model'); save('ai-url', 'url');
+  const sp = $('ai-sharepos'); if (sp) sp.onchange = () => cloud.set({ sharePositions: sp.checked });
+  const t = $('ai-test'); if (t) t.onclick = async () => {
+    const out = $('ai-test-out'); t.disabled = true; out.textContent = 'Calling…';
+    try { const r = await cloudTest(); out.innerHTML = `<span class="good">Works</span> — ${esc(r.model)} answered “${esc(r.text)}” in ${fmt(r.ms / 1000, 1)} s.`; } catch (e) { out.innerHTML = `<span class="bad">${esc(e.message || e)}</span>`; }
+    t.disabled = false;
+  };
 }
 function nanoSection() {
   const s = nano.status; const st = s?.status;
@@ -1514,7 +1542,9 @@ function viewSources() {
   <li>Name it “JA Econ Pulse”, expiration up to 1 year.</li><li>Repository access → <b>Only select repositories</b> → <b>jamaica-econ-pulse</b>.</li>
   <li>Permissions → Repository permissions → <b>Contents: Read-only</b>. Nothing else.</li><li>Generate, copy, and paste it here. It stays on this phone.</li></ol>
   <section class="calc"><label class="wide">GitHub token<input id="gh-token" value="${esc(ghToken.get())}" placeholder="github_pat_…" autocomplete="off" autocapitalize="none" spellcheck="false"></label></section>
-  <h2 class="sec">Gemini Nano <small>on-device AI</small></h2>
+  <h2 class="sec">AI <small>explanations & news summaries</small></h2>
+  ${aiSection()}
+  <h4>Gemini Nano (on this phone)</h4>
   ${nanoSection()}
   <h2 class="sec">FRED API key <small>optional, free</small></h2>
   <p class="fine">FRED (oil, US rates, food and grain prices on the World tab) refuses some phone connections to its public download. Its official API always works but needs a free personal key: sign in at <a href="https://fredaccount.stlouisfed.org/apikeys" target="_blank" rel="noopener">fredaccount.stlouisfed.org/apikeys</a>, tap “Request API Key”, and paste the 32-character key here. It stays on this phone.</p>
@@ -1569,6 +1599,7 @@ function render(opts = {}) {
   if (tab === 'decide' && sub === 'trade') bindTrade(v);
   if (tab === 'decide' && sub === 'jobs') { const c = document.getElementById('jobs-ja'); if (c) c.onchange = () => { jobsJamaica = c.checked; render({ keepScroll: true }); }; }
   if (tab === 'sources') { const g = document.getElementById('gh-token'); if (g) g.onchange = () => { ghToken.set(g.value); delete cache.forecasts?.at; refresh(false); }; }
+  if (tab === 'sources') bindAiSection();
   if (tab === 'sources') { const nb = document.getElementById('nano-dl'); if (nb) nb.onclick = async () => { nb.disabled = true; nb.textContent = 'Starting download…'; await nanoDownload(); render({ keepScroll: true }); }; const nr = document.getElementById('nano-re'); if (nr) nr.onclick = async () => { nr.disabled = true; await nanoCheck(true); render({ keepScroll: true }); }; document.querySelectorAll('[data-nmode]').forEach((b) => { b.onclick = async () => { b.disabled = true; await nanoSetMode(b.dataset.nmode); render({ keepScroll: true }); }; }); }
   if (tab === 'sources') { const k = document.getElementById('fred-key'); if (k) k.onchange = () => { fredKey.set(k.value); delete cache.fred?.at; refresh(false); }; }
 }
@@ -1588,7 +1619,7 @@ function closeSheet(fromPop = false) {
   if (pending) showPending(true);
 }
 window.addEventListener('popstate', () => closeSheet(true)); // Android back button closes the sheet
-$('#sheet').addEventListener('click', (e) => { if (e.target.closest('[data-close]')) closeSheet(); });
+$('#sheet').addEventListener('click', (e) => { if (e.target.closest('[data-close]')) closeSheet(); const g = e.target.closest('[data-goto]'); if (g) { closeSheet(); setTimeout(() => setTab(g.dataset.goto), 50); } });
 
 function explainSheet(key, el) {
   const x = EXPLAIN[key] || EXPLAIN[key.replace(/^wb_/, '')]; if (!x) return;
