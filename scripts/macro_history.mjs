@@ -40,19 +40,7 @@ try {
   console.log(`T-bill months: ${Object.keys(M.tbill).length}`, Object.entries(M.tbill).slice(-3));
 } catch (e) { console.log('tbill failed', String(e.message || e).slice(0, 120)); }
 
-// ---- Junior Market membership ----
-for (const id of [52, 51, 53, 54, 49]) {
-  try {
-    await sleep(2500);
-    const html = await getText(`https://www.jamstockex.com/trading/trade-quotes/?market=${id}&date=${new Date(Date.now() - 3 * 864e5).toISOString().slice(0, 10)}`, 40000);
-    const title = htmlToText((html.match(/<h[1-3][^>]*>[\s\S]*?Junior[\s\S]*?<\/h[1-3]>/i) || [''])[0]);
-    const idxTable = /Junior Market Index/i.test(html) && !/JSE Financial Index/i.test(html);
-    if (/junior/i.test(title) || idxTable) {
-      const syms = [...new Set([...html.matchAll(/instrument=\d+[^>]*>\s*([A-Z0-9.]{2,12})\s*</g)].map((m) => m[1]))];
-      if (syms.length > 20) { M.junior = syms; M.juniorMarketId = id; console.log(`junior market id ${id}: ${syms.length} symbols`); break; }
-    }
-  } catch (e) { console.log('junior probe', id, String(e.message || e).slice(0, 60)); }
-}
+// (Junior Market membership is inferred from price moves vs the Junior Market Index in the analysis scripts.)
 M.updated = new Date().toISOString();
 fs.mkdirSync('data', { recursive: true });
 fs.writeFileSync(FILE, JSON.stringify(M));

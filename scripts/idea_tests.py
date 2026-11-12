@@ -372,16 +372,17 @@ def sectors():
     if not {'Financial Index', 'Manufacturing & Distribution Index'} <= set(IDXS.columns):
         return out
     fin = IDXS['Financial Index'].pct_change(); md = IDXS['Manufacturing & Distribution Index'].pct_change()
+    jr = IDXS['Junior Market Index'].pct_change() if 'Junior Market Index' in IDXS else None
+    mn = IDXS['Index'].pct_change() if 'Index' in IDXS else None
     for s in syms:
         r = R[s].where(V[s] > 0)
         m = r.notna() & fin.notna()
         if m.sum() < 80:
             continue
         cf, cm = r[m].corr(fin[m]), r[m].corr(md[m])
-        out[s] = 'Financial' if cf > max(cm + 0.05, 0.12) else 'Manufacturing & Distribution' if cm > max(cf + 0.05, 0.12) else 'Other'
-    for s in MACRO.get('junior', []):
-        if s in syms and out.get(s, 'Other') == 'Other':
-            out[s] = 'Junior Market'
+        cj = r[m].corr(jr[m]) if jr is not None else -1; cx = r[m].corr(mn[m]) if mn is not None else -1
+        out[s] = 'Financial' if cf > max(cm + 0.05, 0.12) else 'Manufacturing & Distribution' if cm > max(cf + 0.05, 0.12) \
+            else 'Junior Market' if cj > max(cx + 0.05, 0.1) else 'Other'
     return out
 
 

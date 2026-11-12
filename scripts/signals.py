@@ -35,10 +35,11 @@ def sectors(IDXS, macro):
         if m.sum() < 80:
             continue
         cf, cm = r[m].corr(fin.iloc[-500:][m]), r[m].corr(md.iloc[-500:][m])
-        out[s] = 'Financial' if cf > max(cm + 0.05, 0.12) else 'Manufacturing & Distribution' if cm > max(cf + 0.05, 0.12) else 'Other'
-    for s in macro.get('junior', []):
-        if s in syms and out.get(s, 'Other') == 'Other':
-            out[s] = 'Junior Market'
+        jr = IDXS['Junior Market Index'].pct_change().iloc[-500:] if 'Junior Market Index' in IDXS else None
+        mn = IDXS['Index'].pct_change().iloc[-500:] if 'Index' in IDXS else None
+        cj = r[m].corr(jr[m]) if jr is not None else -1; cx = r[m].corr(mn[m]) if mn is not None else -1
+        out[s] = 'Financial' if cf > max(cm + 0.05, 0.12) else 'Manufacturing & Distribution' if cm > max(cf + 0.05, 0.12) \
+            else 'Junior Market' if cj > max(cx + 0.05, 0.1) else 'Other'
     return out
 
 

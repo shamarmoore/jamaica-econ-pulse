@@ -356,28 +356,28 @@
   "relativeStrength": {
    "n": 489,
    "months": 14,
-   "avgExcess": -0.22,
-   "median": -2.07,
-   "winRate": 43,
-   "t": -0.34,
+   "avgExcess": 0.3,
+   "median": -2.35,
+   "winRate": 42,
+   "t": 0.37,
    "firstHalf": null,
-   "secondHalf": -0.22,
+   "secondHalf": 0.3,
    "verdict": "no reliable edge"
   },
   "relativeStrengthWhenSectorFlatOrDown": {
-   "n": 301,
+   "n": 267,
    "months": 13,
-   "avgExcess": -0.09,
-   "median": -1.97,
-   "winRate": 43,
-   "t": 0.17,
+   "avgExcess": 0.14,
+   "median": -2.34,
+   "winRate": 41,
+   "t": 0.7,
    "firstHalf": null,
-   "secondHalf": -0.09,
+   "secondHalf": 0.14,
    "verdict": "no reliable edge"
   },
   "sectorsFound": {
-   "Other": 45,
-   "Junior Market": 38,
+   "Other": 60,
+   "Junior Market": 20,
    "Manufacturing & Distribution": 15,
    "Financial": 14
   },
@@ -415,19 +415,19 @@
     "months": 17,
     "market3m": -2.66,
     "financialsVsMarket3m": 1.05,
-    "juniorVsMarket3m": 0.29
+    "juniorVsMarket3m": 0.91
    },
    "rising": {
     "months": 11,
     "market3m": -2.96,
     "financialsVsMarket3m": -0.45,
-    "juniorVsMarket3m": 0.85
+    "juniorVsMarket3m": -1.84
    },
    "steady": {
     "months": 23,
     "market3m": 1.13,
     "financialsVsMarket3m": -2.12,
-    "juniorVsMarket3m": 0.74
+    "juniorVsMarket3m": 1.26
    }
   },
   "corrRateChangeVsNext3mMarket": -0.02,
