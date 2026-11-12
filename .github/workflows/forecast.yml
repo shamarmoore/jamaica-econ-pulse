@@ -6,6 +6,7 @@ on:
       start: { description: 'History start date', default: '2021-01-04' }
       maxdays: { description: 'Max trading days to fetch this run', default: '120' }
       backtest: { description: 'Re-run the back-test (yes/no)', default: 'no' }
+      detailpages: { description: 'Max quote pages to re-read for bid/ask + indices', default: '120' }
   schedule:
     - cron: '23 23 * * 1-5'   # 6:23 pm Jamaica, weekdays, after JSE quotes post
 
@@ -22,6 +23,10 @@ jobs:
         with: { node-version: 22 }
       - name: Update JSE daily history
         run: node scripts/jse_history.mjs "${{ inputs.start || '2021-01-04' }}" "${{ inputs.maxdays || '120' }}"
+      - name: Index values, bid/ask and day range (backfills gently)
+        run: node scripts/jse_detail.mjs "${{ inputs.detailpages || '120' }}" || echo "detail skipped"
+      - name: Macro history (USD/JMD, T-bills, Junior Market list)
+        run: node scripts/macro_history.mjs || echo "macro skipped"
       - name: Update company financials (weekly per stock)
         run: node scripts/jse_fundamentals.mjs 6 || echo "financials update skipped"
       - uses: actions/setup-python@v5
