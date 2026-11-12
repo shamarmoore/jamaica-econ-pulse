@@ -291,3 +291,10 @@ ol.steps li { margin: 2px 0; }
 .sig { border: 1px solid var(--rule); border-radius: 6px; padding: 8px 10px; background: var(--card); }
 .sig-h { display: flex; justify-content: space-between; align-items: center; gap: 8px; margin-bottom: 2px; }
 .sig .vchip { flex: none; }
+/* my positions */
+.stats2 { display: grid; grid-template-columns: 1fr 1fr; gap: 10px; margin: 6px 0 10px; }
+.stats2 .stat { margin: 0; }
+.sv.good { color: var(--good); } .sv.bad { color: var(--bad); }
+span.warn, p.warn { color: var(--warn); }
+.bigtxt { width: 100%; min-height: 140px; font: 12px/1.4 ui-monospace, monospace; color: var(--ink); background: var(--paper); border: 1px solid var(--rule); border-radius: 3px; padding: 8px; box-sizing: border-box; }
+.btnrow .btn { margin-bottom: 6px; }
