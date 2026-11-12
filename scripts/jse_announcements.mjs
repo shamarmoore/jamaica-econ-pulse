@@ -41,6 +41,31 @@ ins.updated = new Date().toISOString();
 fs.writeFileSync('data/insiders.json', JSON.stringify(ins));
 console.log(`INSIDERS added ${added}; total ${ins.posts.length}; oldest ${ins.posts[ins.posts.length - 1]?.date}`);
 
+// ---- event archive for back-tests: dividend declarations & considerations, splits, take-overs, rights issues, suspensions
+const EVQ = [['div', 'categories=1159'], ['divcons', 'categories=1158'], ['split', 'search=share%20split'], ['split', 'search=stock%20split'],
+  ['takeover', 'search=take-over'], ['takeover', 'search=takeover'], ['takeover', 'search=tender%20offer'], ['rights', 'search=rights%20issue'],
+  ['apo', 'search=additional%20public%20offer'], ['suspend', 'search=suspension%20of%20trading']];
+const ev = load('data/events_archive.json', { posts: [] });
+const evHave = new Map(ev.posts.map((p) => [p.id, p]));
+let evAdded = 0;
+for (const [src, q] of EVQ) {
+  try {
+    for (let n = 1; n < 40; n++) {
+      const L = await page(`${q}&orderby=date&order=desc`, n); if (!L.length) break;
+      let fresh = 0;
+      for (const p of L) {
+        const have = evHave.get(p.id);
+        if (have) { if (!have.src.includes(src)) have.src.push(src); continue; }
+        const s = slim(p, 1500); s.src = [src]; ev.posts.push(s); evHave.set(p.id, s); fresh++; evAdded++;
+      }
+      if (!fresh || L[L.length - 1].date < '2019-01-01') break;
+    }
+  } catch (e) { console.log(`events ${src} stopped:`, String(e.message || e).slice(0, 120)); break; }
+}
+ev.posts.sort((a, b) => (a.date < b.date ? 1 : -1)); ev.updated = new Date().toISOString();
+fs.writeFileSync('data/events_archive.json', JSON.stringify(ev));
+console.log(`EVENTS added ${evAdded}; total ${ev.posts.length}`);
+
 // ---- recent announcements of every kind (last 120 days) for the app
 const since = new Date(Date.now() - 120 * 864e5).toISOString().slice(0, 10);
 const old = load('data/news.json', { posts: [] });
