@@ -605,13 +605,13 @@
   "buyback63": {
    "n": 36,
    "months": 28,
-   "avgExcess": -3.78,
+   "avgExcess": -1.94,
    "median": -4.56,
    "winRate": 31,
-   "t": -2.45,
-   "firstHalf": -4.6,
+   "t": -1.26,
+   "firstHalf": -1.73,
    "secondHalf": -2.33,
-   "verdict": "negative edge (avoid)"
+   "verdict": "no reliable edge"
   },
   "buy63_holding": {
    "n": 320,
