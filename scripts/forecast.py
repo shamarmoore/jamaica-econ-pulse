@@ -1,6 +1,6 @@
 """Nightly: forecast every JSE stock 63 trading days (~3 months) ahead with Timestral and score speculation.
 Writes data/forecasts.json, which the app downloads with the user's read-only GitHub token."""
-import json, sys, time
+import json, os, sys, time
 import numpy as np
 import pandas as pd
 sys.path.insert(0, 'scripts')
@@ -91,6 +91,19 @@ try:
     print('CHANCE UP', sorted(((st['chanceUp'], k) for k, st in out['stocks'].items() if 'chanceUp' in st), reverse=True)[:8])
 except Exception as e:
     print('edge score skipped:', e)
+# ---- per-stock signals, market regime and tested verdicts for each idea ----
+try:
+    import signals as sg
+    sigs, regime, sect = sg.compute()
+    for s_, x in sigs.items():
+        if s_ in out['stocks']:
+            out['stocks'][s_]['signals'] = x
+    out['regime'] = regime
+    if os.path.exists('data/idea_tests.json'):
+        out['ideas'] = json.load(open('data/idea_tests.json'))
+    print('SIGNALS', len(sigs), 'stocks; regime', json.dumps(regime)[:300])
+except Exception as e:
+    print('signals skipped:', repr(e)[:200])
 json.dump(out, open('data/forecasts.json', 'w'), separators=(',', ':'))
 print('FORECASTS', len(out['stocks']), 'stocks as of', out['asof'])
 top = sorted(out['stocks'].items(), key=lambda kv: -(kv[1]['q'][-1][10] / kv[1]['close']))[:5]

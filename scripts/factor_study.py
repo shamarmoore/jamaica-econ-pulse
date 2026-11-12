@@ -76,6 +76,40 @@ MCAP = P * shares
 DIV12 = D.rolling(252, min_periods=1).sum()
 JVAL = V * P
 
+# ---- intrinsic value (point-in-time): earnings-power value and dividend-discount value vs price ----
+def _required_return():
+    try:
+        tb = json.load(open('data/macro.json')).get('tbill', {})
+    except Exception:
+        tb = {}
+    per = {pd.Period(k): (v[0] if v[0] is not None else v[1]) for k, v in tb.items() if (v[0] is not None or v[1] is not None)}
+    if not per:
+        return pd.Series(0.12, index=idx)
+    s_ = pd.Series(per).sort_index() / 100
+    vals = [s_[s_.index <= p].iloc[-1] if (s_.index <= p).any() else s_.iloc[0] for p in idx.to_period('M')]
+    return pd.Series(vals, index=idx) + 0.06   # T-bill + 6% equity risk premium
+
+
+R_EQ = _required_return()
+NORM_E = pd.DataFrame(np.nan, index=idx, columns=syms)
+for _s in syms:
+    _f = FUND.get(_s)
+    if not _f:
+        continue
+    _ev = _quarter_events(_f)
+    if len(_ev) >= 4:
+        _ser = pd.Series([v for _, v in _ev], index=pd.DatetimeIndex([d for d, _ in _ev]))
+        _ser = _ser[~_ser.index.duplicated(keep='last')]
+        _n = _ser.rolling(8, min_periods=4).mean() * 4
+        NORM_E[_s] = _n.reindex(idx.union(_n.index)).ffill().reindex(idx)
+EPV_PS = NORM_E.mul(fx, axis=1).div(shares, axis=1).div(R_EQ, axis=0)
+MOS_EPV = (EPV_PS / P - 1).clip(-1, 3).where(NORM_E > 0)
+DDM_PS = DIV12.mul(1.03).div((R_EQ - 0.03).clip(lower=0.04), axis=0)
+MOS_DDM = (DDM_PS / P - 1).clip(-1, 3).where(DIV12 > 0)
+_TURN = JVAL.rolling(20).mean() / MCAP
+TURN_Z = (_TURN - _TURN.rolling(120).mean()) / _TURN.rolling(120).std()
+
+
 def features(t):
     """All candidate features for each stock at day index t (information up to and including t)."""
     p = P.iloc[t]
@@ -104,6 +138,11 @@ def features(t):
     # post-results drift: strong latest quarter that became public in the last ~40 days
     f['fresh_beat'] = np.where(FF['days_since'].iloc[t] <= 40, FF['q_yoy'].iloc[t], np.nan)
     f['bm_proxy_pe_low'] = np.where(f['ey'] > 0, f['ey'], np.nan)  # value among profitable firms only
+    f['iv_epv'] = MOS_EPV.iloc[t]                 # margin of safety vs earnings-power value
+    f['iv_ddm'] = MOS_DDM.iloc[t]                 # margin of safety vs dividend-discount value
+    f['turn_surge'] = TURN_Z.iloc[t]              # turnover vs its own 6-month norm
+    # recently reported weak results (profit down >25% on the year, public within ~63 days) → negative signal
+    f['no_weak_results'] = -np.where((FF['days_since'].iloc[t] <= 63) & (FF['q_yoy'].iloc[t] < -0.25), 1.0, 0.0)
     return f
 
 FEATS = None
@@ -180,7 +219,8 @@ FEATURE_LABELS = {
     'traded': 'Trades most days', 'turnover': 'Active trading vs its size', 'volsurge': 'Trading volume picking up', 'small': 'Larger company',
     'ey': 'Cheap relative to profits', 'dy': 'Dividend yield', 'growth': 'Profit growing (12 months)', 'q_yoy': 'Latest quarter beat last year',
     'accel': 'Profit growth speeding up', 'stable': 'Steady profits', 'noloss': 'No recent loss-making quarters', 'divpayer': 'Pays dividends regularly',
-    'fresh_beat': 'Fresh strong results (last ~40 days)',
+    'fresh_beat': 'Fresh strong results (last ~40 days)', 'iv_epv': 'Below earnings-power value', 'iv_ddm': 'Below dividend-discount value',
+    'turn_surge': 'Turnover rising vs its norm', 'no_weak_results': 'No weak results just reported',
 }
 
 

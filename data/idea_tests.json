@@ -1,0 +1,355 @@
+{
+ "intrinsic_value": {
+  "epv": {
+   "n": 1178,
+   "months": 45,
+   "avgExcess": 2.17,
+   "median": 0.31,
+   "winRate": 51,
+   "t": 6.59,
+   "firstHalf": 2.17,
+   "secondHalf": 2.17,
+   "verdict": "edge"
+  },
+  "ddm": {
+   "n": 857,
+   "months": 45,
+   "avgExcess": 3.04,
+   "median": 1.07,
+   "winRate": 55,
+   "t": 7.44,
+   "firstHalf": 3.54,
+   "secondHalf": 2.69,
+   "verdict": "edge"
+  },
+  "blend": {
+   "n": 1239,
+   "months": 45,
+   "avgExcess": 2.74,
+   "median": 0.63,
+   "winRate": 53,
+   "t": 7.54,
+   "firstHalf": 1.94,
+   "secondHalf": 3.29,
+   "verdict": "edge"
+  },
+  "explain": "Earnings-power value = normalised yearly profit \u00f7 (T-bill yield + 6% equity premium); dividend-discount value = last-12-month dividends grown 3% \u00f7 (required return \u2212 3%). Margin of safety = value \u00f7 price \u2212 1. Top third by margin of safety, held 3 months."
+ },
+ "post_earnings_drift": {
+  "strongImmediate21": {
+   "n": 524,
+   "months": 50,
+   "avgExcess": -2.73,
+   "median": -3.38,
+   "winRate": 30,
+   "t": -4.82,
+   "firstHalf": -3.4,
+   "secondHalf": -2.06,
+   "verdict": "negative edge (avoid)"
+  },
+  "strongImmediate63": {
+   "n": 524,
+   "months": 50,
+   "avgExcess": -0.51,
+   "median": -3.05,
+   "winRate": 40,
+   "t": -2.06,
+   "firstHalf": -1.07,
+   "secondHalf": 0.04,
+   "verdict": "no reliable edge"
+  },
+  "strongPullback21": {
+   "n": 478,
+   "months": 50,
+   "avgExcess": -1.92,
+   "median": -3.19,
+   "winRate": 36,
+   "t": -3.12,
+   "firstHalf": -1.8,
+   "secondHalf": -2.04,
+   "verdict": "negative edge (avoid)"
+  },
+  "strongPullback63": {
+   "n": 478,
+   "months": 50,
+   "avgExcess": 0.22,
+   "median": -2.06,
+   "winRate": 42,
+   "t": 0.2,
+   "firstHalf": 0.48,
+   "secondHalf": -0.03,
+   "verdict": "no reliable edge"
+  },
+  "weakResults63": {
+   "n": 562,
+   "months": 49,
+   "avgExcess": -5.74,
+   "median": -5.92,
+   "winRate": 30,
+   "t": -8.36,
+   "firstHalf": -5.4,
+   "secondHalf": -5.97,
+   "verdict": "negative edge (avoid)"
+  },
+  "explain": "Strong results = latest quarter\u2019s profit up more than 25% on the same quarter last year (and positive). Results are assumed public 45 days after quarter end (90 for year end) because the JSE pages don\u2019t carry release dates. Pullback entry = first close at least 3% below its 5-day high within 15 trading days."
+ },
+ "support_resistance": {
+  "withVolume": {
+   "n": 55,
+   "months": 29,
+   "avgExcess": -6.3,
+   "median": -8.21,
+   "winRate": 24,
+   "t": -3.83,
+   "firstHalf": -6.95,
+   "secondHalf": -5.67,
+   "verdict": "negative edge (avoid)",
+   "avgDaysHeld": 32.6,
+   "reachedResistancePct": 9
+  },
+  "withoutVolume": {
+   "n": 356,
+   "months": 50,
+   "avgExcess": -6.11,
+   "median": -9.1,
+   "winRate": 23,
+   "t": -8.45,
+   "firstHalf": -7.06,
+   "secondHalf": -5.18,
+   "verdict": "negative edge (avoid)",
+   "avgDaysHeld": 31.8,
+   "reachedResistancePct": 14
+  },
+  "explain": "Channel = 120-day range 15\u201380% wide with no strong trend and at least 3 closes near both the floor and the ceiling. Buy when price is within 5% of the floor and closes up (with volume \u22651.5\u00d7 its 20-day average for the volume version); sell near the ceiling, stop 5% under the floor, or after 3 months."
+ },
+ "volume_breakout": {
+  "tight_2x": {
+   "hold21": {
+    "n": 212,
+    "months": 50,
+    "avgExcess": -4.28,
+    "median": -4.79,
+    "winRate": 30,
+    "t": -4.34,
+    "firstHalf": -4.23,
+    "secondHalf": -4.34,
+    "verdict": "negative edge (avoid)"
+   },
+   "hold63": {
+    "n": 212,
+    "months": 50,
+    "avgExcess": -3.55,
+    "median": -5.46,
+    "winRate": 33,
+    "t": -2.47,
+    "firstHalf": -3.84,
+    "secondHalf": -3.26,
+    "verdict": "negative edge (avoid)"
+   }
+  },
+  "tight_3x": {
+   "hold21": {
+    "n": 173,
+    "months": 48,
+    "avgExcess": -3.59,
+    "median": -3.81,
+    "winRate": 33,
+    "t": -3.48,
+    "firstHalf": -3.97,
+    "secondHalf": -3.16,
+    "verdict": "negative edge (avoid)"
+   },
+   "hold63": {
+    "n": 173,
+    "months": 48,
+    "avgExcess": -3.35,
+    "median": -5.02,
+    "winRate": 35,
+    "t": -2.48,
+    "firstHalf": -3.66,
+    "secondHalf": -3.0,
+    "verdict": "negative edge (avoid)"
+   }
+  },
+  "any_2x": {
+   "hold21": {
+    "n": 436,
+    "months": 51,
+    "avgExcess": -4.43,
+    "median": -4.91,
+    "winRate": 29,
+    "t": -5.86,
+    "firstHalf": -3.63,
+    "secondHalf": -5.22,
+    "verdict": "negative edge (avoid)"
+   },
+   "hold63": {
+    "n": 436,
+    "months": 51,
+    "avgExcess": -3.47,
+    "median": -5.73,
+    "winRate": 34,
+    "t": -3.15,
+    "firstHalf": -2.81,
+    "secondHalf": -4.11,
+    "verdict": "negative edge (avoid)"
+   }
+  },
+  "explain": "Breakout = close above the highest close of the previous 60 days on volume at least 2\u00d7 (or 3\u00d7) the 20-day average. \u201cTight\u201d also requires the last 20 days\u2019 range to be under half the 120-day range and volume to have dried up beforehand."
+ },
+ "calendar": {
+  "preResults10d": {
+   "n": 1548,
+   "months": 53,
+   "avgExcess": 0.21,
+   "median": -0.21,
+   "winRate": 49,
+   "t": 1.11,
+   "firstHalf": 0.15,
+   "secondHalf": 0.26,
+   "verdict": "no reliable edge"
+  },
+  "preExDividend10d": {
+   "n": 476,
+   "months": 54,
+   "avgExcess": 1.61,
+   "median": 0.07,
+   "winRate": 52,
+   "t": 2.57,
+   "firstHalf": 2.81,
+   "secondHalf": 0.65,
+   "verdict": "edge"
+  },
+  "postExDividend5d": {
+   "n": 476,
+   "months": 54,
+   "avgExcess": 0.34,
+   "median": -0.13,
+   "winRate": 49,
+   "t": 0.53,
+   "firstHalf": 0.42,
+   "secondHalf": 0.28,
+   "verdict": "no reliable edge"
+  },
+  "monthEnd": {
+   "last3Days": 1.64,
+   "first3DaysNextMonth": -0.57,
+   "typical3Days": 0.11,
+   "tLast3": 8.81,
+   "tFirst3": -4.83,
+   "months": 54,
+   "verdict": "edge for timing: prices tend to rise into month end and give some back early next month",
+   "tradeAfterCosts": -1.36
+  },
+  "explain": "Pre-results = 10 trading days before results are expected to be public (quarter end + 45/90 days). Ex-dividend windows use total return (dividend added back), so a \u201cdrop\u201d means a fall beyond the dividend. Month-end = market return on the last 3 trading days of each month vs all other days."
+ },
+ "liquidity": {
+  "accumulation": {
+   "n": 1453,
+   "months": 45,
+   "avgExcess": 0.39,
+   "median": -1.01,
+   "winRate": 46,
+   "t": 1.28,
+   "firstHalf": 0.83,
+   "secondHalf": 0.12,
+   "verdict": "no reliable edge"
+  },
+  "turnoverSurge": {
+   "n": 1431,
+   "months": 45,
+   "avgExcess": 0.75,
+   "median": -0.47,
+   "winRate": 48,
+   "t": 2.32,
+   "firstHalf": 1.21,
+   "secondHalf": 0.46,
+   "verdict": "edge"
+  },
+  "momentumFilled": {
+   "n": 1505,
+   "months": 45,
+   "avgExcess": 1.48,
+   "median": -0.28,
+   "winRate": 49,
+   "t": 3.51,
+   "firstHalf": 1.8,
+   "secondHalf": 1.28,
+   "verdict": "edge"
+  },
+  "momentumTradedDaysOnly": {
+   "n": 1504,
+   "months": 45,
+   "avgExcess": 1.47,
+   "median": -0.29,
+   "winRate": 49,
+   "t": 3.51,
+   "firstHalf": 1.79,
+   "secondHalf": 1.27,
+   "verdict": "edge"
+  },
+  "freshPrices": {
+   "n": 1556,
+   "months": 45,
+   "avgExcess": -0.01,
+   "median": -1.32,
+   "winRate": 45,
+   "t": -0.01,
+   "firstHalf": -0.89,
+   "secondHalf": 0.57,
+   "verdict": "no reliable edge"
+  },
+  "explain": "Accumulation = J$ value traded on up days minus down days over 20 days \u00f7 market value (free float isn\u2019t published, so shares outstanding is used). Turnover surge = 20-day J$ turnover \u00f7 market value vs its own 6-month norm. Masked momentum ignores days with no trades."
+ },
+ "position_sizing": {
+  "equal": {
+   "annReturn": 12.3,
+   "quarterlyVol": 5.0,
+   "returnPerRisk": 0.62,
+   "maxDrawdown": -6.2,
+   "worstQuarter": -7.0,
+   "beatMarketPct": 76
+  },
+  "inverseVol": {
+   "annReturn": 14.4,
+   "quarterlyVol": 5.0,
+   "returnPerRisk": 0.71,
+   "maxDrawdown": -5.3,
+   "worstQuarter": -6.0,
+   "beatMarketPct": 87
+  },
+  "scoreWeighted": {
+   "annReturn": 16.2,
+   "quarterlyVol": 5.7,
+   "returnPerRisk": 0.7,
+   "maxDrawdown": -4.7,
+   "worstQuarter": -4.4,
+   "beatMarketPct": 82
+  },
+  "top5equal": {
+   "annReturn": 17.5,
+   "quarterlyVol": 7.2,
+   "returnPerRisk": 0.6,
+   "maxDrawdown": -8.8,
+   "worstQuarter": -6.4,
+   "beatMarketPct": 76
+  },
+  "equalKeepTop20": {
+   "annReturn": 14.8,
+   "quarterlyVol": 5.5,
+   "returnPerRisk": 0.66,
+   "maxDrawdown": -7.2,
+   "worstQuarter": -6.5,
+   "beatMarketPct": 84
+  },
+  "market": {
+   "annReturn": -2.8,
+   "quarterlyVol": 3.6,
+   "returnPerRisk": -0.17,
+   "maxDrawdown": -14.1,
+   "worstQuarter": -8.0,
+   "beatMarketPct": null
+  },
+  "explain": "Top 10 by Edge score each quarter among stocks that trade at least half of days; trading costs 1.5% per side, charged only on the part of the portfolio that changes; averaged over three start dates. \u201cKeep while top 20\u201d only sells a holding once it drops out of the top 20."
+ }
+}

@@ -287,3 +287,7 @@ ol.steps li { margin: 2px 0; }
 .papers li { cursor: pointer; }
 .papers .l-t { font-size: 15.5px; }
 .tag.good { border-color: var(--good, #2f7d5b); color: var(--good, #2f7d5b); }
+.sigs { display: flex; flex-direction: column; gap: 8px; margin: 6px 0 10px; }
+.sig { border: 1px solid var(--rule); border-radius: 6px; padding: 8px 10px; background: var(--card); }
+.sig-h { display: flex; justify-content: space-between; align-items: center; gap: 8px; margin-bottom: 2px; }
+.sig .vchip { flex: none; }

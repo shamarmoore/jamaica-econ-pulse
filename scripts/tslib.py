@@ -148,20 +148,23 @@ def fx_rate(f, price):
 
 def _quarter_events(f):
     """[(available_date, profit)] in time order. Quarter ends come from the fiscal year-end month (December if unknown);
-    each quarter counts only 45 days after it ends (90 for the year-end quarter) so tests never peek early."""
+    each quarter counts only 45 days after it ends (90 for the year-end quarter) so tests never peek early.
+    The JSE table shows 0 for quarters not reported separately: a 0 is treated as missing, except that a missing 4th
+    quarter is filled as annual profit minus the first three quarters when all of those are known."""
     m = (f.get('fye') or {}).get('month') or 12
-    now = pd.Timestamp.utcnow().tz_localize(None)
+    annual = {str(k): v for k, v in (f.get('annual') or {}).items()}
     ev = []
     for fy, qs in sorted(f.get('quarters', {}).items()):
-        fy = int(fy)
-        for qi, v in enumerate(qs):
-            if v is None:
+        fyi = int(fy)
+        qs = list(qs) + [None] * (4 - len(qs))
+        if (qs[3] in (0, None)) and all(q not in (0, None) for q in qs[:3]) and annual.get(str(fy)) not in (0, None):
+            qs[3] = annual[str(fy)] - sum(qs[:3])
+        for qi, v in enumerate(qs[:4]):
+            if v in (0, None):
                 continue
-            end = (pd.Timestamp(year=fy, month=m, day=1) + pd.offsets.MonthEnd(0)) - pd.DateOffset(months=3 * (3 - qi))
+            end = (pd.Timestamp(year=fyi, month=m, day=1) + pd.offsets.MonthEnd(0)) - pd.DateOffset(months=3 * (3 - qi))
             end = end + pd.offsets.MonthEnd(0)
             avail = end + pd.Timedelta(days=90 if qi == 3 else 45)
-            if v == 0 and avail > now - pd.Timedelta(days=30):
-                continue  # not reported yet
             ev.append((avail, float(v)))
     ev.sort()
     return ev

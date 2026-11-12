@@ -699,6 +699,9 @@ function viewTrade(d) {
     </tbody></table></div>
     ${!jseAll && !jseQuery && rows.length > 20 ? `<button class="more" id="jse-all">Show all ${rows.length} stocks ›</button>` : ''}
     <p class="fine">Trend columns compare today’s close with saved closes (prices exclude dividends). In the latest tests (Mar 2023–Nov 2026, dividends included, buying the next day), 3- and 6-month trends on their own gave no reliable edge; being near the 52-week high and a positive 12-month trend helped a little and are part of the Edge score. ⚠ = more than 35% below its 52-week high. Thinly traded stocks can be hard to buy at the quoted close. Research shortlist, not advice.</p>`}
+    ${regimeCard(F)}
+    ${sizingCard(F)}
+    ${F?.ideas ? '<button class="more" id="ideas-btn">Every idea we tested — results & explanations ›</button>' : ''}
     <h2 class="sec">US & global stocks <small>live TradingView chart</small></h2>
     <div class="chips wrap">${TV_SYMBOLS.map(([l, sy]) => `<button data-tv="${sy}" class="${tvSym === sy ? 'on' : ''}">${l}</button>`).join('')}</div>
     <div class="calc2"><label>Any ticker (e.g. NASDAQ:AMD or NYSE:KO)<input id="tv-sym" value="${esc(tvSym)}" autocapitalize="characters" autocomplete="off"></label></div>
@@ -712,6 +715,10 @@ function tradeLesson(F) {
   return `${C ? ` <b>Chance up</b> = chance the stock is higher 3 months after you buy, dividends included. A typical JSE stock was up only ${fmt(C.baseUp, 0)}% of the time; on data the model hadn’t seen, its top 10 were up ${fmt(C.top10UpRate, 0)}% of the time (average ${signed(C.top10Mean, 1)} vs ${signed(C.allMean, 1)} for all stocks). It’s built from the Edge score plus a small nudge from the Timestral forecast.` : ''} <b>Edge score</b> blends ${Object.keys(E.labels).length} signals that held up in testing (cheap vs profits, dividends, steady profits, no losses, strong latest quarter, steady price, liquidity…).${t5 ? ` On data the model hadn’t seen (${fd(E.split, false)}–${fd(E.period[1], false)}), buying the <b>top 5</b>, holding 3 months and re-picking returned <b>${signed(t5.annNet, 0)}/yr</b> after trading costs vs ${signed(t5.annMarket, 0)}/yr for the market, ahead in ${t5.beatPct}% of quarters. A single pick beat the market only ${t5.singlePickBeatPct}% of the time — spread money over the top 5–10.` : ''}`;
 }
 function bindTrade(v) {
+  const ib = v.querySelector('#ideas-btn'); if (ib) ib.addEventListener('click', () => ideasSheet(data().forecasts));
+  const cap = v.querySelector('#sz-cap'); if (cap) cap.addEventListener('change', () => { sizeCap = +String(cap.value).replace(/[^\d.]/g, '') || 0; render({ keepScroll: true }); });
+  v.querySelectorAll('[data-szn]').forEach((b) => b.addEventListener('click', () => { sizeN = +b.dataset.szn; render({ keepScroll: true }); }));
+  v.querySelectorAll('[data-szm]').forEach((b) => b.addEventListener('click', () => { sizeMode = b.dataset.szm; render({ keepScroll: true }); }));
   const rl = v.querySelector('#fc-reload'); if (rl) rl.addEventListener('click', () => { delete cache.forecasts?.at; refresh(false); });
   v.querySelectorAll('[data-tv]').forEach((b) => b.addEventListener('click', () => { tvSym = b.dataset.tv; render({ keepScroll: true }); }));
   const ts = v.querySelector('#tv-sym'); if (ts) ts.addEventListener('change', () => { const t = ts.value.trim().toUpperCase(); if (t) { tvSym = t; render({ keepScroll: true }); } });
@@ -740,6 +747,7 @@ function stockSheet(sym) {
     ${x.offHigh != null && x.offHigh < -35 ? '<p class="fine bad">⚠ More than 35% below its 52-week high — stocks like this kept lagging in our tests.</p>' : ''}
     ${!x.vol ? '<p class="fine">No shares traded on this day — the quoted price may be stale and hard to buy or sell at.</p>' : ''}
     ${edgeBlock(d.forecasts, sym)}
+    ${signalsBlock(d.forecasts, sym)}
     ${forecastBlock(d.forecasts, sym)}
     <h4>How to read this</h4><p class="fine">The trend figures compare today’s close with closes saved on your phone from 3, 6 and 12 months ago (prices exclude dividends). The 52-week bar shows where today’s price sits between the year’s low and high. This is a research shortlist, not a recommendation — check company results and news before buying.</p>
     <div class="btnrow"><a class="btn pri" href="https://www.jamstockex.com/trading/trade-quotes/?market=50&date=${L.date}" target="_blank" rel="noopener">JSE quotes ↗</a><button class="btn" data-close>Close</button></div>`,
@@ -757,6 +765,114 @@ function edgeBlock(F, sym) {
     ${bad.length ? `<p><b>Weak spots:</b> ${bad.map(([k, v]) => `${esc(E.labels[k] || k)} <small class="fine">(better than ${v}%)</small>`).join(' · ')}</p>` : ''}
     ${F.stocks[sym].chanceUp != null ? `<p class="now">Chance it’s higher in 3 months (dividends included): <b>${F.stocks[sym].chanceUp}%</b> — a typical JSE stock: ${fmt(F.chanceInfo?.baseUp ?? 43, 0)}%.</p>` : ''}
     <p class="fine">${e.rank <= 5 ? 'In today’s top 5. ' : e.rank <= 10 ? 'In today’s top 10. ' : ''}Tested approach: hold the top 5–10 for about 3 months, then re-pick.${t5 ? ` On unseen data that returned ${signed(t5.annNet, 0)}/yr after costs (market ${signed(t5.annMarket, 0)}/yr); its worst quarter was ${signed(t5.worstPeriod, 1)}.` : ''}</p>`;
+}
+// ---------- tested ideas: per-stock signals, market regime, sizing ----------
+const g2 = (o, ...ks) => ks.reduce((a, k) => (a == null ? a : a[k] ?? a[String(k)]), o);
+const VCHIP = (v) => {
+  const t = String(v || '');
+  const [cls, lab] = /negative|avoid/.test(t) ? ['bad', 'Avoid / negative'] : /^edge/.test(t) ? ['good', 'Edge'] : /weak edge/.test(t) ? ['ok', 'Weak edge'] : /too few/.test(t) ? ['ok', 'Too few cases'] : ['ok', 'No edge'];
+  return `<span class="vchip ${cls}">${lab}</span>`;
+};
+const ptsTxt = (x, unit = 'pts') => (x == null ? '—' : `${x >= 0 ? '+' : '−'}${fmt(Math.abs(x), 1)}${unit.startsWith('%') ? '' : ' '}${unit}`);
+function signalsBlock(F, sym) {
+  const s = F?.stocks?.[sym]; const x = s?.signals; const I = F?.ideas; if (!x) return '';
+  const rows = [];
+  const iv = x.intrinsic; const ivT = g2(I, 'intrinsic_value', 'blend');
+  if (iv) rows.push(['Intrinsic value', `Fair value ≈ <b>J$${fmt(iv.fair, 2)}</b> (earnings power ${iv.epv != null ? `J$${fmt(iv.epv, 2)}` : '—'}, dividends ${iv.ddm != null ? `J$${fmt(iv.ddm, 2)}` : '—'}) · price is <b class="${iv.mos >= 0 ? 'good' : 'bad'}">${iv.mos >= 0 ? `${fmt(iv.mos, 0)}% below` : `${fmt(-iv.mos, 0)}% above`}</b> it`,
+    ivT, `Stocks priced furthest below value (top third) beat the market by ${ptsTxt(ivT?.avgExcess)} per 3 months, ahead ${ivT?.winRate}% of the time. Uses a ${fmt(iv.reqReturn, 1)}% required return (T-bill + 6%).`]);
+  const rs = x.results;
+  if (rs) {
+    const T_ = rs.kind === 'weak' ? g2(I, 'post_earnings_drift', 'weakResults63') : g2(I, 'post_earnings_drift', 'strongPullback63');
+    rows.push(['Latest results', `Profit ${rs.yoy >= 0 ? 'up' : 'down'} ${Math.abs(rs.yoy)}% on the year (public ~${rs.daysAgo} days ago)`, T_,
+      rs.kind === 'weak' ? `After weak results, stocks trailed the market by ${ptsTxt(T_?.avgExcess)} over 3 months (after costs). Strong warning.` : `Buying after strong results (even on a pullback) didn’t beat the market after costs: ${ptsTxt(T_?.avgExcess)}. The good news is usually priced in.`]);
+  }
+  if (x.breakout) { const T_ = g2(I, 'volume_breakout', 'tight_2x', 'hold63'); rows.push(['Volume breakout', `Broke above its 60-day high ${x.breakout.daysAgo ? `${x.breakout.daysAgo} days ago` : 'today'} on ${fmt(x.breakout.volMult, 1)}× normal volume`, T_, `Breakouts like this trailed the market by ${ptsTxt(T_?.avgExcess)} over 3 months after costs (won ${T_?.winRate}%). On the JSE they tend to fade — don’t chase.`]); }
+  if (x.channel) { const T_ = g2(I, 'support_resistance', 'withVolume'); rows.push(['Trading channel', `Range J$${fmt(x.channel.support, 2)}–${fmt(x.channel.resistance, 2)}; price is ${x.channel.pos}% of the way up`, T_, `Buying near the floor of a channel trailed the market by ${ptsTxt(T_?.avgExcess)} after costs; only ${T_?.reachedResistancePct ?? '—'}% reached the ceiling. Floors often break.`]); }
+  const lq = x.liquidity;
+  if (lq?.turnoverZ != null) { const T_ = g2(I, 'liquidity', 'turnoverSurge'); rows.push(['Turnover vs normal', `${lq.turnoverZ >= 0 ? '+' : ''}${fmt(lq.turnoverZ, 1)} standard deviations vs its 6-month norm`, T_, `High-turnover stocks (top third) beat the market by ${ptsTxt(T_?.avgExcess)} per 3 months — small but consistent; part of the Edge score.`]); }
+  if (x.spread) { const T_ = g2(I, 'bid_ask_spread', 'tighterThanUsual_factor'); rows.push(['Bid–ask spread', `${fmt(x.spread.pct, 1)}% (z ${x.spread.z >= 0 ? '+' : ''}${fmt(x.spread.z, 1)} vs its 20-day norm)`, T_, T_ ? `Stocks with spreads tighter than usual: ${ptsTxt(T_.avgExcess)} vs the market over the next month.` : 'Spread history is still being collected.']); }
+  if (x.sector) { const T_ = g2(I, 'sector_strength', 'relativeStrength'); rows.push(['Sector strength', `${esc(x.sector.name)}${x.sector.rs63 != null ? ` · ${ptsTxt(x.sector.rs63, 'pts')} vs its sector over 3 months` : ''}`, T_, T_ ? `Stocks beating their sector (top third) went on to ${ptsTxt(T_.avgExcess)} vs the market per 3 months.` : 'Sector history is still being collected.']); }
+  if (lq) rows.push(['Liquidity', `Trades ${lq.tradedPct}% of days · about J$${(lq.adv20 / 1e6).toFixed(lq.adv20 >= 1e7 ? 0 : 1)}M a day`, null, 'Used for position sizing: a position you can build in a few days without pushing the price.']);
+  return `<h4>Signals & what testing showed</h4><div class="sigs">${rows.map(([t, state, T_, why]) => `<div class="sig"><div class="sig-h"><b>${t}</b>${T_ ? VCHIP(T_.verdict) : ''}</div><div>${state}</div><div class="fine">${why}</div></div>`).join('')}</div>`;
+}
+function regimeCard(F) {
+  const R_ = F?.regime; const I = F?.ideas; if (!R_) return '';
+  const out = [];
+  const me = g2(I, 'calendar', 'monthEnd');
+  if (R_.monthEnd && me) {
+    const w = R_.monthEnd;
+    out.push(`<div class="sig"><div class="sig-h"><b>Month-end timing</b>${VCHIP(me.verdict)}</div><div>${w.inWindow ? '<b>In the month-end window now</b> — prices usually firm up into the close of the month.' : w.earlyMonth ? '<b>Early in the month</b> — prices have usually just dipped; a better time to buy.' : `${w.tradingDaysLeft} trading days left this month.`}</div>
+      <div class="fine">Last 3 trading days of a month: market ${ptsTxt(me.last3Days, '%')} on average vs ${ptsTxt(me.typical3Days, '%')} for a typical 3 days; first 3 days of the next month: ${ptsTxt(me.first3DaysNextMonth, '%')}. Too small to trade on its own after costs (${ptsTxt(me.tradeAfterCosts, '%')}), but useful for timing: buy early in the month, sell into month end.</div></div>`);
+  }
+  const rt = R_.rates; const RT = I?.rates;
+  if (rt) {
+    const r = RT?.byRegime?.[rt.regime];
+    out.push(`<div class="sig"><div class="sig-h"><b>Interest rates</b><span class="vchip ok">${esc(rt.regime)}</span></div><div>3-month T-bill ${fmt(rt.tbill3m, 2)}% (${rt.chg3m >= 0 ? '+' : ''}${fmt(rt.chg3m, 2)} pts over 3 months)</div>
+      <div class="fine">${r ? `In past “${rt.regime}” periods the market returned ${ptsTxt(r.market3m * 1, '%')} over the next 3 months; financial stocks ${ptsTxt(r.financialsVsMarket3m)} vs the market; Junior Market ${ptsTxt(r.juniorVsMarket3m)}.` : ''} ${RT?.stocksVsTbills ? `Switching to T-bills when yields rise: ${ptsTxt(RT.stocksVsTbills.switchOnRisingYields.ann, '%/yr')} (worst fall ${fmt(RT.stocksVsTbills.switchOnRisingYields.maxDD, 0)}%) vs always stocks ${ptsTxt(RT.stocksVsTbills.alwaysStocks.ann, '%/yr')} (${fmt(RT.stocksVsTbills.alwaysStocks.maxDD, 0)}%) and always T-bills ${ptsTxt(RT.stocksVsTbills.alwaysTbills.ann, '%/yr')}.` : ''} Only ${RT?.monthsTested ?? 'a few dozen'} months of history — indicative, not proof.</div></div>`);
+  }
+  const fx = R_.fx; const FX = I?.fx;
+  if (fx) {
+    const r = FX?.byRegime?.[fx.regime];
+    out.push(`<div class="sig"><div class="sig-h"><b>US$ / J$</b><span class="vchip ok">${esc(fx.regime)}</span></div><div>J$${fmt(fx.usdjmd, 2)} per US$ · ${fx.chg20d >= 0 ? '+' : ''}${fmt(fx.chg20d, 2)}% in 20 days, ${fx.chg5d >= 0 ? '+' : ''}${fmt(fx.chg5d, 2)}% in 5</div>
+      <div class="fine">${r ? `In past “${fx.regime}” stretches the market returned ${ptsTxt(r.market1m, '%')} the next month; US$-linked stocks ${ptsTxt(r.usdLinkedVsMarket1m)} vs the market.` : ''} Daily rates only go back to ${FX?.period?.[0] ? fd(FX.period[0], false) : 'March 2024'}.</div></div>`);
+  }
+  if (R_.sectors) out.push(`<div class="sig"><div class="sig-h"><b>Sector indices, last 3 months</b></div><div>${Object.entries(R_.sectors).map(([k, v]) => `${esc(k)} <b class="${v >= 0 ? 'good' : 'bad'}">${ptsTxt(v, '%')}</b>`).join(' · ')}</div></div>`);
+  return out.length ? `<h2 class="sec">Market conditions <small>with what testing showed</small></h2><div class="sigs">${out.join('')}</div>` : '';
+}
+function sizingVerdict(S) {
+  const names = { equal: 'equal-weight top 10', scoreWeighted: 'top 10 weighted by Edge', top5equal: 'top 5', equalKeepTop20: 'top 10, keeping a holding while it stays in the top 20', inverseVol: 'top 10 weighted toward steadier stocks' };
+  const best = Object.keys(names).filter((k) => S[k]).sort((a, b) => (S[b].returnPerRisk ?? -9) - (S[a].returnPerRisk ?? -9))[0];
+  return `Tested (3-month holds, 1.5% costs charged only on what changes): ${Object.keys(names).filter((k) => S[k]).map((k) => `${names[k]} ${ptsTxt(S[k].annReturn, '%/yr')}`).join(' · ')}; market ${ptsTxt(S.market?.annReturn, '%/yr')}. Best return for the risk: <b>${names[best]}</b> (worst drop ${fmt(S[best].maxDrawdown, 1)}%, ahead of the market ${S[best].beatMarketPct}% of quarters).`;
+}
+let sizeCap = 1000000; let sizeN = 10; let sizeMode = 'edge';
+function sizingCard(F) {
+  if (!F?.stocks) return '';
+  const S = g2(F, 'ideas', 'position_sizing');
+  const ranked = Object.entries(F.stocks).filter(([, v]) => v.edge && !v.pref).sort((a, b) => a[1].edge.rank - b[1].edge.rank).slice(0, sizeN);
+  if (!ranked.length) return '';
+  const w = ranked.map(([, v]) => (sizeMode === 'edge' ? Math.max(0.5, v.edge.score - 50) : 1)); const ws = w.reduce((a, b) => a + b, 0);
+  const rows = ranked.map(([sym, v], i) => {
+    const amt = (sizeCap * w[i]) / ws; const px = v.close; const sh = Math.floor(amt / px);
+    const adv = v.signals?.liquidity?.adv20 || 0; const days = adv > 0 ? amt / (adv * 0.2) : Infinity;
+    return `<tr><td><b>${esc(sym)}</b></td><td>${fmt((w[i] / ws) * 100, 0)}%</td><td>J$${Math.round(amt).toLocaleString('en-US')}</td><td>${sh.toLocaleString('en-US')}</td><td class="${days > 10 ? 'bad' : days > 3 ? 'warn' : 'good'}">${days === Infinity ? 'no trades' : days < 1 ? '<1' : fmt(days, 0)}</td></tr>`;
+  }).join('');
+  return `<h2 class="sec">Position sizing <small>Edge top ${sizeN}</small></h2>
+    <section class="calc"><label>Money to invest (J$)<input id="sz-cap" inputmode="numeric" value="${sizeCap}"></label>
+      <div class="sorts"><button data-szn="5" class="${sizeN === 5 ? 'on' : ''}">Top 5</button><button data-szn="10" class="${sizeN === 10 ? 'on' : ''}">Top 10</button>
+      <button data-szm="edge" class="${sizeMode === 'edge' ? 'on' : ''}">Weight by Edge</button><button data-szm="equal" class="${sizeMode === 'equal' ? 'on' : ''}">Equal</button></div></section>
+    <div class="tblwrap"><table class="yt"><thead><tr><th>Stock</th><th>Weight</th><th>Amount</th><th>Shares</th><th>Days to buy*</th></tr></thead><tbody>${rows}</tbody></table></div>
+    <p class="fine">*Days to build the position without being more than 20% of the stock’s normal daily trading — more than ~3 days means use limit orders over several days. ${S ? sizingVerdict(S) : ''}</p>`;
+}
+const IDEA_ROWS = [
+  ['Intrinsic value (earnings power + dividends)', (I) => g2(I, 'intrinsic_value', 'blend'), (T_) => `top third ${ptsTxt(T_?.avgExcess)} / 3 mo`, (I) => I?.intrinsic_value?.explain],
+  ['Post-earnings drift: buy strong results at once', (I) => g2(I, 'post_earnings_drift', 'strongImmediate63'), (T_) => `${ptsTxt(T_?.avgExcess)} / 3 mo after costs`, (I) => I?.post_earnings_drift?.explain],
+  ['Post-earnings drift: buy the first pullback', (I) => g2(I, 'post_earnings_drift', 'strongPullback63'), (T_) => `${ptsTxt(T_?.avgExcess)} / 3 mo after costs`, () => ''],
+  ['Avoid stocks that just reported weak results', (I) => g2(I, 'post_earnings_drift', 'weakResults63'), (T_) => `${ptsTxt(T_?.avgExcess)} / 3 mo — a real warning`, () => ''],
+  ['Support & resistance channels (volume-confirmed)', (I) => g2(I, 'support_resistance', 'withVolume'), (T_) => `${ptsTxt(T_?.avgExcess)} per trade after costs`, (I) => I?.support_resistance?.explain],
+  ['Volume-backed breakouts (2×, tight base)', (I) => g2(I, 'volume_breakout', 'tight_2x', 'hold63'), (T_) => `${ptsTxt(T_?.avgExcess)} / 3 mo after costs`, (I) => I?.volume_breakout?.explain],
+  ['Pre-results run-up (10 days)', (I) => g2(I, 'calendar', 'preResults10d'), (T_) => `${ptsTxt(T_?.avgExcess)} before costs`, (I) => I?.calendar?.explain],
+  ['Pre-ex-dividend run-up (10 days)', (I) => g2(I, 'calendar', 'preExDividend10d'), (T_) => `${ptsTxt(T_?.avgExcess)} before costs (fading: ${ptsTxt(T_?.firstHalf)} → ${ptsTxt(T_?.secondHalf)})`, () => ''],
+  ['Drop after ex-dividend (5 days)', (I) => g2(I, 'calendar', 'postExDividend5d'), (T_) => `${ptsTxt(T_?.avgExcess)} beyond the dividend`, () => ''],
+  ['Month-end flows (last 3 trading days)', (I) => g2(I, 'calendar', 'monthEnd'), (T_) => `${ptsTxt(T_?.last3Days, '%')} vs ${ptsTxt(T_?.typical3Days, '%')} typical`, () => 'Useful for timing buys and sells, not as a trade by itself.'],
+  ['Accumulation (J$ traded on up vs down days)', (I) => g2(I, 'liquidity', 'accumulation'), (T_) => `${ptsTxt(T_?.avgExcess)} / 3 mo`, (I) => I?.liquidity?.explain],
+  ['Turnover surge vs its norm', (I) => g2(I, 'liquidity', 'turnoverSurge'), (T_) => `${ptsTxt(T_?.avgExcess)} / 3 mo`, () => 'Added to the Edge score.'],
+  ['Zero-volume masking for momentum', (I) => g2(I, 'liquidity', 'momentumTradedDaysOnly'), (T_) => `same result as unmasked (${ptsTxt(T_?.avgExcess)})`, () => 'Ignoring no-trade days changed nothing measurable for 12-month signals.'],
+  ['Sector relative strength', (I) => g2(I, 'sector_strength', 'relativeStrength'), (T_) => `${ptsTxt(T_?.avgExcess)} / 3 mo`, (I) => I?.sector_strength?.explain],
+  ['…when its sector is flat or falling', (I) => g2(I, 'sector_strength', 'relativeStrengthWhenSectorFlatOrDown'), (T_) => `${ptsTxt(T_?.avgExcess)} / 3 mo`, () => ''],
+  ['Bid–ask spread tightening', (I) => g2(I, 'bid_ask_spread', 'tighterThanUsual_factor'), (T_) => `${ptsTxt(T_?.avgExcess)} / 1 mo`, (I) => I?.bid_ask_spread?.explain],
+  ['Sudden spread tightening + up close', (I) => g2(I, 'bid_ask_spread', 'suddenTighteningWithUpClose_trade21'), (T_) => `${ptsTxt(T_?.avgExcess)} / 1 mo after costs`, () => ''],
+];
+function ideasSheet(F) {
+  const I = F?.ideas; if (!I) return;
+  const rows = IDEA_ROWS.map(([title, pick, metric, ex]) => { const T_ = pick(I); if (!T_) return ''; return `<div class="sig"><div class="sig-h"><b>${title}</b>${VCHIP(T_.verdict)}</div><div>${metric(T_)}${T_.winRate != null ? ` · won ${T_.winRate}% of ${T_.n} cases` : ''}</div>${ex(I) ? `<div class="fine">${esc(ex(I))}</div>` : ''}</div>`; }).join('');
+  const RT = I.rates; const FX = I.fx;
+  openSheet(`<h3>Every idea we tested</h3>
+    <p class="fine">JSE daily prices since 2021 with dividends included; you buy at the next day’s close; “vs the market” = average buy-and-hold return of all ordinary shares over the same days; trade-style ideas pay 1.5% per side. “Edge” needs a consistent result in both halves of the period.</p>
+    <div class="sigs">${rows}</div>
+    ${RT ? `<div class="sig"><div class="sig-h"><b>Rate regimes & bank sensitivity</b><span class="vchip ok">Indicative</span></div><div>${Object.entries(RT.byRegime).map(([k, v]) => `${k}: market ${ptsTxt(v.market3m, '%')} · financials ${ptsTxt(v.financialsVsMarket3m)} · junior ${ptsTxt(v.juniorVsMarket3m)} (${v.months} mo)`).join('<br>')}</div><div class="fine">${esc(RT.explain)} Bank net-interest-margin data isn’t published in a usable form, so financial stocks’ returns stand in for it.</div></div>` : ''}
+    ${FX ? `<div class="sig"><div class="sig-h"><b>USD/JMD momentum</b><span class="vchip ok">Indicative</span></div><div>${Object.entries(FX.byRegime).map(([k, v]) => `${k}: market ${ptsTxt(v.market1m, '%')} next month · US$-linked ${ptsTxt(v.usdLinkedVsMarket1m)} (${v.cases} weeks)`).join('<br>')}</div><div class="fine">${esc(FX.explain)}</div></div>` : ''}
+    <div class="sig"><div class="sig-h"><b>Not testable with public data</b></div><div class="fine">Pre-open auction imbalance (needs a live broker feed) · cross-listed arbitrage with Trinidad/Barbados (no free price history yet) · broker VWAP/TWAP execution (the sizing table’s “days to buy” is the practical version) · trading US markets (see the TradingView chart).</div></div>
+    <div class="btnrow"><button class="btn" data-close>Close</button></div>`);
 }
 const LV = (F, l) => F.levels.indexOf(l);
 function fanChart(F, sym, target) {
