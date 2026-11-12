@@ -354,59 +354,59 @@
  },
  "sector_strength": {
   "relativeStrength": {
-   "n": 489,
-   "months": 14,
-   "avgExcess": 0.3,
-   "median": -2.35,
-   "winRate": 42,
-   "t": 0.37,
-   "firstHalf": null,
-   "secondHalf": 0.3,
+   "n": 1446,
+   "months": 42,
+   "avgExcess": 0.26,
+   "median": -1.28,
+   "winRate": 45,
+   "t": 0.56,
+   "firstHalf": -0.09,
+   "secondHalf": 0.45,
    "verdict": "no reliable edge"
   },
   "relativeStrengthWhenSectorFlatOrDown": {
-   "n": 267,
-   "months": 13,
-   "avgExcess": 0.14,
-   "median": -2.34,
-   "winRate": 41,
-   "t": 0.7,
-   "firstHalf": null,
-   "secondHalf": 0.14,
+   "n": 967,
+   "months": 38,
+   "avgExcess": 0.42,
+   "median": -1.22,
+   "winRate": 45,
+   "t": 0.85,
+   "firstHalf": -0.0,
+   "secondHalf": 0.67,
    "verdict": "no reliable edge"
   },
   "sectorsFound": {
-   "Other": 60,
-   "Junior Market": 20,
-   "Manufacturing & Distribution": 15,
-   "Financial": 14
+   "Other": 61,
+   "Junior Market": 28,
+   "Manufacturing & Distribution": 14,
+   "Financial": 11
   },
   "explain": "Relative strength = stock\u2019s 3-month return minus its sector index (Financial, Manufacturing & Distribution, Junior Market, else the main JSE Index). Sector is assigned by which index the stock moves with most. Top third held 3 months."
  },
  "bid_ask_spread": {
   "tighterThanUsual_factor": {
-   "n": 1749,
-   "months": 18,
-   "avgExcess": 0.26,
-   "median": -1.22,
+   "n": 4437,
+   "months": 47,
+   "avgExcess": -0.24,
+   "median": -0.63,
    "winRate": 46,
-   "t": 0.76,
-   "firstHalf": null,
-   "secondHalf": 0.26,
+   "t": -1.2,
+   "firstHalf": -0.48,
+   "secondHalf": -0.1,
    "verdict": "no reliable edge"
   },
   "suddenTighteningWithUpClose_trade21": {
-   "n": 401,
-   "months": 19,
-   "avgExcess": -3.86,
-   "median": -4.67,
-   "winRate": 31,
-   "t": -5.81,
-   "firstHalf": null,
-   "secondHalf": -3.86,
-   "verdict": "no reliable edge"
+   "n": 1250,
+   "months": 48,
+   "avgExcess": -3.87,
+   "median": -4.41,
+   "winRate": 29,
+   "t": -9.96,
+   "firstHalf": -4.07,
+   "secondHalf": -3.68,
+   "verdict": "negative edge (avoid)"
   },
-  "coverageDays": 420,
+  "coverageDays": 1020,
   "explain": "Spread = (closing ask \u2212 closing bid) \u00f7 mid-price. Z-score compares today\u2019s spread with its own 20-day average; a big negative z means buyers and sellers suddenly agree on price."
  },
  "rates": {
@@ -414,20 +414,37 @@
    "falling": {
     "months": 17,
     "market3m": -2.66,
-    "financialsVsMarket3m": 1.05,
-    "juniorVsMarket3m": 0.91
+    "financialsVsMarket3m": 1.02,
+    "juniorVsMarket3m": 0.72
    },
    "rising": {
     "months": 11,
     "market3m": -2.96,
-    "financialsVsMarket3m": -0.45,
-    "juniorVsMarket3m": -1.84
+    "financialsVsMarket3m": -0.32,
+    "juniorVsMarket3m": 1.08
    },
    "steady": {
     "months": 23,
     "market3m": 1.13,
-    "financialsVsMarket3m": -2.12,
-    "juniorVsMarket3m": 1.26
+    "financialsVsMarket3m": -2.19,
+    "juniorVsMarket3m": 0.97
+   }
+  },
+  "breakoutsByRegime": {
+   "rising": {
+    "n": 103,
+    "winRate": 44,
+    "avgExcessBeforeCosts": 1.26
+   },
+   "falling": {
+    "n": 132,
+    "winRate": 41,
+    "avgExcessBeforeCosts": -2.55
+   },
+   "steady": {
+    "n": 197,
+    "winRate": 43,
+    "avgExcessBeforeCosts": -0.22
    }
   },
   "corrRateChangeVsNext3mMarket": -0.02,
