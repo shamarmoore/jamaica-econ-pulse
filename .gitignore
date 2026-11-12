@@ -7,3 +7,4 @@ android/app/src/main/assets/public/
 android/app/src/main/assets/capacitor.config.json
 android/app/src/main/assets/capacitor.plugins.json
 data/forecast_backtest_rows.csv
+__pycache__/
