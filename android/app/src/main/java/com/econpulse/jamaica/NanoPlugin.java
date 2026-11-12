@@ -144,12 +144,14 @@ public class NanoPlugin extends Plugin {
 
     @PluginMethod
     public void download(PluginCall call) {
+        final String want = call.getString("key", "");
         worker.execute(() -> {
             try {
                 probe(true);
-                if (!order().isEmpty()) { call.resolve(describe()); return; }
+                if ((want == null || want.isEmpty()) && !order().isEmpty()) { call.resolve(describe()); return; }
                 for (int i = 0; i < 3; i++) {
                     if (statuses[i] != FeatureStatus.DOWNLOADABLE) continue;
+                    if (want != null && !want.isEmpty() && !want.equals(KEYS[i])) continue;
                     downloading = true;
                     final int k = i;
                     models[i].download(new DownloadCallback() {

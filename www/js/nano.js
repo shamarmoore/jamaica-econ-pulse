@@ -27,7 +27,7 @@ export async function nanoCheck(force = false) {
 }
 export async function nanoSetMode(mode) { const P = plugin(); if (!P) return null; try { nano.status = await P.setMode({ mode }); } catch (e) { nano.status = { ...(nano.status || {}), error: String(e?.message || e) }; } return nano.status; }
 export const MODEL_NAME = { full: 'Nano 4 Full (preview)', fast: 'Nano 4 Fast (preview)', stable: 'Gemini Nano (stable)' };
-export async function nanoDownload() { const P = plugin(); if (!P) return null; try { nano.status = await P.download(); } catch (e) { nano.status = { status: 'unavailable', error: String(e?.message || e) }; } return nano.status; }
+export async function nanoDownload(key) { const P = plugin(); if (!P) return null; try { nano.status = await P.download(key ? { key } : {}); } catch (e) { nano.status = { status: 'unavailable', error: String(e?.message || e) }; } return nano.status; }
 export const nanoReady = () => nano.status?.status === 'available';
 export const nanoLabel = (used) => { const k = used || nano.status?.current; return k ? `Gemini ${MODEL_NAME[k]}` : 'Gemini Nano'; };
 export const nanoCached = (key) => cache[key]?.text || null;
@@ -37,11 +37,11 @@ export const nanoForget = (key) => { delete cache[key]; saveCache(); };
 // ---------- cloud model (user's own API key, stored only on this phone) ----------
 const CLOUD_KEY = 'ep_cloudai_v1';
 export const PROVIDERS = {
-  gemini: { name: 'Google Gemini', url: 'https://generativelanguage.googleapis.com/v1beta/openai/chat/completions', model: 'gemini-2.5-flash-lite', keyUrl: 'https://aistudio.google.com/apikey',
-    note: 'Has a free tier (Google may use free-tier prompts to improve its products). Paid use of Flash-Lite is about US$0.10 in / $0.40 out per million tokens — roughly 3,000 explanations per US$1.' },
+  gemini: { name: 'Google Gemini', url: 'https://generativelanguage.googleapis.com/v1beta/openai/chat/completions', model: 'gemini-3.5-flash-lite', keyUrl: 'https://aistudio.google.com/apikey',
+    note: 'Has a free tier (Google may use free-tier prompts to improve its products). Paid Flash-Lite costs well under a US cent per explanation. If Google retires a model, the app switches to the one Google names.' },
   groq: { name: 'Groq', url: 'https://api.groq.com/openai/v1/chat/completions', model: 'llama-3.3-70b-versatile', keyUrl: 'https://console.groq.com/keys',
     note: 'Free tier with no card (rate-limited); very fast. Paid Llama 3.3 70B is about US$0.59 in / $0.79 out per million tokens.' },
-  openrouter: { name: 'OpenRouter', url: 'https://openrouter.ai/api/v1/chat/completions', model: 'google/gemini-2.5-flash-lite', keyUrl: 'https://openrouter.ai/keys',
+  openrouter: { name: 'OpenRouter', url: 'https://openrouter.ai/api/v1/chat/completions', model: 'google/gemini-3.5-flash-lite', keyUrl: 'https://openrouter.ai/keys',
     note: 'One key for hundreds of models. Models ending in “:free” cost nothing (50 requests a day until you’ve bought US$10 of credit).' },
   custom: { name: 'Other (OpenAI-compatible)', url: '', model: '', keyUrl: '', note: 'Any provider with an OpenAI-style /chat/completions endpoint (DeepSeek, Mistral, Together, a local server…).' },
 };
@@ -62,15 +62,22 @@ export const aiLabel = (used) => {
 };
 async function cloudAsk(prompt, { maxTokens, temperature }) {
   const c = cloud.get(); const P = PROVIDERS[c.provider] || PROVIDERS.custom;
-  const url = (c.url || P.url).trim(); const model = (c.model || P.model).trim();
+  const url = (c.url || P.url).trim(); let model = (c.model || P.model).trim();
   if (!c.key || !url || !model) throw new Error('Set the cloud AI provider, key and model under Sources → AI.');
   const headers = { Authorization: `Bearer ${c.key.trim()}` };
   if (c.provider === 'openrouter') { headers['HTTP-Referer'] = 'https://github.com/shamarmoore/jamaica-econ-pulse'; headers['X-Title'] = 'JA Econ Pulse'; }
-  const j = await postJSON(url, {
-    model, temperature,
+  const call = (m) => postJSON(url, {
+    model: m, temperature,
     max_tokens: Math.max(maxTokens * 3, 1200), // headroom for models that think before answering; still well under a cent
     messages: [{ role: 'system', content: 'You are a careful, plain-spoken assistant inside a Jamaica Stock Exchange research app. Follow the user’s format exactly. Use only the facts provided.' }, { role: 'user', content: prompt }],
   }, headers, 60000);
+  let j;
+  try { j = await call(model); } catch (e) {
+    // retired model: providers usually name the replacement ("…use models/gemini-3.5-flash-lite…") — switch and remember it
+    const next = /use (?:models\/)?([a-z0-9][\w.:/-]*[a-z0-9])/i.exec(String(e.message || ''))?.[1];
+    if (!(e.status === 404 || e.status === 400) || !next || next === model) throw e;
+    j = await call(next); cloud.set({ model: next }); model = next;
+  }
   const m = j?.choices?.[0]?.message;
   const text = (typeof m?.content === 'string' ? m.content : Array.isArray(m?.content) ? m.content.map((x) => x.text || '').join('') : '').trim();
   if (!text) throw new Error(`${model} returned an empty answer${j?.choices?.[0]?.finish_reason ? ` (${j.choices[0].finish_reason})` : ''}.`);
@@ -113,7 +120,7 @@ export async function nanoAsk(key, prompt, opts = {}) {
 
 
 function friendly(m) {
-  if (/INFERENCE_ERROR|Inference failed|COMPUTE_ERROR/i.test(m)) return `Every Gemini Nano model on this phone failed to answer (${m.split('\n')[0].slice(0, 140)}). The preview models are still buggy — try again later, or pick another model under Sources → AI, or add a cloud API key there.`;
+  if (/INFERENCE_ERROR|Inference failed|COMPUTE_ERROR/i.test(m)) { const tried = [...m.matchAll(/(full|fast|stable):/g)].map((x) => MODEL_NAME[x[1]]); return `Gemini Nano failed (tried ${tried.join(', ') || 'the available model'}). Nano 4 Full is a buggy preview — under Sources → AI, download Nano 4 Fast and pick it.`; }
   if (/quota|BUSY|rate/i.test(m)) return 'Android’s on-device AI is busy or out of its allowance for this app — wait a minute and try again.';
   if (/background/i.test(m)) return 'Android only lets the on-device AI run while the app is open on screen.';
   return m;
