@@ -1,5 +1,9 @@
 package com.econpulse.jamaica;
 
+import android.content.Context;
+import android.content.SharedPreferences;
+
+import com.getcapacitor.JSArray;
 import com.getcapacitor.JSObject;
 import com.getcapacitor.Plugin;
 import com.getcapacitor.PluginCall;
@@ -19,6 +23,7 @@ import com.google.mlkit.genai.prompt.ModelReleaseStage;
 import com.google.mlkit.genai.prompt.TextPart;
 import com.google.mlkit.genai.prompt.java.GenerativeModelFutures;
 
+import java.util.ArrayList;
 import java.util.List;
 import java.util.concurrent.ExecutorService;
 import java.util.concurrent.Executors;
@@ -26,97 +31,134 @@ import java.util.concurrent.TimeUnit;
 
 /**
  * On-device Gemini Nano through AICore (ML Kit GenAI Prompt API). Everything runs on the phone.
- * Tries the preview model first (Gemini Nano 4 Full / Fast, AICore developer preview), then the stable model.
- * JS: Capacitor.Plugins.Nano.status(), .download(), .generate({ prompt, maxTokens, temperature })
+ * Candidates, best first: Nano 4 Full (preview) → Nano 4 Fast (preview) → stable Nano.
+ * The preview Full model can report AVAILABLE yet fail every request (known AICore preview bug), so a model that
+ * fails is marked broken for a week and the next one answers instead. The user can also pin one model.
+ * JS: Capacitor.Plugins.Nano.status(), .download(), .generate({ prompt, maxTokens, temperature }), .setMode({ mode })
  */
 @CapacitorPlugin(name = "Nano")
 public class NanoPlugin extends Plugin {
+    private static final String[] KEYS = {"full", "fast", "stable"};
+    private static final long RETRY_MS = 7L * 24 * 3600 * 1000;
     private final ExecutorService worker = Executors.newSingleThreadExecutor();
-    private GenerativeModelFutures model;
-    private String stage = "";
-    private String pref = "";
-    private int lastStatus = -1;
+    private final GenerativeModelFutures[] models = new GenerativeModelFutures[3];
+    private final int[] statuses = {-1, -1, -1};
     private volatile boolean downloading = false;
     private volatile long downloaded = 0;
+    private String lastError = "";
 
-    private static GenerativeModelFutures client(int releaseStage, int preference) {
+    private SharedPreferences prefs() { return getContext().getSharedPreferences("nano", Context.MODE_PRIVATE); }
+    private String mode() { return prefs().getString("mode", "auto"); }
+    private boolean broken(int i) { return System.currentTimeMillis() - prefs().getLong("broken_" + KEYS[i], 0) < RETRY_MS; }
+    private void markBroken(int i, boolean b) { prefs().edit().putLong("broken_" + KEYS[i], b ? System.currentTimeMillis() : 0).apply(); }
+
+    private static GenerativeModelFutures client(int i) {
         ModelConfig.Builder mb = new ModelConfig.Builder();
-        mb.setReleaseStage(releaseStage);
-        mb.setPreference(preference);
+        mb.setReleaseStage(i == 2 ? ModelReleaseStage.STABLE : ModelReleaseStage.PREVIEW);
+        mb.setPreference(i == 1 ? ModelPreference.FAST : ModelPreference.FULL);
         GenerationConfig.Builder gb = new GenerationConfig.Builder();
         gb.setModelConfig(mb.build());
         return GenerativeModelFutures.from(Generation.INSTANCE.getClient(gb.build()));
     }
 
-    /** Pick the best model this phone offers. Must run off the main thread. */
-    private synchronized void choose() throws Exception {
-        if (model != null && lastStatus != FeatureStatus.UNAVAILABLE) return;
-        int[][] tries = {
-            {ModelReleaseStage.PREVIEW, ModelPreference.FULL},
-            {ModelReleaseStage.PREVIEW, ModelPreference.FAST},
-            {ModelReleaseStage.STABLE, ModelPreference.FULL},
-        };
-        GenerativeModelFutures fallback = null; int fallbackStatus = FeatureStatus.UNAVAILABLE; String fs = "", fp = "";
-        for (int[] t : tries) {
-            GenerativeModelFutures m;
-            int s;
+    /** Refresh each candidate's status. Off the main thread only. */
+    private void probe(boolean force) {
+        for (int i = 0; i < 3; i++) {
+            if (!force && statuses[i] == FeatureStatus.AVAILABLE) continue;
             try {
-                m = client(t[0], t[1]);
-                s = m.checkStatus().get(30, TimeUnit.SECONDS);
-            } catch (Exception e) { continue; }
-            String st = t[0] == ModelReleaseStage.PREVIEW ? "preview" : "stable";
-            String pr = t[1] == ModelPreference.FULL ? "full" : "fast";
-            if (s == FeatureStatus.AVAILABLE) { model = m; lastStatus = s; stage = st; pref = pr; return; }
-            if (fallback == null && s != FeatureStatus.UNAVAILABLE) { fallback = m; fallbackStatus = s; fs = st; fp = pr; }
+                if (models[i] == null) models[i] = client(i);
+                statuses[i] = models[i].checkStatus().get(30, TimeUnit.SECONDS);
+            } catch (Throwable e) { statuses[i] = FeatureStatus.UNAVAILABLE; }
         }
-        model = fallback; lastStatus = fallback == null ? FeatureStatus.UNAVAILABLE : fallbackStatus; stage = fs; pref = fp;
+    }
+
+    /** Usable models in the order they should be tried. */
+    private List<Integer> order() {
+        List<Integer> out = new ArrayList<>();
+        String m = mode();
+        for (int i = 0; i < 3; i++) if (m.equals(KEYS[i]) && statuses[i] == FeatureStatus.AVAILABLE) out.add(i);
+        if (!out.isEmpty()) return out; // pinned model
+        for (int i = 0; i < 3; i++) if (statuses[i] == FeatureStatus.AVAILABLE && !broken(i)) out.add(i);
+        for (int i = 0; i < 3; i++) if (statuses[i] == FeatureStatus.AVAILABLE && broken(i)) out.add(i); // last resort
+        return out;
+    }
+
+    private String nameOf(int i) {
+        try { return models[i].getBaseModelName().get(10, TimeUnit.SECONDS); } catch (Throwable e) { return ""; }
     }
 
     private JSObject describe() {
         JSObject r = new JSObject();
-        String s = lastStatus == FeatureStatus.AVAILABLE ? "available"
-            : lastStatus == FeatureStatus.DOWNLOADABLE ? "downloadable"
-            : lastStatus == FeatureStatus.DOWNLOADING || downloading ? "downloading" : "unavailable";
-        r.put("status", s);
-        r.put("stage", stage);
-        r.put("preference", pref);
-        r.put("downloadedBytes", downloaded);
-        if (model != null && lastStatus == FeatureStatus.AVAILABLE) {
-            try { r.put("model", model.getBaseModelName().get(10, TimeUnit.SECONDS)); } catch (Exception ignored) { }
+        List<Integer> o = order();
+        String s;
+        if (!o.isEmpty()) s = "available";
+        else if (downloading) s = "downloading";
+        else {
+            boolean dl = false, ing = false;
+            for (int st : statuses) { dl |= st == FeatureStatus.DOWNLOADABLE; ing |= st == FeatureStatus.DOWNLOADING; }
+            s = ing ? "downloading" : dl ? "downloadable" : "unavailable";
         }
+        r.put("status", s);
+        r.put("mode", mode());
+        r.put("downloadedBytes", downloaded);
+        if (!o.isEmpty()) {
+            int i = o.get(0);
+            r.put("current", KEYS[i]);
+            r.put("stage", i == 2 ? "stable" : "preview");
+            r.put("preference", i == 1 ? "fast" : "full");
+            r.put("model", nameOf(i));
+        }
+        JSArray all = new JSArray();
+        for (int i = 0; i < 3; i++) {
+            JSObject c = new JSObject();
+            c.put("key", KEYS[i]);
+            c.put("status", statuses[i] == FeatureStatus.AVAILABLE ? "available" : statuses[i] == FeatureStatus.DOWNLOADABLE ? "downloadable"
+                : statuses[i] == FeatureStatus.DOWNLOADING ? "downloading" : "unavailable");
+            c.put("broken", broken(i));
+            all.put(c);
+        }
+        r.put("models", all);
+        if (!lastError.isEmpty()) r.put("lastError", lastError);
         return r;
     }
 
     @PluginMethod
     public void status(PluginCall call) {
+        final boolean force = Boolean.TRUE.equals(call.getBoolean("force", false));
         worker.execute(() -> {
-            try {
-                if (model != null && lastStatus != FeatureStatus.AVAILABLE) {
-                    try { lastStatus = model.checkStatus().get(30, TimeUnit.SECONDS); } catch (Exception ignored) { }
-                    if (lastStatus == FeatureStatus.UNAVAILABLE) model = null;
-                }
-                choose();
-                call.resolve(describe());
-            } catch (Throwable e) {
-                JSObject r = new JSObject(); r.put("status", "unavailable"); r.put("error", String.valueOf(e.getMessage()));
-                call.resolve(r);
-            }
+            try { probe(force); call.resolve(describe()); }
+            catch (Throwable e) { JSObject r = new JSObject(); r.put("status", "unavailable"); r.put("error", String.valueOf(e.getMessage())); call.resolve(r); }
         });
+    }
+
+    @PluginMethod
+    public void setMode(PluginCall call) {
+        String m = call.getString("mode", "auto");
+        boolean ok = "auto".equals(m);
+        for (String k : KEYS) ok |= k.equals(m);
+        if (!ok) { call.reject("unknown mode"); return; }
+        prefs().edit().putString("mode", m).apply();
+        if ("auto".equals(m)) for (int i = 0; i < 3; i++) markBroken(i, false); // give every model a fresh chance
+        worker.execute(() -> { probe(true); call.resolve(describe()); });
     }
 
     @PluginMethod
     public void download(PluginCall call) {
         worker.execute(() -> {
             try {
-                choose();
-                if (model == null) { call.reject("Gemini Nano isn't offered on this phone"); return; }
-                if (lastStatus == FeatureStatus.AVAILABLE) { call.resolve(describe()); return; }
-                downloading = true;
-                model.download(new DownloadCallback() {
-                    @Override public void onDownloadProgress(long bytes) { downloaded = bytes; }
-                    @Override public void onDownloadCompleted() { downloading = false; lastStatus = FeatureStatus.AVAILABLE; }
-                    @Override public void onDownloadFailed(GenAiException e) { downloading = false; }
-                });
+                probe(true);
+                if (!order().isEmpty()) { call.resolve(describe()); return; }
+                for (int i = 0; i < 3; i++) {
+                    if (statuses[i] != FeatureStatus.DOWNLOADABLE) continue;
+                    downloading = true;
+                    final int k = i;
+                    models[i].download(new DownloadCallback() {
+                        @Override public void onDownloadProgress(long bytes) { downloaded = bytes; }
+                        @Override public void onDownloadCompleted() { downloading = false; statuses[k] = FeatureStatus.AVAILABLE; }
+                        @Override public void onDownloadFailed(GenAiException e) { downloading = false; lastError = String.valueOf(e.getMessage()); }
+                    });
+                    break;
+                }
                 call.resolve(describe());
             } catch (Throwable e) { downloading = false; call.reject(String.valueOf(e.getMessage())); }
         });
@@ -129,25 +171,37 @@ public class NanoPlugin extends Plugin {
         final float temperature = call.getFloat("temperature", 0.2f);
         if (prompt == null || prompt.isEmpty()) { call.reject("empty prompt"); return; }
         worker.execute(() -> {
-            try {
-                choose();
-                if (model == null || lastStatus != FeatureStatus.AVAILABLE) { call.reject("Gemini Nano isn't ready on this phone"); return; }
-                GenerateContentRequest.Builder b = new GenerateContentRequest.Builder(new TextPart(prompt));
-                b.setTemperature(temperature);
-                b.setTopK(16);
-                b.setMaxOutputTokens(maxTokens);
-                GenerateContentResponse res = model.generateContent(b.build()).get(180, TimeUnit.SECONDS);
-                List<Candidate> c = res.getCandidates();
-                String text = c == null || c.isEmpty() ? "" : c.get(0).getText();
-                JSObject r = new JSObject();
-                r.put("text", text == null ? "" : text);
-                r.put("stage", stage);
-                r.put("preference", pref);
-                call.resolve(r);
-            } catch (Throwable e) {
-                Throwable root = e.getCause() != null ? e.getCause() : e;
-                call.reject(String.valueOf(root.getMessage()));
+            probe(false);
+            List<Integer> o = order();
+            if (o.isEmpty()) { call.reject("Gemini Nano isn't ready on this phone"); return; }
+            StringBuilder errs = new StringBuilder();
+            for (int i : o) {
+                try {
+                    GenerateContentRequest.Builder b = new GenerateContentRequest.Builder(new TextPart(prompt));
+                    b.setTemperature(temperature);
+                    b.setTopK(16);
+                    b.setMaxOutputTokens(maxTokens);
+                    GenerateContentResponse res = models[i].generateContent(b.build()).get(180, TimeUnit.SECONDS);
+                    List<Candidate> c = res.getCandidates();
+                    String text = c == null || c.isEmpty() ? "" : c.get(0).getText();
+                    if (text == null || text.trim().isEmpty()) throw new IllegalStateException("empty answer");
+                    if (broken(i)) markBroken(i, false);
+                    JSObject r = new JSObject();
+                    r.put("text", text);
+                    r.put("used", KEYS[i]);
+                    r.put("model", nameOf(i));
+                    r.put("fellBack", errs.length() > 0);
+                    if (errs.length() > 0) r.put("fallbackReason", errs.toString());
+                    call.resolve(r);
+                    return;
+                } catch (Throwable e) {
+                    Throwable root = e.getCause() != null ? e.getCause() : e;
+                    lastError = KEYS[i] + ": " + root.getMessage();
+                    errs.append(lastError).append('\n');
+                    if (!mode().equals(KEYS[i])) markBroken(i, true);
+                }
             }
+            call.reject(errs.toString().trim());
         });
     }
 }

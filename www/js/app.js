@@ -7,7 +7,7 @@ import { fredKey, ghToken } from './sources.js';
 import { MODELS, jacarsLinks } from './cars.js';
 import { quotesOn, rankStocks, TV_SYMBOLS, tvUrl, GLOBAL_TAGS, targetOdds, fcAt, fcChange, hypeLabel, calibrate } from './markets.js';
 import { fmt, signed, last, changeOver, yoySeries } from './util.js';
-import { nano, nanoCheck, nanoDownload, nanoAsk, nanoCached, nanoForget, nanoLabel, explainPrompt, newsPrompt, digestPrompt } from './nano.js';
+import { nano, nanoCheck, nanoDownload, nanoAsk, nanoCached, nanoForget, nanoLabel, nanoUsed, nanoSetMode, MODEL_NAME, explainPrompt, newsPrompt, digestPrompt } from './nano.js';
 
 const KEY = 'ep_cache_v1';
 const PREV = 'ep_prev_gauges_v1';
@@ -1037,13 +1037,13 @@ function newsItem(p, showSym = false) {
 }
 function aiOut(id, key) {
   const t = nanoCached(key);
-  return `<div class="ai-out${t ? '' : ' hide'}" id="${id}">${t ? aiHtml(t) : ''}</div>`;
+  return `<div class="ai-out${t ? '' : ' hide'}" id="${id}">${t ? aiHtml(t, nanoUsed(key)) : ''}</div>`;
 }
-function aiHtml(t) {
+function aiHtml(t, used) {
   const lines = String(t).split(/\n+/).map((l) => l.trim()).filter(Boolean);
   const li = lines.filter((l) => /^[•*-]\s/.test(l)); const other = lines.filter((l) => !/^[•*-]\s/.test(l));
   return `${li.length ? `<ul>${li.map((l) => `<li>${esc(l.replace(/^[•*-]\s*/, '').replace(/\*\*/g, ''))}</li>`).join('')}</ul>` : ''}${other.map((l) => `<p>${esc(l.replace(/\*\*/g, ''))}</p>`).join('')}
-    <p class="fine">Written on your phone by ${esc(nanoLabel())} from the app’s numbers. It can misread things — check against the figures above.</p>`;
+    <p class="fine">Written on your phone by ${esc(nanoLabel(used))} from the app’s numbers. It can misread things — check against the figures above.</p>`;
 }
 function aiButton(id, label, key) {
   const st = nano.status?.status;
@@ -1058,7 +1058,7 @@ async function runAi(btn, outEl, key, prompt, opts) {
   try {
     if (lab.startsWith('↻')) nanoForget(key); // re-run asked for a fresh answer
     const text = await nanoAsk(key, prompt, opts);
-    outEl.innerHTML = aiHtml(text);
+    outEl.innerHTML = aiHtml(text, nanoUsed(key));
   } catch (e) { outEl.innerHTML = `<p class="fine bad">${esc(e.message || e)}</p>`; }
   btn.disabled = false; btn.textContent = lab.replace(/^✦ /, '↻ ');
 }
@@ -1119,10 +1119,13 @@ function nanoSection() {
   const what = 'It writes plain-English explanations of a stock from the app’s own numbers and summarises JSE announcements. Nothing is sent anywhere, and nothing it writes changes the Edge score.';
   if (!s) return `<p class="fine"><span class="spin"></span>Checking…</p>`;
   if (st === 'unsupported') return `<p class="fine">Only works inside the Android app. ${what}</p>`;
-  if (st === 'available') return `<p class="fine"><span class="dot good"></span><b>Ready</b> — ${esc(nanoLabel())}${s.stage ? ` · ${s.stage === 'preview' ? 'AICore developer preview' : 'stable'} model` : ''}. ${what} Look for ✦ buttons on stock pages and the Trade page.</p>`;
+  const models = Array.isArray(s.models) ? s.models : [];
+  const picker = models.length ? `<div class="seg seg-ap" id="nano-mode">${[['auto', 'Auto'], ['full', 'Full'], ['fast', 'Fast'], ['stable', 'Stable']].map(([k, l]) => { const m = models.find((x) => x.key === k); const off = k !== 'auto' && m?.status !== 'available'; return `<button data-nmode="${k}" class="${(s.mode || 'auto') === k ? 'on' : ''}" ${off ? 'disabled' : ''}>${l}</button>`; }).join('')}</div>
+    <p class="fine">${models.map((m) => `${MODEL_NAME[m.key]}: ${m.status === 'available' ? (m.broken ? '<span class="bad">failed recently — skipped</span>' : '<span class="good">ready</span>') : m.status}`).join(' · ')}. Auto uses the best model that works and skips one that fails for a week.${s.lastError ? ` Last error: ${esc(String(s.lastError).slice(0, 160))}` : ''}</p>` : '';
+  if (st === 'available') return `<p class="fine"><span class="dot good"></span><b>Ready</b> — using ${esc(nanoLabel())}. ${what} Look for ✦ buttons on stock pages and the Trade page.</p>${picker}`;
   if (st === 'downloadable') return `<p class="fine">The model can be downloaded to this phone (about 1–3 GB over Wi-Fi). ${what}</p><button class="btn pri" id="nano-dl">Download Gemini Nano</button>`;
   if (st === 'downloading') return `<p class="fine"><span class="spin"></span>Downloading the model${s.downloadedBytes ? ` (${fmt(s.downloadedBytes / 1e9, 2)} GB so far)` : ''}… keep the phone on Wi-Fi.</p><button class="btn" id="nano-re">Check again</button>`;
-  return `<p class="fine">Not available on this phone right now${s.error ? ` (${esc(s.error)})` : ''}. On a Pixel 8a: Settings → System → Developer options → AICore settings → turn on on-device GenAI, and for Gemini Nano 4 join the AICore developer preview and pick the model in the AICore app. ${what}</p><button class="btn" id="nano-re">Check again</button>`;
+  return `<p class="fine">Not available on this phone right now${s.error ? ` (${esc(s.error)})` : ''}.${picker ? '' : ''} On a Pixel 8a: Settings → System → Developer options → AICore settings → turn on on-device GenAI, and for Gemini Nano 4 join the AICore developer preview and pick the model in the AICore app. ${what}</p><button class="btn" id="nano-re">Check again</button>`;
 }
 const IDEA_ROWS = [
   ['Intrinsic value (earnings power + dividends)', (I) => g2(I, 'intrinsic_value', 'blend'), (T_) => `top third ${ptsTxt(T_?.avgExcess)} / 3 mo`, (I) => I?.intrinsic_value?.explain],
@@ -1566,7 +1569,7 @@ function render(opts = {}) {
   if (tab === 'decide' && sub === 'trade') bindTrade(v);
   if (tab === 'decide' && sub === 'jobs') { const c = document.getElementById('jobs-ja'); if (c) c.onchange = () => { jobsJamaica = c.checked; render({ keepScroll: true }); }; }
   if (tab === 'sources') { const g = document.getElementById('gh-token'); if (g) g.onchange = () => { ghToken.set(g.value); delete cache.forecasts?.at; refresh(false); }; }
-  if (tab === 'sources') { const nb = document.getElementById('nano-dl'); if (nb) nb.onclick = async () => { nb.disabled = true; nb.textContent = 'Starting download…'; await nanoDownload(); render({ keepScroll: true }); }; const nr = document.getElementById('nano-re'); if (nr) nr.onclick = async () => { nr.disabled = true; await nanoCheck(true); render({ keepScroll: true }); }; }
+  if (tab === 'sources') { const nb = document.getElementById('nano-dl'); if (nb) nb.onclick = async () => { nb.disabled = true; nb.textContent = 'Starting download…'; await nanoDownload(); render({ keepScroll: true }); }; const nr = document.getElementById('nano-re'); if (nr) nr.onclick = async () => { nr.disabled = true; await nanoCheck(true); render({ keepScroll: true }); }; document.querySelectorAll('[data-nmode]').forEach((b) => { b.onclick = async () => { b.disabled = true; await nanoSetMode(b.dataset.nmode); render({ keepScroll: true }); }; }); }
   if (tab === 'sources') { const k = document.getElementById('fred-key'); if (k) k.onchange = () => { fredKey.set(k.value); delete cache.fred?.at; refresh(false); }; }
 }
 

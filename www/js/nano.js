@@ -20,13 +20,16 @@ export async function nanoCheck(force = false) {
   const P = plugin();
   if (!P) { nano.status = { status: 'unsupported' }; return nano.status; }
   if (nano.checking && !force) return nano.checking;
-  nano.checking = P.status().then((s) => { nano.status = s; return s; }).catch((e) => { nano.status = { status: 'unavailable', error: String(e?.message || e) }; return nano.status; }).finally(() => { nano.checking = null; });
+  nano.checking = P.status({ force }).then((s) => { nano.status = s; return s; }).catch((e) => { nano.status = { status: 'unavailable', error: String(e?.message || e) }; return nano.status; }).finally(() => { nano.checking = null; });
   return nano.checking;
 }
+export async function nanoSetMode(mode) { const P = plugin(); if (!P) return null; try { nano.status = await P.setMode({ mode }); } catch (e) { nano.status = { ...(nano.status || {}), error: String(e?.message || e) }; } return nano.status; }
+export const MODEL_NAME = { full: 'Nano 4 Full (preview)', fast: 'Nano 4 Fast (preview)', stable: 'Gemini Nano (stable)' };
 export async function nanoDownload() { const P = plugin(); if (!P) return null; try { nano.status = await P.download(); } catch (e) { nano.status = { status: 'unavailable', error: String(e?.message || e) }; } return nano.status; }
 export const nanoReady = () => nano.status?.status === 'available';
-export const nanoLabel = () => { const s = nano.status; if (!s) return 'Gemini Nano'; return `Gemini Nano${s.model ? ` (${s.model})` : s.stage === 'preview' ? ` 4 ${s.preference === 'fast' ? 'Fast' : 'Full'} preview` : ''}`; };
+export const nanoLabel = (used) => { const k = used || nano.status?.current; return k ? `Gemini ${MODEL_NAME[k]}` : 'Gemini Nano'; };
 export const nanoCached = (key) => cache[key]?.text || null;
+export const nanoUsed = (key) => cache[key]?.used || null;
 export const nanoForget = (key) => { delete cache[key]; saveCache(); };
 
 export async function nanoAsk(key, prompt, { maxTokens = 450, temperature = 0.2 } = {}) {
@@ -36,12 +39,21 @@ export async function nanoAsk(key, prompt, { maxTokens = 450, temperature = 0.2 
   if (!nanoReady()) throw new Error(nano.status?.status === 'downloadable' ? 'Download the Gemini Nano model first (Sources → Gemini Nano).' : 'Gemini Nano isn’t ready on this phone.');
   nano.busy.add(key);
   try {
-    const r = await P.generate({ prompt, maxTokens, temperature });
+    let r;
+    try { r = await P.generate({ prompt, maxTokens, temperature }); } catch (e) { nanoCheck(true); throw new Error(friendly(String(e?.message || e))); }
     const text = String(r?.text || '').trim();
     if (!text) throw new Error('Gemini Nano returned nothing — try again.');
-    cache[key] = { text, at: Date.now() }; saveCache();
+    cache[key] = { text, used: r.used, at: Date.now() }; saveCache();
+    if (r.fellBack) nanoCheck(true); // a model failed and was skipped: refresh what Sources shows
     return text;
   } finally { nano.busy.delete(key); }
+}
+
+function friendly(m) {
+  if (/INFERENCE_ERROR|Inference failed|COMPUTE_ERROR/i.test(m)) return `Every Gemini Nano model on this phone failed to answer (${m.split('\n')[0].slice(0, 140)}). The preview models are still buggy — try again later, or pick “Stable” under Sources → Gemini Nano.`;
+  if (/quota|BUSY|rate/i.test(m)) return 'Android’s on-device AI is busy or out of its allowance for this app — wait a minute and try again.';
+  if (/background/i.test(m)) return 'Android only lets the on-device AI run while the app is open on screen.';
+  return m;
 }
 
 // ---------- prompts (short: the model has a ~4,000-token window) ----------
