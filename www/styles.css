@@ -318,3 +318,7 @@ span.warn, p.warn { color: var(--warn); }
 .sig.pl[data-pos] { cursor: pointer; }
 .sig.pl .sig-h { align-items: center; }
 .trk { margin: 6px 0; padding-left: 18px; font-size: 14px; } .trk li { margin: 3px 0; }
+/* notifications settings */
+.chk.al { align-items: flex-start; margin: 10px 0; line-height: 1.3; }
+.chk.al input { flex: none; margin-top: 2px; }
+.chk.al small { font-weight: 400; }

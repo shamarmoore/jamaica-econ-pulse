@@ -3,10 +3,11 @@ import { analyse, borrowing } from './analysis.js';
 import { decide, PROFILES, ASSETS } from './decisions.js';
 import { NHT_DEFAULTS, FIN_DEFAULTS, scenario, bestScenario, geocode, driveTimes, pmt as pmt2, MODES, JOINT } from './homes.js';
 import { EXPLAIN } from './explain.js';
-import { fredKey, ghToken } from './sources.js';
+import { fredKey, ghToken, FORECAST_REPO } from './sources.js';
 import { MODELS, jacarsLinks } from './cars.js';
 import { quotesOn, rankStocks, TV_SYMBOLS, tvUrl, GLOBAL_TAGS, targetOdds, fcAt, fcChange, hypeLabel, calibrate } from './markets.js';
 import { fmt, signed, last, changeOver, yoySeries } from './util.js';
+import { alerts, alertPrefs, ALERT_KINDS, alertsSync, alertsStatus, alertsPermission, alertsCheckNow, alertsTest } from './alerts.js';
 import { nano, nanoCheck, nanoDownload, nanoAsk, nanoCached, nanoForget, nanoLabel, nanoUsed, nanoSetMode, MODEL_NAME, aiReady, aiLabel, cloud, PROVIDERS, cloudTest, willUseCloud, explainPrompt, newsPrompt, digestPrompt, planPrompt } from './nano.js';
 
 const KEY = 'ep_cache_v1';
@@ -806,6 +807,9 @@ function signalsBlock(F, sym) {
   if (lq?.turnoverZ != null) { const T_ = g2(I, 'liquidity', 'turnoverSurge'); rows.push(['Turnover vs normal', `${lq.turnoverZ >= 0 ? '+' : ''}${fmt(lq.turnoverZ, 1)} standard deviations vs its 6-month norm`, T_, `High-turnover stocks (top third) beat the market by ${ptsTxt(T_?.avgExcess)} per 3 months — small but consistent; part of the Edge score.`]); }
   if (x.spread) { const T_ = g2(I, 'bid_ask_spread', 'tighterThanUsual_factor'); rows.push(['Bid–ask spread', `${fmt(x.spread.pct, 1)}% (z ${x.spread.z >= 0 ? '+' : ''}${fmt(x.spread.z, 1)} vs its 20-day norm)`, T_, T_ ? `Stocks with spreads tighter than usual: ${ptsTxt(T_.avgExcess)} vs the market over the next month.` : 'Spread history is still being collected.']); const C_ = g2(I, 'bid_ask_spread', 'suddenTighteningWithUpClose_trade21'); if (x.spread.chase && C_) rows.push(['Don’t chase today', 'Spread just snapped tight on an up day', C_, `Buying right after a sudden spread tightening on an up close went on to ${ptsTxt(C_.avgExcess)} vs the market over the next month after costs (won ${C_.winRate}% of ${C_.n} cases). Wait a few days or use a limit order below today’s price.`]); }
   if (x.sector) { const T_ = g2(I, 'sector_strength', 'relativeStrength'); rows.push(['Sector strength', `Moves with the ${esc(x.sector.name)} index${x.sector.rs63 != null ? ` · ${ptsTxt(x.sector.rs63, 'pts')} vs its sector over 3 months` : ''}`, T_, T_ ? `Stocks beating their sector (top third) went on to ${ptsTxt(T_.avgExcess)} vs the market per 3 months.` : 'Sector history is still being collected.']); }
+  if (x.setup?.strong) { const Q_ = g2(I, 'setups', x.setup.quiet ? 'quiet' : 'moving'); const C_ = g2(I, 'setups', 'strongResultsQuiet63');
+    rows.push([x.setup.quiet ? 'Strong numbers, quiet price' : 'Strong numbers, price already moving', `Fundamentals better than ${x.setup.fundPct}% of stocks · price ${signed(x.setup.chg3m, 0)} in 3 months · ${fmt(Math.abs(x.setup.offHigh), 0)}% under its 52-week high`, Q_,
+      `Stocks with top-third fundamentals beat the market by ${ptsTxt(g2(I, 'setups', 'quiet')?.avgExcess)} over 3 months when the price was quiet and ${ptsTxt(g2(I, 'setups', 'moving')?.avgExcess)} when it was already rising — the numbers do the work, not the chart. A quiet price is not a hidden bargain by itself${C_ ? `: buying right after strong results that the price ignored did ${ptsTxt(C_.avgExcess)} after costs` : ''}.`]); }
   if (x.insider) { const L_ = x.insider.last; const T_ = L_.side === 'buy' ? g2(I, 'insiders', 'buy63') : g2(I, 'insiders', 'sell63_holding');
     rows.push(['Insider trades (90 days)', `${x.insider.buys} buy and ${x.insider.sells} sell notice${x.insider.sells === 1 ? '' : 's'} · latest ${fd(L_.date)}: ${esc(WHO_LABEL[L_.who] || 'an insider')} ${L_.side === 'buy' ? 'bought' : 'sold'}${L_.shares ? ` ${Math.round(L_.shares).toLocaleString('en-US')} shares` : ''}`, T_,
       L_.side === 'buy' ? `Buying the day after insider buy notices went on to ${ptsTxt(T_?.avgExcess)} vs the market over 3 months after costs (${ptsTxt(g2(I, 'insiders', 'buy63_holding')?.avgExcess)} before costs) — on the JSE, insiders buying hasn’t been a reliable signal.` : `If you already held, stocks did ${ptsTxt(T_?.avgExcess)} vs the market over the 3 months after insider sell notices — not a reason to sell on its own.`]); }
@@ -870,7 +874,9 @@ function sizingCard(F) {
 const POS_KEY = 'ep_positions_v1';
 let positions = (() => { try { const v = JSON.parse(localStorage.getItem(POS_KEY)); return Array.isArray(v) ? v : []; } catch (_) { return []; } })();
 let posDelArm = null;
-function savePos() { try { localStorage.setItem(POS_KEY, JSON.stringify(positions)); } catch (_) { /* storage full */ } }
+function savePos() { try { localStorage.setItem(POS_KEY, JSON.stringify(positions)); } catch (_) { /* storage full */ } syncAlerts(); }
+// give the phone's background check the open positions' symbols and review dates (never sizes or prices)
+function syncAlerts() { return alertsSync(ghToken.get(), FORECAST_REPO, positions.filter((p) => !p.exit).map((p) => ({ id: p.id, sym: p.sym, review: addDays(p.reviewed || p.date, 91) }))); }
 const isoToday = () => { const t = new Date(); return new Date(t - t.getTimezoneOffset() * 6e4).toISOString().slice(0, 10); };
 const addDays = (iso, n) => { const t = new Date(`${iso}T12:00:00`); t.setDate(t.getDate() + n); return t.toISOString().slice(0, 10); };
 const daysBetween = (a, b) => Math.round((new Date(`${b}T12:00:00`) - new Date(`${a}T12:00:00`)) / 864e5);
@@ -1261,6 +1267,26 @@ function insiderNote(F) {
   const T = g2(F, 'ideas', 'insiders', 'buy63'); if (!T || T.n == null) return '';
   return `Tested: after an insider buy notice, the stock went on to ${ptsTxt(T.avgExcess)} vs the market over 3 months after costs (${T.n} cases, ${T.verdict}).`;
 }
+function alertsSection() {
+  const p = alertPrefs.get(); const st = alerts.status;
+  if (st?.unsupported) return '<p class="fine">Notifications work in the Android app.</p>';
+  const when = st?.lastRun ? `${ago(new Date(st.lastRun))}: ${esc(st.lastResult || '')}` : 'not run yet';
+  return `<p class="fine">About every 6 hours your phone quietly reads the nightly alerts file from your GitHub and compares it with the positions saved here. Every alert comes from a back-tested rule, not from the AI, and each is shown once. Only your stock symbols and review dates are used; nothing is sent anywhere.</p>
+  <div class="seg seg-ap"><button data-alon="1" class="${p.enabled ? 'on' : ''}">On</button><button data-alon="0" class="${p.enabled ? '' : 'on'}">Off</button></div>
+  ${p.enabled ? `${st && st.allowed === false ? '<div class="note"><b>Android is blocking notifications for this app.</b> <button class="linkish" id="al-perm">Allow notifications</button></div>' : ''}
+    ${!ghToken.get() ? '<div class="note">Add your GitHub token above first — the alerts file lives in your private repo.</div>' : ''}
+    ${ALERT_KINDS.map(([k, l, d_]) => `<label class="chk al"><input type="checkbox" data-alk="${k}" ${p[k] ? 'checked' : ''}> <span>${l}<br><small class="fine">${d_}</small></span></label>`).join('')}
+    <div class="btnrow"><button class="btn" id="al-test">Send a test</button><button class="btn" id="al-now">Check now</button></div>
+    <p class="fine">Last check — ${when}${st?.error ? ` · ${esc(st.error)}` : ''}. Android decides exactly when background checks run and may delay them to save battery; the nightly file is ready by about 7 pm Jamaica time on weekdays.</p>` : ''}`;
+}
+function bindAlertsSection() {
+  const $ = (id) => document.getElementById(id); const again = () => render({ keepScroll: true });
+  document.querySelectorAll('[data-alon]').forEach((b) => { b.onclick = async () => { const on = b.dataset.alon === '1'; alertPrefs.set({ enabled: on }); if (on) await alertsPermission(); await syncAlerts(); again(); }; });
+  document.querySelectorAll('[data-alk]').forEach((c) => { c.onchange = async () => { alertPrefs.set({ [c.dataset.alk]: c.checked }); await syncAlerts(); }; });
+  const pm = $('al-perm'); if (pm) pm.onclick = async () => { await alertsPermission(); again(); };
+  const t = $('al-test'); if (t) t.onclick = async () => { t.disabled = true; const r = await alertsTest(); t.textContent = r?.posted ? 'Sent ✓' : 'Blocked — allow notifications'; t.disabled = false; if (!r?.posted) again(); };
+  const n = $('al-now'); if (n) n.onclick = async () => { n.disabled = true; n.textContent = 'Checking…'; await syncAlerts(); await alertsCheckNow(); again(); };
+}
 function aiSection() {
   const c = cloud.get(); const P = PROVIDERS[c.provider] || PROVIDERS.custom;
   return `<p class="fine">The ✦ buttons write plain-English explanations and news summaries from the app’s own numbers. Nothing they write changes the Edge score. Choose where they run:</p>
@@ -1329,6 +1355,23 @@ const IDEA_ROWS = [
   ['Buying on a “dividend consideration” notice', (I) => g2(I, 'events', 'dividendConsideration21'), (T_) => `${ptsTxt(T_?.avgExcess)} / 1 mo after costs`, () => ''],
   ['Rights issue / additional public offer notice', (I) => g2(I, 'events', 'raise63'), (T_) => `${ptsTxt(T_?.avgExcess)} / 3 mo after costs`, () => 'Small sample, but consistently bad for the share price.'],
   ['Share split notice', (I) => g2(I, 'events', 'split63'), (T_) => T_?.avgExcess != null ? `${ptsTxt(T_?.avgExcess)} / 3 mo` : `only ${T_?.n} cases`, () => ''],
+  ['Strong fundamentals, quiet price', (I) => g2(I, 'setups', 'quiet'), (T_) => `${ptsTxt(T_?.avgExcess)} / 3 mo before costs`, (I) => I?.setups?.explain],
+  ['Strong fundamentals, price already rising', (I) => g2(I, 'setups', 'moving'), (T_) => `${ptsTxt(T_?.avgExcess)} / 3 mo before costs`, () => ''],
+  ['Strong fundamentals, near the 52-week high', (I) => g2(I, 'setups', 'nearHigh'), (T_) => `${ptsTxt(T_?.avgExcess)} / 3 mo before costs`, () => ''],
+  ['Strong results the price hadn’t reacted to', (I) => g2(I, 'setups', 'strongResultsQuiet63'), (T_) => `${ptsTxt(T_?.avgExcess)} / 3 mo after costs`, () => 'When good results don’t move the price, it has usually been for a reason.'],
+  ['Strong results after the price ran up', (I) => g2(I, 'setups', 'strongResultsRanUp63'), (T_) => `${ptsTxt(T_?.avgExcess)} / 3 mo after costs`, () => ''],
+  ['Turnaround: back to profit after a loss', (I) => g2(I, 'setups', 'backToProfit63'), (T_) => `${ptsTxt(T_?.avgExcess)} / 3 mo after costs`, () => 'Buying the first profitable quarter after a loss lost money; turnarounds need several good quarters first (the Edge score’s “no recent losses” signal).'],
+  ['RSI oversold (1 month)', (I) => g2(I, 'chart', 'rsiOversold21'), (T_) => `${ptsTxt(T_?.avgExcess)} / 1 mo before ~3 pts costs`, (I) => I?.chart?.explain],
+  ['Below the lower Bollinger band (1 month)', (I) => g2(I, 'chart', 'bollingerLow21'), (T_) => `${ptsTxt(T_?.avgExcess)} / 1 mo before ~3 pts costs`, () => 'Real but smaller than the cost of trading it monthly — use dips to time buys of Edge picks (the Edge score already includes “pulled back in the last week”).'],
+  ['Below the 20-day VWAP (1 month)', (I) => g2(I, 'chart', 'belowVwap21'), (T_) => `${ptsTxt(T_?.avgExcess)} / 1 mo before ~3 pts costs`, () => ''],
+  ['Golden cross (50-day above 200-day average)', (I) => g2(I, 'chart', 'goldenCross63'), (T_) => `${ptsTxt(T_?.avgExcess)} / 3 mo (fading: ${ptsTxt(T_?.firstHalf)} → ${ptsTxt(T_?.secondHalf)})`, () => ''],
+  ['Price above its 50-day average', (I) => g2(I, 'chart', 'above50dma63'), (T_) => `${ptsTxt(T_?.avgExcess)} / 3 mo`, () => ''],
+  ['3-month rate of change', (I) => g2(I, 'chart', 'roc63'), (T_) => `${ptsTxt(T_?.avgExcess)} / 3 mo`, () => ''],
+  ['On-balance volume rising', (I) => g2(I, 'chart', 'obv63'), (T_) => `${ptsTxt(T_?.avgExcess)} / 3 mo`, () => ''],
+  ['Cheap small companies (low P/E, smaller half)', (I) => g2(I, 'strategies', 'cheapSmallCaps63'), (T_) => `${ptsTxt(T_?.avgExcess)} / 3 mo`, (I) => I?.strategies?.explain],
+  ['Cheap large companies (low P/E, larger half)', (I) => g2(I, 'strategies', 'cheapLargeCaps63'), (T_) => `${ptsTxt(T_?.avgExcess)} / 3 mo`, () => 'Cheapness worked about equally in both halves — and more steadily in the larger, easier-to-trade one.'],
+  ['Dividend payers bought during a market lull', (I) => g2(I, 'strategies', 'dividendPayersInLull63'), (T_) => `${ptsTxt(T_?.avgExcess)} / 3 mo`, () => ''],
+  ['Dividend payers when the market is moving', (I) => g2(I, 'strategies', 'dividendPayersWhenTrending63'), (T_) => `${ptsTxt(T_?.avgExcess)} / 3 mo`, () => 'Dividend payers beat the market either way; waiting for a lull added nothing.'],
   ['Insider buy notice (buy the next day)', (I) => g2(I, 'insiders', 'buy63'), (T_) => `${ptsTxt(T_?.avgExcess)} / 3 mo after costs`, (I) => I?.insiders?.explain],
   ['…director or senior officer buying', (I) => g2(I, 'insiders', 'directorBuy63'), (T_) => `${ptsTxt(T_?.avgExcess)} / 3 mo after costs`, () => ''],
   ['…big insider buy (≥ J$1M and 3× normal trading)', (I) => g2(I, 'insiders', 'bigBuy63'), (T_) => `${ptsTxt(T_?.avgExcess)} / 3 mo after costs`, () => ''],
@@ -1346,7 +1389,7 @@ function ideasSheet(F) {
     <div class="sigs">${rows}</div>
     ${RT ? `<div class="sig"><div class="sig-h"><b>Rate regimes & bank sensitivity</b><span class="vchip ok">Indicative</span></div><div>${Object.entries(RT.byRegime).map(([k, v]) => `${k}: market ${ptsTxt(v.market3m, '%')} · financials ${ptsTxt(v.financialsVsMarket3m)} · junior ${ptsTxt(v.juniorVsMarket3m)} (${v.months} mo)`).join('<br>')}</div>${RT.breakoutsByRegime ? `<div>Breakouts by rate regime (3 months, before costs): ${Object.entries(RT.breakoutsByRegime).filter(([, v]) => v.n).map(([k, v]) => `${k}: won ${v.winRate}% (${ptsTxt(v.avgExcessBeforeCosts)}, ${v.n} cases)`).join(' · ')}</div>` : ''}<div class="fine">${esc(RT.explain)} Bank net-interest-margin data isn’t published in a usable form, so financial stocks’ returns stand in for it.</div></div>` : ''}
     ${FX ? `<div class="sig"><div class="sig-h"><b>USD/JMD momentum</b><span class="vchip ok">Indicative</span></div><div>${Object.entries(FX.byRegime).map(([k, v]) => `${k}: market ${ptsTxt(v.market1m, '%')} next month · US$-linked ${ptsTxt(v.usdLinkedVsMarket1m)} (${v.cases} weeks)`).join('<br>')}</div><div class="fine">${esc(FX.explain)}</div></div>` : ''}
-    <div class="sig"><div class="sig-h"><b>Not testable with public data</b></div><div class="fine">Pre-open auction imbalance (needs a live broker feed) · cross-listed arbitrage with Trinidad/Barbados (no free price history yet) · broker VWAP/TWAP execution (the sizing table’s “days to buy” is the practical version) · trading US markets (see the TradingView chart).</div></div>
+    <div class="sig"><div class="sig-h"><b>Not testable with public data</b></div><div class="fine">Pre-open auction imbalance (needs a live broker feed) · cross-listed arbitrage with Trinidad/Barbados (no free price history yet) · broker VWAP/TWAP execution (the sizing table’s “days to buy” is the practical version) · trading US markets (see the TradingView chart). Also not available for Jamaica: order-book depth (Level 2/3), options and implied volatility (there’s no JSE options market), short interest (no short selling), analyst estimate revisions (almost no coverage), fund-holdings filings and ETF flows, card-spending or satellite data. Price-to-book, ROE, debt and cash-flow tests need balance sheets, which the JSE only publishes inside PDF reports. Pairs trading needs short selling and would pay about 6 points in costs per round trip. Inflation and oil have too few monthly readings over the test period to judge.</div></div>
     <div class="btnrow"><button class="btn" data-close>Close</button></div>`);
 }
 const LV = (F, l) => F.levels.indexOf(l);
@@ -1698,6 +1741,8 @@ function viewSources() {
   <li>Name it “JA Econ Pulse”, expiration up to 1 year.</li><li>Repository access → <b>Only select repositories</b> → <b>jamaica-econ-pulse</b>.</li>
   <li>Permissions → Repository permissions → <b>Contents: Read-only</b>. Nothing else.</li><li>Generate, copy, and paste it here. It stays on this phone.</li></ol>
   <section class="calc"><label class="wide">GitHub token<input id="gh-token" value="${esc(ghToken.get())}" placeholder="github_pat_…" autocomplete="off" autocapitalize="none" spellcheck="false"></label></section>
+  <h2 class="sec">Notifications <small>with the app closed</small></h2>
+  ${alertsSection()}
   <h2 class="sec">AI <small>explanations & news summaries</small></h2>
   ${aiSection()}
   <h4>Gemini Nano (on this phone)</h4>
@@ -1754,8 +1799,9 @@ function render(opts = {}) {
   }
   if (tab === 'decide' && sub === 'trade') bindTrade(v);
   if (tab === 'decide' && sub === 'jobs') { const c = document.getElementById('jobs-ja'); if (c) c.onchange = () => { jobsJamaica = c.checked; render({ keepScroll: true }); }; }
-  if (tab === 'sources') { const g = document.getElementById('gh-token'); if (g) g.onchange = () => { ghToken.set(g.value); delete cache.forecasts?.at; refresh(false); }; }
+  if (tab === 'sources') { const g = document.getElementById('gh-token'); if (g) g.onchange = () => { ghToken.set(g.value); syncAlerts(); delete cache.forecasts?.at; refresh(false); }; }
   if (tab === 'sources') bindAiSection();
+  if (tab === 'sources') bindAlertsSection();
   if (tab === 'sources') { const nb = document.getElementById('nano-dl'); if (nb) nb.onclick = async () => { nb.disabled = true; nb.textContent = 'Starting download…'; await nanoDownload(); render({ keepScroll: true }); }; const nr = document.getElementById('nano-re'); if (nr) nr.onclick = async () => { nr.disabled = true; await nanoCheck(true); render({ keepScroll: true }); }; document.querySelectorAll('[data-ndl]').forEach((b) => { b.onclick = async () => { b.disabled = true; b.textContent = 'starting…'; await nanoDownload(b.dataset.ndl); render({ keepScroll: true }); }; }); document.querySelectorAll('[data-nmode]').forEach((b) => { b.onclick = async () => { b.disabled = true; await nanoSetMode(b.dataset.nmode); render({ keepScroll: true }); }; }); }
   if (tab === 'sources') { const k = document.getElementById('fred-key'); if (k) k.onchange = () => { fredKey.set(k.value); delete cache.fred?.at; refresh(false); }; }
 }
@@ -1825,5 +1871,6 @@ $('#today').textContent = new Date().toLocaleDateString('en-JM', { weekday: 'lon
 
 document.querySelectorAll('#tabs button').forEach((x) => x.classList.toggle('on', x.dataset.tab === tab));
 status(); render(); refresh(false);
+syncAlerts().then(() => { if (tab === 'sources') bgRender(); });
 nanoCheck().then(() => { if ((tab === 'decide' && sub === 'trade') || tab === 'sources') bgRender(); });
 setInterval(status, 60000);
