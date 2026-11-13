@@ -1146,13 +1146,14 @@ function eventsFacts(d) {
   return L.join('\n');
 }
 function eventsCard(d) {
-  const E = d.forecasts?.events; if (!E?.length) return '';
+  if (!d.forecasts) return '';
+  const E = d.forecasts.events || [];
   const main = E.filter((e) => ['consider', 'avoid', 'holders', 'watch'].includes(e.tested?.action));
   const info = E.filter((e) => !main.includes(e));
   const key = `ai-plan-${d.forecasts.asof}-${E.length}-${positions.filter((p) => !p.exit).map((p) => p.sym).join('.')}`;
   return `<h2 class="sec">Opportunities from announcements <small>tested on JSE history</small></h2>
     ${aiButton('ai-plan', 'What should I do this week?', key)}${aiOut('ai-plan-out', key)}
-    <div class="sigs">${main.map(evRow).join('') || '<p class="fine">Nothing actionable from recent announcements.</p>'}</div>
+    <div class="sigs">${main.map(evRow).join('') || `<p class="fine">${d.forecasts.events ? 'Nothing actionable from recent announcements.' : 'This saved copy of the forecasts is from before announcements were added — tap ↻ at the top to refresh.'}</p>`}</div>
     ${info.length ? `<details data-k="ev-info"><summary>${info.length} more — dividend meetings, splits, other notices</summary><div class="sigs">${info.map(evRow).join('')}</div></details>` : ''}
     <p class="fine">Labels come from back-tests of each event type since 2018 (after 1.5% costs each way, vs the average JSE stock). The one event with a consistent edge so far: buying high-yield dividends (≥3% of the price) before the ex-date — a small sample, so size it modestly.</p>`;
 }
