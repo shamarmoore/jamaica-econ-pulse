@@ -172,46 +172,64 @@ def num(v):
         return None
 
 
-def jse_profit_slots(sym, period_end, months):
-    """The JSE's own year-to-date profit for the same period: quarters are stored per financial year, and the label can
-    be the year the period ends in or the next one, so both are returned (plus last year's, to catch a relabelled year)."""
+def fy_end(period_end, months):
+    """(year, month) in which the financial year containing this year-to-date period ends."""
+    y, m = int(period_end[:4]), int(period_end[5:7]) + (12 - months)
+    return (y + (m - 1) // 12, (m - 1) % 12 + 1)
+
+
+def jse_profit(sym, period_end, months):
+    """The JSE's own year-to-date profit for exactly this period (its table is keyed by the year the financial year ends
+    in), or None when the JSE hasn't published every quarter of it yet."""
     f = (_FUND.get(sym) or {})
     if not period_end or not months:
-        return []
-    y = int(period_end[:4]); n = months // 3
-    out = []
-    for yy in (y, y + 1, y - 1):
-        q = (f.get('quarters') or {}).get(str(yy)) or []
-        if len(q) >= n and all(q[:n]):
-            out.append(float(sum(q[:n])))
-        if n == 4 and (f.get('annual') or {}).get(str(yy)):
-            out.append(float(f['annual'][str(yy)]))
-    return out
+        return None
+    label = str(fy_end(period_end, months)[0]); n = months // 3
+    q = (f.get('quarters') or {}).get(label) or []
+    if n == 4 and (f.get('annual') or {}).get(label):
+        return float(f['annual'][label])
+    if len(q) >= n and all(q[:n]):
+        return float(sum(q[:n]))
+    return None
 
 
 _FUND = _load('data/jse_fundamentals.json', {}).get('stocks') or {}
+FX = {'JMD': 1.0, 'USD': 157.0, 'TTD': 23.2}
+
+
+def validate(sym, out):
+    """Checks on a reading (figures already in full currency units). Sets balances / profitMatchesJSE / scaleOk / ok."""
+    A, L, E = out.get('total_assets'), out.get('total_liabilities'), out.get('total_equity')
+    out['balances'] = bool(A and L is not None and E is not None and abs(A - (L + E)) <= 0.02 * abs(A))
+    c = jse_profit(sym, out.get('period_end'), out.get('months'))
+    ok = None   # None = the JSE hasn't published a figure for this period to compare with
+    if c is not None:
+        ok = any(p is not None and abs(p - c) <= 0.02 * abs(c) + 1 for p in (out.get('net_profit_attributable_to_owners'), out.get('net_profit')))
+    if ok is False and (out.get('currency') or 'JMD') != 'JMD':
+        ok = None   # the JSE's table may be in a different currency from the report, so a mismatch proves nothing
+    out['profitMatchesJSE'] = ok
+    # thousands/millions mistakes: book value must be a believable fraction of what the market says the company is worth
+    mv = (_FUND.get(sym) or {}).get('mval'); eq = out.get('equity_attributable_to_owners') or E
+    scale = None
+    if mv and eq and eq > 0:
+        scale = any(0.02 <= r <= 60 for r in (eq / mv, eq * FX.get(out.get('currency') or 'JMD', 1.0) / mv))
+    out['scaleOk'] = scale
+    # usable = the balance sheet adds up, the size is believable, and the profit agrees with the JSE's figure when there is one
+    out['ok'] = bool(out['balances'] and out.get('period_end') and out.get('months') and out.get('currency') and ok is not False and scale is not False)
+    return out
 
 
 def check(sym, r):
-    """Scale to full currency units and validate."""
+    """Scale a raw model answer to full currency units and validate it."""
     u = num(r.get('units')) or 1
     out = {k: (None if num(r.get(k)) is None else num(r.get(k)) * u) for k in FIELDS}
-    A, L, E = out['total_assets'], out['total_liabilities'], out['total_equity']
-    out['balances'] = bool(A and L is not None and E is not None and abs(A - (L + E)) <= 0.02 * abs(A))
     pe = str(r.get('period_end') or '')
     out['period_end'] = pe if re.match(r'^\d{4}-\d{2}-\d{2}$', pe) else None
     m = num(r.get('months'))
     out['months'] = int(m) if m in (3, 6, 9, 12) else None
-    cands = jse_profit_slots(sym, out['period_end'], out['months'])
-    ok = None   # None = the JSE hasn't published a figure for this period to compare with
-    if cands:
-        ok = any(p is not None and abs(p - c) <= 0.02 * abs(c) + 1 for p in (out['net_profit_attributable_to_owners'], out['net_profit']) for c in cands)
-    out['profitMatchesJSE'] = ok
     out['currency'] = r.get('currency') if r.get('currency') in ('JMD', 'USD', 'TTD') else None
     out['consolidated'] = bool(r.get('consolidated')); out['audited'] = bool(r.get('audited'))
-    # usable = the balance sheet adds up, and the profit agrees with the JSE's own figure when there is one to compare
-    out['ok'] = bool(out['balances'] and out['period_end'] and out['months'] and out['currency'] and ok is not False)
-    return out
+    return validate(sym, out)
 
 
 def read_report(p):
@@ -261,6 +279,8 @@ def main():
         print('REPORTS skipped: no GEMINI_API_KEY'); return
     index = update_index()
     D = _load(OUT, {'reports': {}, 'skipped': {}})
+    for r in D['reports'].values():   # re-apply the checks, so rule improvements and newer JSE figures reach old readings
+        validate(r['sym'], r)
     done = set(D['reports']) | set(D['skipped'])
     todo = [p for p in index['posts'] if str(p['id']) not in done and p.get('sym') and p['links']
             and not re.search(r'annual report|delay|notice of|extension|largest|top ten|press release|media release|investor briefing|presentation', p['title'], re.I)]
@@ -272,7 +292,7 @@ def main():
     n = ok = 0
     t0 = time.time()
     for p in todo[:MAX]:
-        if time.time() - t0 > 200 * 60:
+        if time.time() - t0 > 230 * 60:
             break
         try:
             r, why = read_report(p)
@@ -293,10 +313,12 @@ def main():
     D['updated'] = datetime.now(timezone.utc).isoformat(timespec='seconds')
     json.dump(D, open(OUT, 'w'), separators=(',', ':'))
     allr = list(D['reports'].values())
+    chk = [r for r in allr if r.get('profitMatchesJSE') is not None]
+    print(f'CHECKS balance sheet adds up: {sum(1 for r in allr if r["balances"])}/{len(allr)}; profit equals the JSE figure: {sum(1 for r in chk if r["profitMatchesJSE"])}/{len(chk)} comparable; size believable: {sum(1 for r in allr if r.get("scaleOk") is not False)}/{len(allr)}')
     print(f'REPORTS read {n} this run ({ok} passed checks); total {len(allr)} readings, {sum(1 for r in allr if r["ok"])} usable, {len(D["skipped"])} skipped; '
           f'{len(todo) - min(len(todo), MAX)} still to read; tokens in {tokens["in"]:,} out {tokens["out"]:,}')
     for r in allr[-3:]:
-        print('   e.g.', r['sym'], r['pub'], r['src'], 'ok' if r['ok'] else 'FLAGGED', {k: r[k] for k in ('period_end', 'months', 'currency', 'total_assets', 'total_equity', 'borrowings', 'net_profit', 'operating_cash_flow', 'balances', 'profitMatchesJSE')})
+        print('   e.g.', r['sym'], r['pub'], r['src'], 'ok' if r['ok'] else 'FLAGGED', {k: r[k] for k in ('period_end', 'months', 'currency', 'total_assets', 'total_equity', 'borrowings', 'net_profit', 'operating_cash_flow', 'balances', 'profitMatchesJSE', 'scaleOk')})
 
 
 if __name__ == '__main__':
