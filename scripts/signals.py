@@ -61,8 +61,16 @@ INS_BY = {}
 INS_SINCE = ''
 
 
+BS_FACTS = {}
+
+
 def compute():
-    global INS_BY, INS_SINCE
+    global INS_BY, INS_SINCE, BS_FACTS
+    try:
+        import balance
+        BS_FACTS = balance.latest_facts(fs, T)
+    except Exception as e:
+        print('balance-sheet facts skipped:', repr(e)[:120]); BS_FACTS = {}
     INS_BY = _insiders()
     INS_SINCE = (pd.Timestamp.today() - pd.Timedelta(days=90)).strftime('%Y-%m-%d')
     det, macro = _detail(), _macro()
@@ -125,6 +133,8 @@ def compute():
             if col in IDXS.columns and pd.notna(IDXS[col].iloc[T - 63]):
                 rs = round(float((p.iloc[T] / p.iloc[T - 63] - 1) - (IDXS[col].iloc[T] / IDXS[col].iloc[T - 63] - 1)) * 100, 1)
             sig['sector'] = {'name': sec, 'rs63': rs}
+        if s in BS_FACTS:
+            sig['bs'] = BS_FACTS[s]
         ins = INS_BY.get(s)
         if ins:
             recent = [e for e in ins if e['date'] >= INS_SINCE and e['who'] != 'company']

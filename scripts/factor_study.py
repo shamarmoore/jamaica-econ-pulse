@@ -143,7 +143,16 @@ def features(t):
     f['turn_surge'] = TURN_Z.iloc[t]              # turnover vs its own 6-month norm
     # recently reported weak results (profit down >25% on the year, public within ~63 days) → negative signal
     f['no_weak_results'] = -np.where((FF['days_since'].iloc[t] <= 63) & (FF['q_yoy'].iloc[t] < -0.25), 1.0, 0.0)
+    for k, v in BS.items():   # book value, return on equity, debt, cash-backed profit, cash yields, margin
+        f['bs_' + k] = v.iloc[t]
     return f
+
+# balance-sheet features read from the PDF reports (empty until scripts/read_reports.py has run)
+try:
+    import types, balance
+    BS = balance.frames(types.SimpleNamespace(idx=idx, syms=syms, fx=fx, MCAP=MCAP, FUND=FUND))
+except Exception as _e:
+    print('balance-sheet features skipped:', repr(_e)[:120]); BS = {}
 
 FEATS = None
 def run(hold, step, offset=0):
@@ -221,7 +230,7 @@ FEATURE_LABELS = {
     'accel': 'Profit growth speeding up', 'stable': 'Steady profits', 'noloss': 'No recent loss-making quarters', 'divpayer': 'Pays dividends regularly',
     'fresh_beat': 'Fresh strong results (last ~40 days)', 'iv_epv': 'Below earnings-power value', 'iv_ddm': 'Below dividend-discount value',
     'turn_surge': 'Turnover rising vs its norm', 'no_weak_results': 'No weak results just reported',
-}
+    'bs_bp': 'Cheap relative to book value', 'bs_roe': 'High return on shareholders’ funds', 'bs_lowdebt': 'Little debt', 'bs_netcash': 'Net cash on the balance sheet', 'bs_cashq': 'Profit backed by cash', 'bs_ocfy': 'Operating cash yield', 'bs_fcfy': 'Free cash flow yield', 'bs_margin': 'High profit margin', 'bs_eq_assets': 'Funded mostly by shareholders'}
 
 
 def edge_today(chosen):

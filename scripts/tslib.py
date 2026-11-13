@@ -121,9 +121,18 @@ FEAT_NAMES = {'ey': 'Earnings yield (profit ÷ market value)', 'growth': 'Profit
 
 def load_fundamentals(path='data/jse_fundamentals.json'):
     try:
-        return json.load(open(path))['stocks']
+        F = json.load(open(path))['stocks']
     except Exception:
         return {}
+    # month each company's financial year ends, learned from its own reports (scripts/balance.py); without it the
+    # quarters are dated as if every year ended in December, which is late (never early) for other year-ends
+    try:
+        for s, m in json.load(open('data/fiscal_years.json')).items():
+            if s in F and not (F[s].get('fye') or {}).get('month'):
+                F[s]['fye'] = {'month': int(m)}
+    except Exception:
+        pass
+    return F
 
 
 def fx_rate(f, price):

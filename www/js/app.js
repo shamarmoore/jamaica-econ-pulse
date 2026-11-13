@@ -761,6 +761,7 @@ function stockSheet(sym) {
     ${!x.vol ? '<p class="fine">No shares traded on this day — the quoted price may be stale and hard to buy or sell at.</p>' : ''}
     ${edgeBlock(d.forecasts, sym)}
     ${signalsBlock(d.forecasts, sym)}
+    ${bsBlock(d.forecasts, sym)}
     ${forecastBlock(d.forecasts, sym)}
     ${newsBlock(d, sym)}
     <h4>How to read this</h4><p class="fine">The trend figures compare today’s close with closes saved on your phone from 3, 6 and 12 months ago (prices exclude dividends). The 52-week bar shows where today’s price sits between the year’s low and high. This is a research shortlist, not a recommendation — check company results and news before buying.</p>
@@ -815,6 +816,25 @@ function signalsBlock(F, sym) {
       L_.side === 'buy' ? `Buying the day after insider buy notices went on to ${ptsTxt(T_?.avgExcess)} vs the market over 3 months after costs (${ptsTxt(g2(I, 'insiders', 'buy63_holding')?.avgExcess)} before costs) — on the JSE, insiders buying hasn’t been a reliable signal.` : `If you already held, stocks did ${ptsTxt(T_?.avgExcess)} vs the market over the 3 months after insider sell notices — not a reason to sell on its own.`]); }
   if (lq) rows.push(['Liquidity', `Trades ${lq.tradedPct}% of days · about J$${(lq.adv20 / 1e6).toFixed(lq.adv20 >= 1e7 ? 0 : 1)}M a day`, null, 'Used for position sizing: a position you can build in a few days without pushing the price.']);
   return `<h4>Signals & what testing showed</h4><div class="sigs">${rows.map(([t, state, T_, why]) => `<div class="sig"><div class="sig-h"><b>${t}</b>${T_ ? VCHIP(T_.verdict) : ''}</div><div>${state}</div><div class="fine">${why}</div></div>`).join('')}</div>`;
+}
+// balance-sheet facts read from the company's latest PDF report (scripts/read_reports.py), with tested notes where there are any
+function bsBlock(F, sym) {
+  const b = F?.stocks?.[sym]?.signals?.bs; if (!b) return '';
+  const I = F.ideas?.balance_sheet; const cur = b.cur === 'USD' ? 'US$' : b.cur === 'TTD' ? 'TT$' : 'J$';
+  const big = (v) => (v == null ? '—' : `${v < 0 ? '−' : ''}${cur}${Math.abs(v) >= 1e9 ? `${fmt(Math.abs(v) / 1e9, 1)}B` : `${fmt(Math.abs(v) / 1e6, 0)}M`}`);
+  const T_ = (k) => { const t = I?.[k]; return t?.avgExcess != null ? ` <span class="fine">Tested: top third ${ptsTxt(t.avgExcess)} / 3 mo (${esc(t.verdict)})</span>` : ''; };
+  const rows = [
+    b.pb != null && ['Price ÷ book value', `<b>${fmt(b.pb, 2)}×</b>${b.bvps != null ? ` · book value J$${fmt(b.bvps, 2)} a share` : ''}${T_('bp')}`],
+    b.roe != null && ['Return on shareholders’ funds', `<b>${fmt(b.roe, 1)}%</b> a year${T_('roe')}`],
+    b.de != null && [b.fin ? 'Borrowings ÷ shareholders’ funds' : 'Debt ÷ shareholders’ funds', `<b>${fmt(b.de, 2)}×</b> · debt ${big(b.debt)}, cash ${big(b.cash)}${b.fin ? ' <span class="fine">(normal to be high for a financial firm)</span>' : T_('lowdebt')}`],
+    b.cashPerProfit != null && !b.fin && ['Cash from operations per $1 of profit', `<b>${cur}${fmt(b.cashPerProfit, 2)}</b>${T_('cashq')}`],
+    b.margin != null && ['Profit margin', `<b>${fmt(b.margin, 1)}%</b> of sales${T_('margin')}`],
+    ['Shareholders’ funds', `${big(b.equity)} of ${big(b.assets)} total assets${b.eqAssets != null ? ` (${b.eqAssets}%)` : ''}`],
+  ].filter(Boolean);
+  return `<h4>Balance sheet <small class="fine">as at ${fd(b.period)}</small></h4>
+    ${b.flags?.length ? b.flags.map((f) => `<div class="note"><b>⚠ ${esc(f)}.</b></div>`).join('') : ''}
+    <table class="yt">${rows.map(([k, v]) => `<tr><td>${k}</td><td>${v}</td></tr>`).join('')}</table>
+    <p class="fine">Read from the report published ${fd(b.pub)} by an AI model${b.src === 'scan' ? ' (a scanned document)' : ''}; kept because assets equal liabilities plus shareholders’ funds${b.checked ? ' and the profit matches the JSE’s own figure' : ''}. It can still misread a line — check the report before relying on a number.</p>`;
 }
 function regimeCard(F) {
   const R_ = F?.regime; const I = F?.ideas; if (!R_) return '';
@@ -1372,6 +1392,14 @@ const IDEA_ROWS = [
   ['Cheap large companies (low P/E, larger half)', (I) => g2(I, 'strategies', 'cheapLargeCaps63'), (T_) => `${ptsTxt(T_?.avgExcess)} / 3 mo`, () => 'Cheapness worked about equally in both halves — and more steadily in the larger, easier-to-trade one.'],
   ['Dividend payers bought during a market lull', (I) => g2(I, 'strategies', 'dividendPayersInLull63'), (T_) => `${ptsTxt(T_?.avgExcess)} / 3 mo`, () => ''],
   ['Dividend payers when the market is moving', (I) => g2(I, 'strategies', 'dividendPayersWhenTrending63'), (T_) => `${ptsTxt(T_?.avgExcess)} / 3 mo`, () => 'Dividend payers beat the market either way; waiting for a lull added nothing.'],
+  ['Cheap vs book value (from the PDF reports)', (I) => g2(I, 'balance_sheet', 'bp'), (T_) => T_?.avgExcess != null ? `${ptsTxt(T_.avgExcess)} / 3 mo` : `${T_?.n ?? 0} cases so far`, (I) => I?.balance_sheet?.explain],
+  ['High return on shareholders’ funds', (I) => g2(I, 'balance_sheet', 'roe'), (T_) => T_?.avgExcess != null ? `${ptsTxt(T_.avgExcess)} / 3 mo` : `${T_?.n ?? 0} cases so far`, () => ''],
+  ['Little debt (non-financial firms)', (I) => g2(I, 'balance_sheet', 'lowdebt'), (T_) => T_?.avgExcess != null ? `${ptsTxt(T_.avgExcess)} / 3 mo` : `${T_?.n ?? 0} cases so far`, () => ''],
+  ['Net cash on the balance sheet', (I) => g2(I, 'balance_sheet', 'netcash'), (T_) => T_?.avgExcess != null ? `${ptsTxt(T_.avgExcess)} / 3 mo` : `${T_?.n ?? 0} cases so far`, () => ''],
+  ['Profit backed by cash', (I) => g2(I, 'balance_sheet', 'cashq'), (T_) => T_?.avgExcess != null ? `${ptsTxt(T_.avgExcess)} / 3 mo` : `${T_?.n ?? 0} cases so far`, () => ''],
+  ['Operating cash yield', (I) => g2(I, 'balance_sheet', 'ocfy'), (T_) => T_?.avgExcess != null ? `${ptsTxt(T_.avgExcess)} / 3 mo` : `${T_?.n ?? 0} cases so far`, () => ''],
+  ['Free cash flow yield', (I) => g2(I, 'balance_sheet', 'fcfy'), (T_) => T_?.avgExcess != null ? `${ptsTxt(T_.avgExcess)} / 3 mo` : `${T_?.n ?? 0} cases so far`, () => ''],
+  ['High profit margin', (I) => g2(I, 'balance_sheet', 'margin'), (T_) => T_?.avgExcess != null ? `${ptsTxt(T_.avgExcess)} / 3 mo` : `${T_?.n ?? 0} cases so far`, () => ''],
   ['Insider buy notice (buy the next day)', (I) => g2(I, 'insiders', 'buy63'), (T_) => `${ptsTxt(T_?.avgExcess)} / 3 mo after costs`, (I) => I?.insiders?.explain],
   ['…director or senior officer buying', (I) => g2(I, 'insiders', 'directorBuy63'), (T_) => `${ptsTxt(T_?.avgExcess)} / 3 mo after costs`, () => ''],
   ['…big insider buy (≥ J$1M and 3× normal trading)', (I) => g2(I, 'insiders', 'bigBuy63'), (T_) => `${ptsTxt(T_?.avgExcess)} / 3 mo after costs`, () => ''],
@@ -1389,7 +1417,7 @@ function ideasSheet(F) {
     <div class="sigs">${rows}</div>
     ${RT ? `<div class="sig"><div class="sig-h"><b>Rate regimes & bank sensitivity</b><span class="vchip ok">Indicative</span></div><div>${Object.entries(RT.byRegime).map(([k, v]) => `${k}: market ${ptsTxt(v.market3m, '%')} · financials ${ptsTxt(v.financialsVsMarket3m)} · junior ${ptsTxt(v.juniorVsMarket3m)} (${v.months} mo)`).join('<br>')}</div>${RT.breakoutsByRegime ? `<div>Breakouts by rate regime (3 months, before costs): ${Object.entries(RT.breakoutsByRegime).filter(([, v]) => v.n).map(([k, v]) => `${k}: won ${v.winRate}% (${ptsTxt(v.avgExcessBeforeCosts)}, ${v.n} cases)`).join(' · ')}</div>` : ''}<div class="fine">${esc(RT.explain)} Bank net-interest-margin data isn’t published in a usable form, so financial stocks’ returns stand in for it.</div></div>` : ''}
     ${FX ? `<div class="sig"><div class="sig-h"><b>USD/JMD momentum</b><span class="vchip ok">Indicative</span></div><div>${Object.entries(FX.byRegime).map(([k, v]) => `${k}: market ${ptsTxt(v.market1m, '%')} next month · US$-linked ${ptsTxt(v.usdLinkedVsMarket1m)} (${v.cases} weeks)`).join('<br>')}</div><div class="fine">${esc(FX.explain)}</div></div>` : ''}
-    <div class="sig"><div class="sig-h"><b>Not testable with public data</b></div><div class="fine">Pre-open auction imbalance (needs a live broker feed) · cross-listed arbitrage with Trinidad/Barbados (no free price history yet) · broker VWAP/TWAP execution (the sizing table’s “days to buy” is the practical version) · trading US markets (see the TradingView chart). Also not available for Jamaica: order-book depth (Level 2/3), options and implied volatility (there’s no JSE options market), short interest (no short selling), analyst estimate revisions (almost no coverage), fund-holdings filings and ETF flows, card-spending or satellite data. Price-to-book, ROE, debt and cash-flow tests need balance sheets, which the JSE only publishes inside PDF reports. Pairs trading needs short selling and would pay about 6 points in costs per round trip. Inflation and oil have too few monthly readings over the test period to judge.</div></div>
+    <div class="sig"><div class="sig-h"><b>Not testable with public data</b></div><div class="fine">Pre-open auction imbalance (needs a live broker feed) · cross-listed arbitrage with Trinidad/Barbados (no free price history yet) · broker VWAP/TWAP execution (the sizing table’s “days to buy” is the practical version) · trading US markets (see the TradingView chart). Also not available for Jamaica: order-book depth (Level 2/3), options and implied volatility (there’s no JSE options market), short interest (no short selling), analyst estimate revisions (almost no coverage), fund-holdings filings and ETF flows, card-spending or satellite data. Balance sheets are only published inside PDF reports; an AI reader now extracts them, and those tests fill in as the back-catalogue is read. Pairs trading needs short selling and would pay about 6 points in costs per round trip. Inflation and oil have too few monthly readings over the test period to judge.</div></div>
     <div class="btnrow"><button class="btn" data-close>Close</button></div>`);
 }
 const LV = (F, l) => F.levels.indexOf(l);

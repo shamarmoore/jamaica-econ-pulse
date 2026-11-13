@@ -768,7 +768,21 @@ def strategy_tests():
     return out
 
 
-for _k, _fn in (('setups', quiet_setups), ('chart', chart_indicators), ('strategies', strategy_tests)):
+def balance_sheet_tests():
+    import balance
+    R_ = balance.readings()
+    out = {'readings': len(R_), 'companies': len({r['sym'] for r in R_}), 'from': min((r['pub'] for r in R_), default=None)}
+    names = {'bp': 'cheap vs book value', 'roe': 'return on equity', 'lowdebt': 'little debt', 'netcash': 'net cash', 'cashq': 'profit backed by cash',
+             'ocfy': 'operating cash yield', 'fcfy': 'free cash flow yield', 'margin': 'profit margin', 'eq_assets': 'funded by shareholders'}
+    for k, v in fs.BS.items():
+        out[k] = factor_check(v, names.get(k, k))
+    out['explain'] = ('Figures are read from each company’s PDF reports by an AI model, kept only when the balance sheet adds up and the profit agrees with the JSE’s own figure, '
+                      'and used only from the day the report was published. Each row holds the top third of stocks on that measure for 3 months against the average JSE stock. '
+                      'Debt and cash measures leave out banks, insurers and investment firms, where they mean something different.')
+    return out
+
+
+for _k, _fn in (('setups', quiet_setups), ('chart', chart_indicators), ('strategies', strategy_tests), ('balance_sheet', balance_sheet_tests)):
     try:
         RESULTS[_k] = _fn()
     except Exception as _e:
