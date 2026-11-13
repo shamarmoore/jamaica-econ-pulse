@@ -772,6 +772,8 @@ def balance_sheet_tests():
     import balance
     R_ = balance.readings()
     out = {'readings': len(R_), 'companies': len({r['sym'] for r in R_}), 'from': min((r['pub'] for r in R_), default=None)}
+    # the tests only mean something once the back-catalogue is read (several years of reports, not a few months)
+    out['complete'] = bool(len(R_) >= 900 and out['from'] and out['from'] <= '2022-12-31')
     names = {'bp': 'cheap vs book value', 'roe': 'return on equity', 'lowdebt': 'little debt', 'netcash': 'net cash', 'cashq': 'profit backed by cash',
              'ocfy': 'operating cash yield', 'fcfy': 'free cash flow yield', 'margin': 'profit margin', 'eq_assets': 'funded by shareholders'}
     for k, v in fs.BS.items():
