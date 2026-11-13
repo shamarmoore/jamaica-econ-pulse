@@ -759,14 +759,14 @@
    "verdict": "negative edge (avoid)"
   },
   "dividendConsideration21": {
-   "n": 423,
+   "n": 424,
    "months": 54,
-   "avgExcess": -2.04,
-   "median": -2.61,
+   "avgExcess": -2.01,
+   "median": -2.6,
    "winRate": 33,
-   "t": -3.58,
+   "t": -3.47,
    "firstHalf": -2.11,
-   "secondHalf": -1.99,
+   "secondHalf": -1.92,
    "verdict": "negative edge (avoid)"
   },
   "split21": {
@@ -1044,5 +1044,110 @@
    "verdict": "edge"
   },
   "explain": "Cheap = profit \u00f7 market value, profitable firms only; small = smaller half of the market by value. Dividend payers = top third by yield with no loss-making quarter in the last year; a lull = the market moved less than 5% over the previous 6 months. Book value, debt and cash-flow figures aren\u2019t published in a machine-readable form on the JSE site, so price-to-book, ROE, leverage and accrual tests need the balance sheets read out of the PDF reports first."
+ },
+ "balance_sheet": {
+  "readings": 183,
+  "companies": 96,
+  "from": "2025-09-15",
+  "bp": {
+   "n": 72,
+   "months": 4,
+   "avgExcess": 5.47,
+   "median": -1.33,
+   "winRate": 46,
+   "t": 1.26,
+   "firstHalf": null,
+   "secondHalf": 5.47,
+   "verdict": "no reliable edge"
+  },
+  "roe": {
+   "n": 76,
+   "months": 4,
+   "avgExcess": 0.39,
+   "median": -5.7,
+   "winRate": 33,
+   "t": 0.12,
+   "firstHalf": null,
+   "secondHalf": 0.39,
+   "verdict": "no reliable edge"
+  },
+  "lowdebt": {
+   "n": 54,
+   "months": 4,
+   "avgExcess": -1.61,
+   "median": -6.06,
+   "winRate": 30,
+   "t": -2.14,
+   "firstHalf": null,
+   "secondHalf": -1.61,
+   "verdict": "no reliable edge"
+  },
+  "netcash": {
+   "n": 46,
+   "months": 3,
+   "avgExcess": -0.35,
+   "median": -5.86,
+   "winRate": 35,
+   "t": -0.22,
+   "firstHalf": null,
+   "secondHalf": -0.35,
+   "verdict": "no reliable edge"
+  },
+  "cashq": {
+   "n": 54,
+   "months": 4,
+   "avgExcess": -3.47,
+   "median": -5.0,
+   "winRate": 33,
+   "t": -0.97,
+   "firstHalf": null,
+   "secondHalf": -3.47,
+   "verdict": "no reliable edge"
+  },
+  "ocfy": {
+   "n": 46,
+   "months": 3,
+   "avgExcess": 2.21,
+   "median": -3.23,
+   "winRate": 39,
+   "t": 2.22,
+   "firstHalf": null,
+   "secondHalf": 2.21,
+   "verdict": "no reliable edge"
+  },
+  "fcfy": {
+   "n": 46,
+   "months": 3,
+   "avgExcess": 0.94,
+   "median": -3.9,
+   "winRate": 37,
+   "t": 0.54,
+   "firstHalf": null,
+   "secondHalf": 0.94,
+   "verdict": "no reliable edge"
+  },
+  "margin": {
+   "n": 67,
+   "months": 3,
+   "avgExcess": -1.86,
+   "median": -4.17,
+   "winRate": 34,
+   "t": -0.69,
+   "firstHalf": null,
+   "secondHalf": -1.86,
+   "verdict": "no reliable edge"
+  },
+  "eq_assets": {
+   "n": 54,
+   "months": 4,
+   "avgExcess": -1.86,
+   "median": -7.35,
+   "winRate": 30,
+   "t": -2.27,
+   "firstHalf": null,
+   "secondHalf": -1.86,
+   "verdict": "no reliable edge"
+  },
+  "explain": "Figures are read from each company\u2019s PDF reports by an AI model, kept only when the balance sheet adds up and the profit agrees with the JSE\u2019s own figure, and used only from the day the report was published. Each row holds the top third of stocks on that measure for 3 months against the average JSE stock. Debt and cash measures leave out banks, insurers and investment firms, where they mean something different."
  }
 }

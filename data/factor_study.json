@@ -590,6 +590,159 @@
     "all": null,
     "first": null,
     "second": null
+   },
+   "bs_bp": {
+    "all": {
+     "ic": 0.059,
+     "t": 2.58,
+     "top3": 0.98,
+     "hit": 65,
+     "n": 17
+    },
+    "first": null,
+    "second": {
+     "ic": 0.059,
+     "t": 2.58,
+     "top3": 0.98,
+     "hit": 65,
+     "n": 17
+    }
+   },
+   "bs_roe": {
+    "all": {
+     "ic": 0.105,
+     "t": 4.61,
+     "top3": 0.53,
+     "hit": 47,
+     "n": 17
+    },
+    "first": null,
+    "second": {
+     "ic": 0.105,
+     "t": 4.61,
+     "top3": 0.53,
+     "hit": 47,
+     "n": 17
+    }
+   },
+   "bs_lowdebt": {
+    "all": {
+     "ic": -0.011,
+     "t": -0.4,
+     "top3": -1.47,
+     "hit": 24,
+     "n": 17
+    },
+    "first": null,
+    "second": {
+     "ic": -0.011,
+     "t": -0.4,
+     "top3": -1.47,
+     "hit": 24,
+     "n": 17
+    }
+   },
+   "bs_netcash": {
+    "all": {
+     "ic": 0.003,
+     "t": 0.07,
+     "top3": 0.04,
+     "hit": 50,
+     "n": 16
+    },
+    "first": null,
+    "second": {
+     "ic": 0.003,
+     "t": 0.07,
+     "top3": 0.04,
+     "hit": 50,
+     "n": 16
+    }
+   },
+   "bs_cashq": {
+    "all": {
+     "ic": -0.047,
+     "t": -1.25,
+     "top3": -0.84,
+     "hit": 35,
+     "n": 17
+    },
+    "first": null,
+    "second": {
+     "ic": -0.047,
+     "t": -1.25,
+     "top3": -0.84,
+     "hit": 35,
+     "n": 17
+    }
+   },
+   "bs_ocfy": {
+    "all": {
+     "ic": 0.118,
+     "t": 2.9,
+     "top3": 1.63,
+     "hit": 75,
+     "n": 16
+    },
+    "first": null,
+    "second": {
+     "ic": 0.118,
+     "t": 2.9,
+     "top3": 1.63,
+     "hit": 75,
+     "n": 16
+    }
+   },
+   "bs_fcfy": {
+    "all": {
+     "ic": 0.111,
+     "t": 3.34,
+     "top3": 0.75,
+     "hit": 50,
+     "n": 16
+    },
+    "first": null,
+    "second": {
+     "ic": 0.111,
+     "t": 3.34,
+     "top3": 0.75,
+     "hit": 50,
+     "n": 16
+    }
+   },
+   "bs_margin": {
+    "all": {
+     "ic": 0.059,
+     "t": 2.21,
+     "top3": -0.81,
+     "hit": 31,
+     "n": 16
+    },
+    "first": null,
+    "second": {
+     "ic": 0.059,
+     "t": 2.21,
+     "top3": -0.81,
+     "hit": 31,
+     "n": 16
+    }
+   },
+   "bs_eq_assets": {
+    "all": {
+     "ic": -0.003,
+     "t": -0.11,
+     "top3": -1.56,
+     "hit": 24,
+     "n": 17
+    },
+    "first": null,
+    "second": {
+     "ic": -0.003,
+     "t": -0.11,
+     "top3": -1.56,
+     "hit": 24,
+     "n": 17
+    }
    }
   },
   "split": "2024-10-30",
@@ -1279,6 +1432,51 @@
     }
    },
    "no_weak_results": {
+    "all": null,
+    "first": null,
+    "second": null
+   },
+   "bs_bp": {
+    "all": null,
+    "first": null,
+    "second": null
+   },
+   "bs_roe": {
+    "all": null,
+    "first": null,
+    "second": null
+   },
+   "bs_lowdebt": {
+    "all": null,
+    "first": null,
+    "second": null
+   },
+   "bs_netcash": {
+    "all": null,
+    "first": null,
+    "second": null
+   },
+   "bs_cashq": {
+    "all": null,
+    "first": null,
+    "second": null
+   },
+   "bs_ocfy": {
+    "all": null,
+    "first": null,
+    "second": null
+   },
+   "bs_fcfy": {
+    "all": null,
+    "first": null,
+    "second": null
+   },
+   "bs_margin": {
+    "all": null,
+    "first": null,
+    "second": null
+   },
+   "bs_eq_assets": {
     "all": null,
     "first": null,
     "second": null
