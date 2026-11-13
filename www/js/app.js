@@ -1490,7 +1490,7 @@ function healthBlock(s) {
       <tr><td>Dividend yield, last 12 months</td><td>${hl.dy == null ? '—' : `${fmt(hl.dy, 1)}%`}</td></tr>
       <tr><td>Loss-making quarters (last 4)</td><td class="${hl.lossq ? 'bad' : 'good'}">${hl.lossq ?? '—'}</td></tr></table>` : ''}
     ${qs.length ? `<p class="fine">Net profit by quarter (reported currency): ${qs.map(([q, v]) => `${esc(q)} <b class="${v < 0 ? 'bad' : ''}">${big(v)}</b>`).join(' · ')}</p>` : ''}
-    <p class="fine">From the company’s results on the JSE website. These figures also feed into the forecast above, counted only from about 45 days after each quarter ends (when results are usually out).</p>`;
+    <p class="fine">From the company’s results on the JSE website. These figures also feed into the forecast above, counted only from when each company usually publishes them (its own reporting delay where its reports have been read, otherwise 60 days after the quarter ends), so the tests never use results before they were public.</p>`;
 }
 function speculationNote(F) {
   const b = F.backtest?.hype?.['63'] || F.backtest?.hype?.[63];

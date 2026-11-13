@@ -48,6 +48,16 @@ def fiscal_months():
     return {s: Counter(v).most_common(1)[0][0] for s, v in by.items() if Counter(v).most_common(1)[0][1] >= max(1, len(v) * 0.6)}
 
 
+def reporting_lags():
+    """Days each company usually takes to publish a quarterly report: its slowest observed quarter plus a 3-day margin,
+    kept between 50 and 120 days. Companies with no readings fall back to the default in tslib."""
+    by = {}
+    for r in readings(only_ok=False):
+        if r.get('balances') and r['months'] != 12:
+            by.setdefault(r['sym'], []).append((pd.Timestamp(r['pub']) - pd.Timestamp(r['period_end'])).days)
+    return {s: int(min(120, max(50, max(v) + 3))) for s, v in by.items()}
+
+
 FX = {'JMD': 1.0, 'USD': 157.0, 'TTD': 23.2}
 
 
@@ -194,5 +204,7 @@ if __name__ == '__main__':
     FM = fiscal_months()
     print('  financial year ends:', dict(sorted(Counter(FM.values()).items())), f'({len(FM)} companies)')
     if len(sys.argv) > 1 and sys.argv[1] == 'fiscal':
-        json.dump(FM, open('data/fiscal_years.json', 'w'), separators=(',', ':'), sort_keys=True)
+        LG = reporting_lags()
+        json.dump({s: {'month': m, 'lag': LG.get(s)} for s, m in FM.items()}, open('data/fiscal_years.json', 'w'), separators=(',', ':'), sort_keys=True)
+        print('  reporting delay used (days):', pd.Series(LG).describe()[['min', '50%', 'max']].to_dict())
         print('wrote data/fiscal_years.json')

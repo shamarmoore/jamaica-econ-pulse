@@ -1,5 +1,5 @@
 """Shared helpers for JSE forecasting: load history, run Timestral, hype score, target-hit odds."""
-import json
+import json, os
 import numpy as np
 import pandas as pd
 
@@ -126,10 +126,12 @@ def load_fundamentals(path='data/jse_fundamentals.json'):
         return {}
     # month each company's financial year ends, learned from its own reports (scripts/balance.py); without it the
     # quarters are dated as if every year ended in December, which is late (never early) for other year-ends
+    if os.environ.get('FISCAL_OFF'):
+        return F
     try:
-        for s, m in json.load(open('data/fiscal_years.json')).items():
+        for s, v in json.load(open('data/fiscal_years.json')).items():
             if s in F and not (F[s].get('fye') or {}).get('month'):
-                F[s]['fye'] = {'month': int(m)}
+                F[s]['fye'] = {'month': int(v['month']), 'lag': None if os.environ.get('LAG_OFF') else v.get('lag')}
     except Exception:
         pass
     return F
@@ -157,10 +159,13 @@ def fx_rate(f, price):
 
 def _quarter_events(f):
     """[(available_date, profit)] in time order. Quarter ends come from the fiscal year-end month (December if unknown);
-    each quarter counts only 45 days after it ends (90 for the year-end quarter) so tests never peek early.
+    each quarter counts only from when it was public: the company's own usual reporting delay where its reports have been
+    read (scripts/balance.py), otherwise 60 days after the quarter ends, and at least 90 for the year-end quarter. (Reports
+    show a median delay of 45 days but about 3 in 10 arrive later, so the old flat 45 days peeked early for late filers.)
     The JSE table shows 0 for quarters not reported separately: a 0 is treated as missing, except that a missing 4th
     quarter is filled as annual profit minus the first three quarters when all of those are known."""
     m = (f.get('fye') or {}).get('month') or 12
+    lag = int((f.get('fye') or {}).get('lag') or os.environ.get('QLAG') or 60)
     annual = {str(k): v for k, v in (f.get('annual') or {}).items()}
     ev = []
     for fy, qs in sorted(f.get('quarters', {}).items()):
@@ -173,7 +178,7 @@ def _quarter_events(f):
                 continue
             end = (pd.Timestamp(year=fyi, month=m, day=1) + pd.offsets.MonthEnd(0)) - pd.DateOffset(months=3 * (3 - qi))
             end = end + pd.offsets.MonthEnd(0)
-            avail = end + pd.Timedelta(days=90 if qi == 3 else 45)
+            avail = end + pd.Timedelta(days=max(90, lag) if qi == 3 else lag)
             ev.append((avail, float(v)))
     ev.sort()
     return ev

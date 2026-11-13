@@ -1,6 +1,6 @@
 """Which signals give a realistic edge on the JSE? Cross-sectional test of many candidate stock features.
 Rules that keep it honest:
- - only information available at the close of day t (company results count 45 days after quarter end, 90 for year end)
+ - only information available at the close of day t (company results count from each company's usual reporting delay — default 60 days after quarter end, at least 90 for year end — using its real financial year-end)
  - buy at the NEXT day's close, hold 21 trading days (also 63), returns include dividends
  - preference shares excluded; stock must have traded on at least 20% of the last 60 days
  - first half of the period is used to choose signals; the second half is the out-of-sample check

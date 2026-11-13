@@ -165,7 +165,7 @@ def pead():
                     weak63.append(e3); d_weak.append(idx[pos])
     return {'strongImmediate21': summarize(imm21, d_imm, COST), 'strongImmediate63': summarize(imm63, d_imm, COST),
             'strongPullback21': summarize(pb21, d_pb, COST), 'strongPullback63': summarize(pb63, d_pb, COST), 'weakResults63': summarize(weak63, d_weak, COST),
-            'explain': 'Strong results = latest quarter’s profit up more than 25% on the same quarter last year (and positive). Results are assumed public 45 days after quarter end (90 for year end) because the JSE pages don’t carry release dates. Pullback entry = first close at least 3% below its 5-day high within 15 trading days.'}
+            'explain': 'Strong results = latest quarter’s profit up more than 25% on the same quarter last year (and positive). Results are assumed public after the company’s usual reporting delay (60 days after quarter end if unknown; at least 90 for year end) because the JSE pages don’t carry release dates. Pullback entry = first close at least 3% below its 5-day high within 15 trading days.'}
 
 
 RESULTS['post_earnings_drift'] = pead()
