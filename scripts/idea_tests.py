@@ -126,6 +126,10 @@ def factor_check(F, name, h=63, step=63):
 
 RESULTS['intrinsic_value'] = {
     'epv': factor_check(MOS_EPV, 'EPV margin of safety'), 'ddm': factor_check(MOS_DDM, 'DDM margin of safety'), 'blend': factor_check(MOS, 'intrinsic blend'),
+    # fair value "priced like similar JSE companies": cheapest third and dearest third against it
+    'relative': factor_check(fs.MOS_REL, 'below fair value (priced like similar companies)'), 'dear': factor_check(-fs.MOS_REL, 'above fair value (priced like similar companies)'),
+    'relProfit': factor_check(fs.MOS_E, 'below profit-based fair value'), 'relDividend': factor_check(fs.MOS_D, 'below dividend-based fair value'),
+    'relativeExplain': 'Fair value = what the share would cost if it were priced like similar JSE companies. On profits: typical yearly profit per share (middle of the last 8 quarters x 4) x the price-to-profit multiple of the middle profitable company of the same type (financial or not). On dividends: last 12 months of dividends ÷ the dividend yield of the middle dividend payer. Fair value is the average of the two (profits alone if no dividend; none for loss-makers). Cheapest third / dearest third against it, held 3 months.',
     'explain': 'Earnings-power value = normalised yearly profit ÷ (T-bill yield + 6% equity premium); dividend-discount value = last-12-month dividends grown 3% ÷ (required return − 3%). Margin of safety = value ÷ price − 1. Top third by margin of safety, held 3 months.'}
 
 # ---------------------------------------------------------------- 2) Post-earnings drift, immediate vs pullback entry
@@ -790,6 +794,13 @@ for _k, _fn in (('setups', quiet_setups), ('chart', chart_indicators), ('strateg
     except Exception as _e:
         print(_k, 'tests skipped:', repr(_e)[:200])
 
+# ---------------------------------------------------------------- upside vs downside by Edge rank (6 months, after costs)
+try:
+    import asymmetry
+    RESULTS['asymmetry'] = asymmetry.build(fs)
+    print('ASYMMETRY', {k: (v['all'] or {}).get('win') for k, v in RESULTS['asymmetry']['bands'].items()}, {k: (v['all'] or {}).get('loss') for k, v in RESULTS['asymmetry']['bands'].items()})
+except Exception as _e:
+    print('asymmetry skipped:', repr(_e)[:200])
 json.dump(RESULTS, open('data/idea_tests.json', 'w'), indent=1, default=float)
 for k, v in RESULTS.items():
     print('\n==', k)

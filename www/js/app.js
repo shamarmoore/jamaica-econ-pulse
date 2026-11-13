@@ -658,15 +658,15 @@ async function jseBackfill() {
   }
   jseFill.running = false; jseFill.msg = ''; if (tab === 'decide' && sub === 'trade') bgRender();
 }
-const JSE_SORTS = [['up', 'Chance up'], ['edge', 'Edge score'], ['fc', '3-mo forecast'], ['health', 'Financial health'], ['hype', 'Speculation'], ['m6', '6-month trend'], ['m3', '3-month'], ['m12', '12-month'], ['offHigh', 'Near 52-wk high'], ['chg', 'Today'], ['vol', 'Most traded'], ['az', 'A–Z']];
+const JSE_SORTS = [['up', 'Chance up'], ['edge', 'Edge score'], ['val', 'Below fair value'], ['fc', '3-mo forecast'], ['health', 'Financial health'], ['hype', 'Speculation'], ['m6', '6-month trend'], ['m3', '3-month'], ['m12', '12-month'], ['offHigh', 'Near 52-wk high'], ['chg', 'Today'], ['vol', 'Most traded'], ['az', 'A–Z']];
 let jseSort = 'edge'; let jseQuery = ''; let jseAll = false;
 const dark = () => matchMedia('(prefers-color-scheme: dark)').matches;
 function jseRows(d) {
   const L = d.jsequotes; const r = rankStocks(L, jseHist);
   let key = jseSort === 'm6' && !r.dates?.d6 ? (r.dates?.d3 ? 'm3' : 'offHigh') : jseSort;
-  if (['fc', 'hype', 'health', 'edge', 'up'].includes(key) && !d.forecasts?.edgeInfo) key = r.dates?.d6 ? 'm6' : 'offHigh';
+  if (['fc', 'hype', 'health', 'edge', 'up', 'val'].includes(key) && !d.forecasts?.edgeInfo) key = r.dates?.d6 ? 'm6' : 'offHigh';
   const F = d.forecasts;
-  let rows = (r.all || []).map((x) => ({ ...x, fc: fcChange(F, x.sym), hype: F?.stocks?.[x.sym]?.hype?.score ?? null, health: F?.stocks?.[x.sym]?.health?.score ?? null, edge: F?.stocks?.[x.sym]?.edge?.score ?? null, up: F?.stocks?.[x.sym]?.chanceUp ?? null }));
+  let rows = (r.all || []).map((x) => ({ ...x, fc: fcChange(F, x.sym), hype: F?.stocks?.[x.sym]?.hype?.score ?? null, health: F?.stocks?.[x.sym]?.health?.score ?? null, edge: F?.stocks?.[x.sym]?.edge?.score ?? null, up: F?.stocks?.[x.sym]?.chanceUp ?? null, val: (() => { const iv = F?.stocks?.[x.sym]?.signals?.intrinsic; return iv && !iv.thin && iv.peerPe != null ? iv.mos ?? null : null; })() }));
   if (jseQuery) rows = rows.filter((x) => x.sym.includes(jseQuery.toUpperCase()));
   if (key === 'az') rows.sort((a, b) => a.sym.localeCompare(b.sym));
   else rows.sort((a, b) => ((b[key] ?? -1e9) - (a[key] ?? -1e9)));
@@ -680,7 +680,7 @@ function viewTrade(d) {
   const all = r.all || []; const up = all.filter((x) => x.chg > 0).length; const dn = all.filter((x) => x.chg < 0).length;
   const leaders = (r.rows || []).filter((x) => x.vol > 0).slice(0, 3).map((x) => x.sym);
   const shown = jseAll || jseQuery ? rows : rows.slice(0, 20);
-  const extra = key === 'health' ? [['health', 'Health']] : key === 'hype' ? [['hype', 'Spec.']] : key === 'up' ? [['up', 'Chance up'], ['edge', 'Edge']] : [['edge', 'Edge']];
+  const extra = key === 'health' ? [['health', 'Health']] : key === 'hype' ? [['hype', 'Spec.']] : key === 'up' ? [['up', 'Chance up'], ['edge', 'Edge']] : key === 'val' ? [['val', 'To fair value'], ['edge', 'Edge']] : [['edge', 'Edge']];
   const cols = [...extra, ...(F ? [['fc', 'Fcst 3m']] : []), ['m6', '6m'], ['m12', '12m'], ['offHigh', 'vs high']].filter(([k]) => k === 'edge' || k === 'up' || rows.some((x) => x[k] != null)).slice(0, 4);
   const cell = (x, k) => (k === 'up' ? (x.up == null ? '—' : `<b class="${x.up >= 52 ? 'good' : x.up >= 42 ? 'ok' : 'bad'}">${x.up}%</b>`) : ['health', 'hype', 'edge'].includes(k) ? (x[k] == null ? '—' : `<b class="${k === 'hype' ? hypeLabel(x[k])[1] : HEALTH_LABEL(x[k])[1]}">${x[k]}</b>`) : pct(x[k]));
   return `<section class="hero-b"><div class="gname">JSE stocks · ${L ? fd(L.date) : '—'}</div>
@@ -705,6 +705,7 @@ function viewTrade(d) {
     </tbody></table></div>
     ${!jseAll && !jseQuery && rows.length > 20 ? `<button class="more" id="jse-all">Show all ${rows.length} stocks ›</button>` : ''}
     <p class="fine">Trend columns compare today’s close with saved closes (prices exclude dividends). In the latest tests (Mar 2023–Nov 2026, dividends included, buying the next day), 3- and 6-month trends on their own gave no reliable edge; being near the 52-week high and a positive 12-month trend helped a little and are part of the Edge score. ⚠ = more than 35% below its 52-week high. Thinly traded stocks can be hard to buy at the quoted close. Research shortlist, not advice.</p>`}
+    ${asymCard(F)}
     ${trackCard(F)}
     ${regimeCard(F)}
     ${sizingCard(F)}
@@ -760,6 +761,7 @@ function stockSheet(sym) {
     ${x.offHigh != null && x.offHigh < -35 ? '<p class="fine bad">⚠ More than 35% below its 52-week high — stocks like this kept lagging in our tests.</p>' : ''}
     ${!x.vol ? '<p class="fine">No shares traded on this day — the quoted price may be stale and hard to buy or sell at.</p>' : ''}
     ${edgeBlock(d.forecasts, sym)}
+    ${oddsBlock(d.forecasts, sym)}
     ${signalsBlock(d.forecasts, sym)}
     ${bsBlock(d.forecasts, sym)}
     ${forecastBlock(d.forecasts, sym)}
@@ -782,6 +784,41 @@ function edgeBlock(F, sym) {
     ${F.stocks[sym].chanceUp != null ? `<p class="now">Chance it’s higher in 3 months (dividends included): <b>${F.stocks[sym].chanceUp}%</b> — a typical JSE stock: ${fmt(F.chanceInfo?.baseUp ?? 43, 0)}%.</p>` : ''}
     <p class="fine">${e.rank <= 5 ? 'In today’s top 5. ' : e.rank <= 10 ? 'In today’s top 10. ' : ''}Tested approach: hold the top 5–10 for about 3 months, then re-pick.${t5 ? ` On unseen data that returned ${signed(t5.annNet, 0)}/yr after costs (market ${signed(t5.annMarket, 0)}/yr); its worst quarter was ${signed(t5.worstPeriod, 1)}.` : ''}</p>`;
 }
+// ---------- upside vs downside: tested odds of a big win against a big loss, by Edge rank ----------
+const BAND_LABEL = { '1-5': 'ranked 1–5', '6-10': 'ranked 6–10', '11-20': 'ranked 11–20', '21-40': 'ranked 21–40', '41+': 'ranked 41 or lower' };
+const TAG_LABEL = { volatile: 'one of the most volatile third', lottery: 'prone to big one-day jumps', beaten: 'far below its 52-week high' };
+const oddsBar = (label, v, cls, max) => `<span>${label}</span><span class="ob"><i class="${cls}" style="width:${Math.max(2, Math.min(100, (v / max) * 100))}%"></i></span><b>${fmt(v, 0)}%</b>`;
+function oddsBlock(F, sym) {
+  const A = F?.ideas?.asymmetry; const o = F?.stocks?.[sym]?.odds; const B = A?.bands?.[o?.band]; if (!A || !B?.all) return '';
+  const b = B.all; const all = A.all; const max = Math.max(40, b.win, b.loss, all.win, all.loss);
+  const ratio = b.win / Math.max(b.loss, 0.1);
+  const [cls, lab] = ratio >= 1.5 ? ['good', 'Upside outweighs downside'] : ratio >= 0.8 ? ['ok', 'Roughly even'] : ['bad', 'Downside outweighs upside'];
+  const tags = o.tags || []; const T20 = A.top20;
+  const top20 = ['1-5', '6-10', '11-20'].includes(o.band); const RS = A.rest;
+  const tagNote = top20 ? (tags.includes('volatile') && T20?.volatile ? `<p class="fine bad">⚠ This is ${TAG_LABEL.volatile} of JSE stocks. Among top-20 stocks, the volatile ones lost ${-A.loss}% or more ${fmt(T20.volatile.loss, 0)}% of the time, against ${fmt(T20.notVolatile.loss, 0)}% for the rest, with about the same number of big wins — size it smaller.</p>` : '')
+    : tags.length && RS?.flagged ? `<p class="fine bad">⚠ This stock is ${tags.map((t) => TAG_LABEL[t]).join(' and ')}. Outside the top 20, stocks like that lost ${-A.loss}% or more ${fmt(RS.flagged.loss, 0)}% of the time (others: ${fmt(RS.clean.loss, 0)}%) and gained ${A.win}%+ only ${fmt(RS.flagged.win, 0)}% of the time.</p>` : '';
+  return `<h4>Upside vs downside · next 6 months <span class="vchip ${cls}">${lab}</span></h4>
+    <div class="odds">${oddsBar(`Gained ${A.win}% or more`, b.win, 'good', max)}${oddsBar(`Lost ${-A.loss}% or more`, b.loss, 'bad', max)}</div>
+    <p class="fine">What happened to stocks ${BAND_LABEL[o.band]} by Edge score, bought the next day and held 6 months (dividends in, costs out, ${b.n.toLocaleString('en-US')} cases since ${fd(A.from, false)}). Middle outcome ${signed(b.median, 1)}; nine times in ten the result fell between ${signed(b.p10, 0)} and ${signed(b.p90, 0)}. For any JSE stock: ${fmt(all.win, 0)}% big wins, ${fmt(all.loss, 0)}% big losses.${B.second ? ` In the later half of history, which the Edge hadn’t seen: ${fmt(B.second.win, 0)}% / ${fmt(B.second.loss, 0)}%.` : ''}</p>${tagNote}`;
+}
+function asymCard(F) {
+  const A = F?.ideas?.asymmetry; if (!A?.bands) return '';
+  const all = A.all; const G = A.groups || {};
+  const names = (band) => Object.entries(F.stocks || {}).filter(([, v]) => v.odds?.band === band).sort((a, b) => a[1].edge.rank - b[1].edge.rank).map(([k, v]) => `<b class="symlink" data-sym="${esc(k)}">${esc(k)}</b>${v.odds.tags?.includes('volatile') ? '<span class="bad">⚠</span>' : ''}`);
+  const row = (lab, b, strong) => (b ? `<tr><td>${strong ? `<b>${lab}</b>` : lab}</td><td><b class="${b.win >= 1.5 * all.win ? 'good' : ''}">${fmt(b.win, 0)}%</b></td><td><b class="${b.loss <= all.loss / 2 ? 'good' : b.loss >= 1.2 * all.loss ? 'bad' : ''}">${fmt(b.loss, 0)}%</b></td><td>${signed(b.median, 0)}</td></tr>` : '');
+  const traps = ['volatile', 'lottery', 'beaten', 'small'].filter((k) => G[k]?.all);
+  const lop = Object.entries(A.bands).filter(([, v]) => v.all && v.all.win >= 1.5 * v.all.loss).map(([k]) => k);
+  return `<h2 class="sec">Where the odds are lopsided <small>big wins vs big losses</small></h2><div class="sigs">
+    <div class="sig"><div class="sig-h"><b>By Edge rank · 6 months after buying</b><span class="vchip good">Tested</span></div>
+      <div class="tblwrap"><table class="yt odt"><thead><tr><th>Edge rank</th><th>Gained ${A.win}%+</th><th>Lost ${-A.loss}%+</th><th>Middle</th></tr></thead><tbody>
+        ${Object.entries(A.bands).map(([k, v]) => row(k.replace('-', '–'), v.all, k === '1-5')).join('')}${row('Any stock', all)}</tbody></table></div>
+      <div>Today’s 1–5: ${names('1-5').join(', ') || '—'}<br>6–10: ${names('6-10').join(', ') || '—'}</div>
+      <div class="fine">Every stock was ranked by Edge score using only what was known that day, bought at the next close and held 6 months, dividends included, 1.5% costs each side (${fd(A.from, false)}–${fd(A.to, false)}). ${lop.length ? `Only the top ${lop.includes('6-10') ? '10' : '5'} had clearly more big wins than big losses${A.bands['1-5']?.second ? ` — in the later half the Edge hadn’t seen, the top 5 had ${fmt(A.bands['1-5'].second.win, 0)}% big wins vs ${fmt(A.bands['1-5'].second.loss, 0)}% big losses` : ''}. Even there the middle outcome is small: the edge comes from a few big winners and rare big losers, so spread money over several of them.` : 'No band currently shows clearly more big wins than big losses.'} ⚠ = volatile: expect about twice the chance of a big loss.</div></div>
+    ${traps.length ? `<div class="sig"><div class="sig-h"><b>What looks lopsided but isn’t</b><span class="vchip bad">Avoid / negative</span></div>
+      <div>${traps.map((k) => `${esc(G[k].label)}: <b>${fmt(G[k].all.win, 0)}%</b> big wins, <b class="bad">${fmt(G[k].all.loss, 0)}%</b> big losses`).join('<br>')}</div>
+      <div class="fine">Volatile, cheap-looking and beaten-down stocks feel like the ones that could double. On the JSE they had no more big wins than the average stock (${fmt(all.win, 0)}%) and many more big losses (average ${fmt(all.loss, 0)}%). Adding these traits to the Edge rank did not improve the odds on unseen data, so the app doesn’t use them to pick — only to warn.</div></div>` : ''}
+  </div>`;
+}
 // ---------- tested ideas: per-stock signals, market regime, sizing ----------
 const g2 = (o, ...ks) => ks.reduce((a, k) => (a == null ? a : a[k] ?? a[String(k)]), o);
 const VCHIP = (v) => {
@@ -793,9 +830,24 @@ const ptsTxt = (x, unit = 'pts') => (x == null ? '—' : `${x >= 0 ? '+' : '−'
 function signalsBlock(F, sym) {
   const s = F?.stocks?.[sym]; const x = s?.signals; const I = F?.ideas; if (!x) return '';
   const rows = [];
-  const iv = x.intrinsic; const ivT = g2(I, 'intrinsic_value', 'blend');
-  if (iv) rows.push(['Intrinsic value', `Fair value ≈ <b>J$${fmt(iv.fair, 2)}</b> (earnings power ${iv.epv != null ? `J$${fmt(iv.epv, 2)}` : '—'}, dividends ${iv.ddm != null ? `J$${fmt(iv.ddm, 2)}` : '—'}) · price is <b class="${iv.mos >= 0 ? 'good' : 'bad'}">${iv.mos >= 0 ? `${fmt(iv.mos, 0)}% below` : `${fmt(-iv.mos, 0)}% above`}</b> it`,
-    ivT, `Stocks priced furthest below value (top third) beat the market by ${ptsTxt(ivT?.avgExcess)} per 3 months, ahead ${ivT?.winRate}% of the time. Uses a ${fmt(iv.reqReturn, 1)}% required return (T-bill + 6%).`]);
+  const iv = x.intrinsic; const ivT = g2(I, 'intrinsic_value', 'relative'); const ivD = g2(I, 'intrinsic_value', 'dear');
+  const px = s.close;
+  if (iv?.none === 'loss') rows.push(['Fair value', 'No fair value: the company hasn’t made a steady profit over the last two years, so there is nothing to value the share on.', null, 'Loss-making companies are judged by the Edge score and the latest results instead.']);
+  else if (iv?.none === 'usd') rows.push(['Fair value', 'This share is quoted in US$. See the company’s J$ share for its fair value.', null, '']);
+  else if (iv?.thin) rows.push(['Fair value', `Profits are too small to value the share on: the price is <b class="bad">${fmt(iv.pe, 0)}×</b> a typical year’s profit, against ${fmt(iv.peerPe, 0)}× for similar JSE companies.`, null,
+    `The price rests on growth that hasn’t shown up in profits yet. To earn ${fmt(iv.reqReturn, 1)}% a year at this price, profits would have to grow about ${fmt(iv.growthIn, 0)}% a year for ever.`]);
+  else if (iv?.fair != null && iv.peerPe != null) {
+    const up = iv.mos; const far = Math.abs(up) >= 60;
+    rows.push(['Fair value', `Priced like similar JSE companies it would be about <b>J$${fmt(iv.fair, 2)}</b> — <b class="${up >= 10 ? 'good' : up <= -10 ? 'bad' : ''}">${fmt(Math.abs(up), 0)}% ${up >= 0 ? 'above' : 'below'} today’s price</b> <small class="fine">(likely range J$${fmt(iv.lo, 2)}–${fmt(iv.hi, 2)})</small>`,
+      ivT, `On profits: J$${fmt(iv.onProfit, 2)} — a typical year’s profit of J$${fmt(iv.eps, 2)} a share × ${fmt(iv.peerPe, 1)}, the multiple the middle ${iv.peers === 'financial' ? 'financial' : 'non-financial'} company trades at (this one trades at ${fmt(iv.pe, 1)}×).${iv.onDividend != null ? ` On dividends: J$${fmt(iv.onDividend, 2)} — it yields ${fmt(iv.dy, 1)}% against ${fmt(iv.peerDy, 1)}% for the middle dividend payer.` : ' It pays no dividend, so profits alone are used.'}${far ? (up > 0 ? ' A gap this wide usually means the market doubts the profits will last — check the latest results before trusting it.' : ' A gap this wide means the price counts on much faster growth than similar companies.') : ''}
+      Tested: the cheapest third on this measure beat the market by ${ptsTxt(ivT?.avgExcess)} per 3 months; the dearest third did ${ptsTxt(ivD?.avgExcess)}, which isn’t reliable — so being below fair value is a mild plus, and being above it isn’t a reason to sell on its own.`]);
+    if (iv.floor != null && px) {
+      const under = px <= iv.floor;
+      rows.push(['What the price assumes', under ? `<b class="good">Below the no-growth floor</b> of J$${fmt(iv.floor, 2)}: even if profits never grew again, today’s price would pay you more than ${fmt(iv.reqReturn, 1)}% a year.`
+        : `To earn ${fmt(iv.reqReturn, 1)}% a year at today’s price, profits must grow about <b>${fmt(iv.growthIn, 1)}% a year</b> for ever${iv.growthDone != null ? ` — over the last 12 months they ${iv.growthDone >= 0 ? `grew ${fmt(iv.growthDone, 0)}%` : `fell ${fmt(-iv.growthDone, 0)}%`}` : ''}.`, null,
+        `${fmt(iv.reqReturn, 1)}% = the T-bill yield plus 6% for the risk of owning shares. The no-growth floor (J$${fmt(iv.floor, 2)}) is what the profits are worth if they stay flat for ever; ${under ? 'few JSE stocks trade below it' : 'almost every JSE stock trades above it, because buyers expect some growth'}. The floor is a worst-case marker, not a target.`]);
+    }
+  }
   const rs = x.results;
   if (rs) {
     const T_ = rs.kind === 'weak' ? g2(I, 'post_earnings_drift', 'weakResults63') : g2(I, 'post_earnings_drift', 'strongPullback63');
@@ -857,6 +909,10 @@ function regimeCard(F) {
     out.push(`<div class="sig"><div class="sig-h"><b>US$ / J$</b><span class="vchip ok">${esc(fx.regime)}</span></div><div>J$${fmt(fx.usdjmd, 2)} per US$ · ${fx.chg20d >= 0 ? '+' : ''}${fmt(fx.chg20d, 2)}% in 20 days, ${fx.chg5d >= 0 ? '+' : ''}${fmt(fx.chg5d, 2)}% in 5</div>
       <div class="fine">${r ? `In past “${fx.regime}” stretches the market returned ${ptsTxt(r.market1m, '%')} the next month; US$-linked stocks ${ptsTxt(r.usdLinkedVsMarket1m)} vs the market.` : ''} Daily rates only go back to ${FX?.period?.[0] ? fd(FX.period[0], false) : 'March 2024'}.</div></div>`);
   }
+  const VA = R_.valuation;
+  if (VA) out.push(`<div class="sig"><div class="sig-h"><b>How the JSE is priced</b><span class="vchip ok">${VA.growthIn >= 8 ? 'Priced for fast growth' : VA.growthIn >= 4 ? 'Priced for steady growth' : 'Priced for little growth'}</span></div>
+    <div>The middle profitable company trades at <b>${fmt(VA.medianPe, 1)}×</b> a typical year’s profit (middle half ${fmt(VA.peLo, 0)}–${fmt(VA.peHi, 0)}×) and yields ${fmt(VA.medianDy, 1)}%. ${VA.belowFair} of ${VA.n} are below their fair value, ${VA.below20} by 20% or more; ${VA.above20} are 20% or more above it.</div>
+    <div class="fine">To earn ${fmt(VA.reqReturn, 1)}% a year (T-bill + 6%) with no growth at all, a share would have to cost ${fmt(VA.noGrowthPe, 0)}× profit — only ${VA.belowFloor} stock${VA.belowFloor === 1 ? ' does' : 's do'}. At today’s prices the middle company needs profits to grow about ${fmt(VA.growthIn, 1)}% a year for ever. That is why “fair value” here compares each share with similar companies instead of with a no-growth sum, which made almost everything look overpriced.</div></div>`);
   const SV = RT?.stocksVsTbills; const E10 = F.edgeInfo?.all;
   if (SV) out.push(`<div class="sig"><div class="sig-h"><b>Stocks or T-bills?</b><span class="vchip ${E10 && E10.annNet > SV.alwaysTbills.ann ? 'good' : 'ok'}">${E10 && E10.annNet > SV.alwaysTbills.ann ? 'Selective stocks' : 'T-bills competitive'}</span></div>
     <div>Over the test period T-bills earned ${ptsTxt(SV.alwaysTbills.ann, '%/yr')} with no losses; the whole JSE ${ptsTxt(SV.alwaysStocks.ann, '%/yr')} (worst fall ${fmt(SV.alwaysStocks.maxDD, 0)}%)${E10 ? `; the Edge top 10 ${ptsTxt(E10.annNet, '%/yr')} after costs` : ''}.</div>
@@ -1195,7 +1251,12 @@ function stockFacts(d, sym) {
   if (s.chanceUp != null) L.push(`Chance the price is higher in 3 months: ${s.chanceUp}% (typical JSE stock ${fmt(F.chanceInfo?.baseUp, 0)}%).`);
   const fc = fcChange(F, sym); if (fc != null) L.push(`Timestral 3-month median forecast change: ${signed(fc, 1)} (wide uncertainty).`);
   const x = s.signals || {};
-  if (x.intrinsic) L.push(`Estimated fair value J$${fmt(x.intrinsic.fair, 2)}; price is ${Math.abs(x.intrinsic.mos)}% ${x.intrinsic.mos >= 0 ? 'below' : 'above'} it (tested: cheapest third beat the market by ${fmt(I?.intrinsic_value?.blend?.avgExcess, 1)} pts per 3 months).`);
+  const iv = x.intrinsic;
+  if (iv?.fair != null && iv.peerPe != null && !iv.thin) L.push(`Fair value if priced like similar JSE companies: J$${fmt(iv.fair, 2)}, which is ${fmt(Math.abs(iv.mos), 0)}% ${iv.mos >= 0 ? 'above' : 'below'} today's price (likely range J$${fmt(iv.lo, 2)}–${fmt(iv.hi, 2)}; it trades at ${fmt(iv.pe, 1)}x typical profit vs ${fmt(iv.peerPe, 1)}x for peers). Tested: the cheapest third on this measure beat the market by ${fmt(I?.intrinsic_value?.relative?.avgExcess, 1)} pts per 3 months; being above fair value was not a reliable sell signal. At today's price profits must grow about ${fmt(iv.growthIn, 1)}% a year to earn ${fmt(iv.reqReturn, 1)}% a year.`);
+  else if (iv?.thin) L.push(`Profits are too small to value the share on (price is ${fmt(iv.pe, 0)}x typical profit vs ${fmt(iv.peerPe, 0)}x for peers).`);
+  else if (iv?.none === 'loss') L.push('No fair value: the company has not made a steady profit over the last two years.');
+  const od = s.odds; const AB = I?.asymmetry?.bands?.[od?.band]?.all;
+  if (AB) L.push(`Tested 6-month odds for stocks at this Edge rank (${od.band}): ${fmt(AB.win, 0)}% gained ${I.asymmetry.win}% or more, ${fmt(AB.loss, 0)}% lost ${-I.asymmetry.loss}% or more (any JSE stock: ${fmt(I.asymmetry.all.win, 0)}% / ${fmt(I.asymmetry.all.loss, 0)}%).${od.tags?.length ? ` Warning tags: ${od.tags.map((t) => TAG_LABEL[t]).join(', ')} — these traits raised the chance of a big loss in testing.` : ''}`);
   if (x.results) L.push(`Latest results: profit ${x.results.yoy >= 0 ? 'up' : 'down'} ${Math.abs(x.results.yoy)}% on the year, public about ${x.results.daysAgo} days ago${x.results.kind === 'weak' ? ` (tested warning: after weak results stocks trailed the market by ${fmt(Math.abs(I?.post_earnings_drift?.weakResults63?.avgExcess ?? 0), 1)} pts over 3 months)` : ''}.`);
   if (s.health) L.push(`Financial health score ${s.health.score}/100.`);
   if (s.hype?.score >= 55) L.push(`Trading pattern looks speculative (score ${s.hype.score}).`);
@@ -1349,7 +1410,9 @@ function nanoSection() {
   return `<p class="fine">Not available on this phone right now${s.error ? ` (${esc(s.error)})` : ''}.${picker ? '' : ''} On a Pixel 8a: Settings → System → Developer options → AICore settings → turn on on-device GenAI, and for Gemini Nano 4 join the AICore developer preview and pick the model in the AICore app. ${what}</p><button class="btn" id="nano-re">Check again</button>`;
 }
 const IDEA_ROWS = [
-  ['Intrinsic value (earnings power + dividends)', (I) => g2(I, 'intrinsic_value', 'blend'), (T_) => `top third ${ptsTxt(T_?.avgExcess)} / 3 mo`, (I) => I?.intrinsic_value?.explain],
+  ['Below fair value (priced like similar companies)', (I) => g2(I, 'intrinsic_value', 'relative'), (T_) => `cheapest third ${ptsTxt(T_?.avgExcess)} / 3 mo`, (I) => I?.intrinsic_value?.relativeExplain],
+  ['Above fair value — is it a sell signal?', (I) => g2(I, 'intrinsic_value', 'dear'), (T_) => `dearest third ${ptsTxt(T_?.avgExcess)} / 3 mo`, () => 'Stocks priced furthest above fair value did not reliably trail the market, so a high price against fair value is not a reason to sell on its own.'],
+  ['No-growth value (profits ÷ T-bill + 6%, and dividends)', (I) => g2(I, 'intrinsic_value', 'blend'), (T_) => `top third ${ptsTxt(T_?.avgExcess)} / 3 mo`, (I) => I?.intrinsic_value?.explain],
   ['Post-earnings drift: buy strong results at once', (I) => g2(I, 'post_earnings_drift', 'strongImmediate63'), (T_) => `${ptsTxt(T_?.avgExcess)} / 3 mo after costs`, (I) => I?.post_earnings_drift?.explain],
   ['Post-earnings drift: buy the first pullback', (I) => g2(I, 'post_earnings_drift', 'strongPullback63'), (T_) => `${ptsTxt(T_?.avgExcess)} / 3 mo after costs`, () => ''],
   ['Avoid stocks that just reported weak results', (I) => g2(I, 'post_earnings_drift', 'weakResults63'), (T_) => `${ptsTxt(T_?.avgExcess)} / 3 mo — a real warning`, () => ''],

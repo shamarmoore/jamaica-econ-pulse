@@ -32,7 +32,13 @@ for s in syms:
             continue
         pos = idx.searchsorted(t)
         if 0 < pos < N:
-            D.iat[pos, syms.index(s)] += d['amt'] * (FXR[s] if d['cur'] != 'JMD' else 1.0)
+            rate = FXR[s] if d['cur'] != 'JMD' else 1.0
+            # the J$ share of a company listed in both J$ and US$ (SCIJMD / SCIUSD): the JSE lists the US$ dividend under
+            # the J$ share too, labelled J$ — a "J$" dividend under 0.2% of the price there is really in US$
+            px = P[s].iloc[pos - 1]
+            if rate == 1.0 and s.endswith('JMD') and s[:-3] + 'USD' in close.columns and px > 0 and d['amt'] / px < 0.002:
+                rate = FX_TO_JMD['USD']
+            D.iat[pos, syms.index(s)] += d['amt'] * rate
 R = ((P + D) / P.shift(1) - 1).where(P.shift(1) > 0)
 R = R.clip(-0.6, 1.5)  # guard against bad prints
 TRI = (1 + R.fillna(0)).cumprod()
@@ -71,8 +77,46 @@ def fund_frames():
     return out
 FF = fund_frames()
 shares = pd.Series({s: (FUND.get(s) or {}).get('shares') for s in syms}, dtype=float)
-fx = pd.Series(FXR)
+# companies listed twice (a J$ share and a US$ share, e.g. SCIJMD / SCIUSD) report ONE profit for both classes together:
+# count both classes' shares for the J$ one, or profit per share comes out far too high
+for _s in syms:
+    if _s.endswith('JMD') and _s[:-3] + 'USD' in shares.index and shares[_s[:-3] + 'USD'] > 0:
+        shares[_s] = shares[_s] + shares[_s[:-3] + 'USD']
 MCAP = P * shares
+
+
+def _profit_fx():
+    """J$ per unit of the currency each company REPORTS its profits in. The dividend currency (FXR) is only a guess at
+    this — several companies report in US$ but pay in J$ — so the currency printed on the company's own financial
+    statements (read by scripts/read_reports.py) wins wherever a report has been read."""
+    out = dict(FXR)
+    mc = (P.ffill().iloc[-1] * shares)
+    read = set()
+    try:
+        import balance as _bal
+        last = {}
+        for r in _bal.readings():
+            last[r['sym']] = r
+        for s, r in last.items():
+            if s in out:
+                read.add(s)
+                out[s] = _bal.bs_fx(r['currency'], r.get('equity_attributable_to_owners') or r.get('total_equity'), mc.get(s))
+    except Exception as e:
+        print('report currencies skipped:', repr(e)[:100])
+    ttm = FF['ttm'].ffill().iloc[-1]
+    for s in out:
+        if not (pd.notna(ttm.get(s)) and mc.get(s) and mc[s] > 0 and ttm[s] > 0):
+            continue
+        # a year's profit can't be bigger than the whole company's market value: the conversion must be wrong
+        if out[s] > 1 and ttm[s] * out[s] / mc[s] > 1:
+            out[s] = 1.0
+        # no report read yet, and the price is 400+ times the profit unless that profit is in US$: it is in US$
+        elif out[s] == 1 and s not in read and mc[s] / ttm[s] > 400 and mc[s] / (ttm[s] * FX_TO_JMD['USD']) < 60:
+            out[s] = FX_TO_JMD['USD']
+    return pd.Series(out)
+
+
+fx = _profit_fx()
 DIV12 = D.rolling(252, min_periods=1).sum()
 JVAL = V * P
 
@@ -106,6 +150,53 @@ EPV_PS = NORM_E.mul(fx, axis=1).div(shares, axis=1).div(R_EQ, axis=0)
 MOS_EPV = (EPV_PS / P - 1).clip(-1, 3).where(NORM_E > 0)
 DDM_PS = DIV12.mul(1.03).div((R_EQ - 0.03).clip(lower=0.04), axis=0)
 MOS_DDM = (DDM_PS / P - 1).clip(-1, 3).where(DIV12 > 0)
+
+# ---- fair value "priced like similar JSE companies" (point-in-time) ----
+# Typical yearly profit = the middle (median) of the last 8 quarters x 4, so one freak quarter — a property revaluation,
+# a one-off gain, a quarter filed in the wrong currency — doesn't move it. Fair value = that profit per share x the
+# price-to-profit multiple the middle profitable company of the same type (financial / everything else) trades at.
+TYP_E = pd.DataFrame(np.nan, index=idx, columns=syms)
+for _s in syms:
+    _f = FUND.get(_s)
+    if not _f:
+        continue
+    _ev = _quarter_events(_f)
+    if len(_ev) >= 4:
+        _ser = pd.Series([v for _, v in _ev], index=pd.DatetimeIndex([d for d, _ in _ev]))
+        _ser = _ser[~_ser.index.duplicated(keep='last')]
+        _n = _ser.rolling(8, min_periods=4).median() * 4
+        TYP_E[_s] = _n.reindex(idx.union(_n.index)).ffill().reindex(idx)
+USD_QUOTED = pd.Series({s: s.endswith('USD') for s in syms})       # priced in US$ on the JSE's US$ market
+EPS_TYP = TYP_E.mul(fx, axis=1).div(shares, axis=1)
+try:
+    import balance as _b2
+    IS_FIN = pd.Series({s: _b2.is_financial(s, FUND) for s in syms})
+except Exception:
+    IS_FIN = pd.Series(False, index=syms)
+_TRADES = (V > 0).rolling(60, min_periods=20).mean() >= 0.2
+_okpe = (EPS_TYP > 0) & (FF['ttm'] > 0) & _TRADES & (P > 0)
+_okpe.loc[:, [s for s in syms if USD_QUOTED[s]]] = False
+PE_TYP = (P / EPS_TYP).where(_okpe)
+PEER_PE = pd.DataFrame(np.nan, index=idx, columns=syms); PEER_LO = PEER_PE.copy(); PEER_HI = PEER_PE.copy()
+_all = PE_TYP.quantile([0.25, 0.5, 0.75], axis=1).T
+for _grp in (True, False):
+    _cols = [s for s in syms if bool(IS_FIN[s]) == _grp]
+    _q = PE_TYP[_cols].quantile([0.25, 0.5, 0.75], axis=1).T
+    _thin = PE_TYP[_cols].notna().sum(axis=1) < 8          # too few peers that day: use the whole market
+    _q = _q.where(~_thin, _all)
+    for _c in _cols:
+        PEER_LO[_c], PEER_PE[_c], PEER_HI[_c] = _q[0.25], _q[0.5], _q[0.75]
+FAIR_E = (EPS_TYP * PEER_PE).where(_okpe)                      # on profits
+# on dividends: the last 12 months' dividends ÷ the dividend yield of the middle dividend-paying JSE company
+_dy = (DIV12 / P).where((DIV12 > 0) & _TRADES & (P > 0))
+_dy.loc[:, [s for s in syms if USD_QUOTED[s]]] = np.nan
+PEER_DY = _dy.median(axis=1)
+FAIR_D = DIV12.div(PEER_DY, axis=0).where((DIV12 > 0) & _okpe)
+# fair value = the average of the two for dividend payers, the profit-based one alone otherwise (profitable companies only)
+FAIR_REL = pd.concat([FAIR_E, FAIR_D]).groupby(level=0).mean().reindex(idx)[syms]
+MOS_E = (FAIR_E / P - 1).clip(-1, 3)
+MOS_D = (FAIR_D / P - 1).clip(-1, 3)
+MOS_REL = pd.concat([MOS_E, MOS_D]).groupby(level=0).mean().reindex(idx)[syms]
 _TURN = JVAL.rolling(20).mean() / MCAP
 TURN_Z = (_TURN - _TURN.rolling(120).mean()) / _TURN.rolling(120).std()
 

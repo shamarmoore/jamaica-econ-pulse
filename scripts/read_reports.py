@@ -117,7 +117,7 @@ YEAR-TO-DATE column (e.g. "nine months ended"), not the single quarter, when bot
 Return ONLY a JSON object with exactly these keys:
  "period_end": "YYYY-MM-DD" (the balance sheet date),
  "months": number of months covered by the year-to-date income statement (3, 6, 9 or 12),
- "currency": "JMD", "USD" or "TTD" (the currency the statements are presented in),
+ "currency": "JMD", "USD", "TTD" or "BBD" (the currency the statements are presented in; "expressed in Barbados dollars" is BBD),
  "units": 1, 1000 or 1000000 (what the figures are stated in: units, thousands "$'000", or millions),
  "consolidated": true or false,
  "audited": true or false,
@@ -194,7 +194,7 @@ def jse_profit(sym, period_end, months):
 
 
 _FUND = _load('data/jse_fundamentals.json', {}).get('stocks') or {}
-FX = {'JMD': 1.0, 'USD': 157.0, 'TTD': 23.2}
+FX = {'JMD': 1.0, 'USD': 157.0, 'TTD': 23.2, 'BBD': 78.5}
 
 
 def validate(sym, out):
@@ -227,7 +227,7 @@ def check(sym, r):
     out['period_end'] = pe if re.match(r'^\d{4}-\d{2}-\d{2}$', pe) else None
     m = num(r.get('months'))
     out['months'] = int(m) if m in (3, 6, 9, 12) else None
-    out['currency'] = r.get('currency') if r.get('currency') in ('JMD', 'USD', 'TTD') else None
+    out['currency'] = r.get('currency') if r.get('currency') in ('JMD', 'USD', 'TTD', 'BBD') else None
     out['consolidated'] = bool(r.get('consolidated')); out['audited'] = bool(r.get('audited'))
     return validate(sym, out)
 

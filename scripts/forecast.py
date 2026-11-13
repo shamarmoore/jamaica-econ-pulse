@@ -104,6 +104,18 @@ try:
     print('SIGNALS', len(sigs), 'stocks; regime', json.dumps(regime)[:300])
 except Exception as e:
     print('signals skipped:', repr(e)[:200])
+# ---- upside vs downside: which tested band each stock sits in today, and whether it carries a "trap" tag ----
+try:
+    import factor_study as fs4, asymmetry as asy
+    _A = (out.get('ideas') or {}).get('asymmetry')
+    _traps = asy.traps_today(fs4)
+    if _A:
+        for s_, st in out['stocks'].items():
+            if st.get('edge'):
+                st['odds'] = {'band': asy.band_of(st['edge']['rank']), 'tags': _traps.get(s_, [])}
+        print('ODDS', {k: (v['all'] or {}).get('win') for k, v in _A['bands'].items()}, 'tagged', sum(1 for st in out['stocks'].values() if (st.get('odds') or {}).get('tags')))
+except Exception as e:
+    print('odds skipped:', repr(e)[:200])
 # ---- live track record: log tonight's picks and score every earlier night's picks ----
 try:
     import factor_study as fs2, track_record as tr

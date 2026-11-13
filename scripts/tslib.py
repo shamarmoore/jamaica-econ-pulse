@@ -106,7 +106,7 @@ def hype(close, vol, sym, asof=None):
 
 
 # ---------- company financial health (from JSE instrument pages) ----------
-PREF_RE = r'\d\.\d|PREF|\d{2}$'
+PREF_RE = r'\d\.\d|PREF|\d{2}$|^[A-Z]+\d'   # e.g. JMMBGL7.35, JPS5D, TJH8.0 — fixed-income-like shares, not ordinary shares
 
 
 def is_pref(sym):
@@ -114,7 +114,7 @@ def is_pref(sym):
     return bool(_re.search(PREF_RE, sym))
 
 
-FX_TO_JMD = {'JMD': 1.0, 'USD': 157.0, 'TTD': 23.2}
+FX_TO_JMD = {'JMD': 1.0, 'USD': 157.0, 'TTD': 23.2, 'BBD': 78.5}   # Barbados dollar is fixed at 2 per US$
 FEATS = ['ey', 'growth', 'dy', 'lossq']
 FEAT_NAMES = {'ey': 'Earnings yield (profit ÷ market value)', 'growth': 'Profit growth vs a year earlier', 'dy': 'Dividend yield (last 12 months)', 'lossq': 'Loss-making quarters (last 4)'}
 

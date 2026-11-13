@@ -100,13 +100,31 @@ def compute():
         if not (p.iloc[T] > 0):
             continue
         sig = {}
-        # intrinsic value
-        epv, ddm = fs.EPV_PS[s].iloc[T], fs.DDM_PS[s].iloc[T]
-        vals = [x for x in (epv if fs.NORM_E[s].iloc[T] > 0 else np.nan, ddm if fs.DIV12[s].iloc[T] > 0 else np.nan) if pd.notna(x) and x > 0]
-        if vals:
-            fair = float(np.mean(vals))
-            sig['intrinsic'] = {'epv': None if pd.isna(epv) or fs.NORM_E[s].iloc[T] <= 0 else round(float(epv), 2), 'ddm': None if pd.isna(ddm) or fs.DIV12[s].iloc[T] <= 0 else round(float(ddm), 2),
-                                'fair': round(fair, 2), 'mos': round((fair / p.iloc[T] - 1) * 100, 1), 'reqReturn': round(float(fs.R_EQ.iloc[T]) * 100, 1)}
+        # fair value: what the share would cost if it were priced like similar JSE companies (tested in idea_tests.py)
+        px = float(p.iloc[T]); r_eq = float(fs.R_EQ.iloc[T])
+        num = lambda v, d=2: None if v is None or pd.isna(v) else round(float(v), d)
+        eps, ttm = fs.EPS_TYP[s].iloc[T], fs.FF['ttm'][s].iloc[T]
+        fair = fs.FAIR_REL[s].iloc[T]
+        if bool(fs.USD_QUOTED[s]):
+            sig['intrinsic'] = {'none': 'usd'}
+        elif pd.notna(fair) and fair > 0:
+            ppe, plo, phi = fs.PEER_PE[s].iloc[T], fs.PEER_LO[s].iloc[T], fs.PEER_HI[s].iloc[T]
+            ey = float(eps) / px
+            prev = fs.FF['ttm_prev'][s].iloc[T]
+            iv = {'fair': num(fair), 'lo': num(fair * plo / ppe), 'hi': num(fair * phi / ppe), 'mos': num((fair / px - 1) * 100, 1),
+                  'onProfit': num(fs.FAIR_E[s].iloc[T]), 'onDividend': num(fs.FAIR_D[s].iloc[T]),
+                  'eps': num(eps, 3), 'pe': num(px / eps, 1), 'peerPe': num(ppe, 1), 'peerLo': num(plo, 1), 'peerHi': num(phi, 1),
+                  'dy': num(fs.DIV12[s].iloc[T] / px * 100, 1), 'peerDy': num(fs.PEER_DY.iloc[T] * 100, 1), 'peers': 'financial' if bool(fs.IS_FIN[s]) else 'other',
+                  # the floor: what the profit is worth if it never grows and you want T-bill + 6% a year
+                  'floor': num(float(eps) / r_eq), 'reqReturn': round(r_eq * 100, 1),
+                  # growth the price needs: profit growth per year, for ever, that makes today's price return T-bill + 6%
+                  'growthIn': num((r_eq - ey) / (1 + ey) * 100, 1),
+                  'growthDone': num(np.clip((ttm - prev) / abs(prev), -1, 3) * 100, 0) if pd.notna(prev) and prev != 0 and pd.notna(ttm) else None}
+            if px / float(eps) > 60:
+                iv['thin'] = True      # profits too small to value the share on: the price rests on hopes of growth
+            sig['intrinsic'] = iv
+        elif pd.notna(ttm) or pd.notna(eps):
+            sig['intrinsic'] = {'none': 'loss'}    # no steady profit to value it on
         # results
         ds, qy = fs.FF['days_since'][s].iloc[T], fs.FF['q_yoy'][s].iloc[T]
         if pd.notna(ds) and ds <= 63 and pd.notna(qy):
@@ -163,4 +181,14 @@ def compute():
     reg['monthEnd'] = {'tradingDaysLeft': int(left), 'inWindow': left <= 2, 'earlyMonth': today.day <= 5}
     if len(IDXS):
         reg['sectors'] = {name: round(float(IDXS[col].iloc[T] / IDXS[col].iloc[T - 63] - 1) * 100, 1) for name, col in SECT_IDX.items() if col in IDXS.columns and pd.notna(IDXS[col].iloc[T - 63])}
+    # how the whole market is priced, so one stock's numbers can be read in context
+    try:
+        pe = fs.PE_TYP.iloc[T].dropna(); ey = 1 / pe; r_eq = float(fs.R_EQ.iloc[T])
+        mos = pd.Series({k: v['intrinsic']['mos'] for k, v in out.items() if (v.get('intrinsic') or {}).get('mos') is not None})
+        reg['valuation'] = {'n': int(len(mos)), 'medianPe': round(float(pe.median()), 1), 'peLo': round(float(pe.quantile(0.25)), 1), 'peHi': round(float(pe.quantile(0.75)), 1),
+                            'medianDy': round(float(fs.PEER_DY.iloc[T]) * 100, 1), 'reqReturn': round(r_eq * 100, 1), 'noGrowthPe': round(1 / r_eq, 1),
+                            'growthIn': round(float(((r_eq - ey) / (1 + ey)).median()) * 100, 1), 'belowFair': int((mos > 0).sum()), 'below20': int((mos >= 20).sum()), 'above20': int((mos <= -20).sum()),
+                            'belowFloor': int(sum(1 for v in out.values() if (v.get('intrinsic') or {}).get('floor') and v['intrinsic']['floor'] >= fs.P[next(k for k in out if out[k] is v)].iloc[T]))}
+    except Exception as e:
+        print('valuation summary skipped:', repr(e)[:150])
     return out, reg, sect

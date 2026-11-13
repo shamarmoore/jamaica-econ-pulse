@@ -322,3 +322,12 @@ span.warn, p.warn { color: var(--warn); }
 .chk.al { align-items: flex-start; margin: 10px 0; line-height: 1.3; }
 .chk.al input { flex: none; margin-top: 2px; }
 .chk.al small { font-weight: 400; }
+
+/* upside vs downside */
+.odds { display: grid; grid-template-columns: auto 1fr auto; gap: 6px 10px; align-items: center; font-size: 14px; margin: 6px 0 4px; }
+.odds .ob { height: 10px; background: var(--rule); border-radius: 5px; overflow: hidden; }
+.odds .ob i { display: block; height: 100%; border-radius: 5px 4px 4px 5px; }
+.odds .ob i.good { background: var(--good); } .odds .ob i.bad { background: var(--bad); }
+.odt th { font: 600 12px var(--sans); text-align: right; padding: 6px 10px; color: var(--ink2); } .odt th:first-child { text-align: left; }
+.odt td { text-align: right; } .odt td:first-child { text-align: left; } .odt td:nth-child(3), .odt td:nth-child(4) { font-size: 14px; width: auto; }
+.sheet h4 .vchip { margin-left: 6px; vertical-align: middle; padding-left: 9px; text-transform: none; letter-spacing: 0; }

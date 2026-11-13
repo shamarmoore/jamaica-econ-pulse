@@ -31,11 +31,27 @@ def fy_end(period_end, months):
     return (y + (m - 1) // 12, (m - 1) % 12 + 1)
 
 
+_BBD = None
+def _bbd_payers():
+    """Companies that declare their dividends in Barbados dollars (so their statements are in Barbados dollars too)."""
+    global _BBD
+    if _BBD is None:
+        try:
+            from tslib import load_fundamentals
+            _BBD = {s for s, f in load_fundamentals().items() if any(d.get('cur') == 'BBD' for d in (f.get('dividends') or [])[-4:])}
+        except Exception:
+            _BBD = set()
+    return _BBD
+
+
 def readings(only_ok=True):
     R = [r for r in _load('data/financials.json', {}).get('reports', {}).values() if r.get('period_end') and r.get('months') and (r.get('ok') or not only_ok)]
     # one reading per company and period: the latest publication wins (revised or audited versions)
     best = {}
+    bbd = _bbd_payers()
     for r in sorted(R, key=lambda r: r['pub']):
+        if r['sym'] in bbd and r.get('currency') == 'USD':
+            r['currency'] = 'BBD'    # early readings only knew J$, US$ and TT$: a plain "$" on a Barbados fund's report was taken for US$
         best[(r['sym'], r['period_end'], r['months'])] = r
     return sorted(best.values(), key=lambda r: r['pub'])
 
@@ -58,7 +74,7 @@ def reporting_lags():
     return {s: int(min(120, max(50, max(v) + 3))) for s, v in by.items()}
 
 
-FX = {'JMD': 1.0, 'USD': 157.0, 'TTD': 23.2}
+FX = {'JMD': 1.0, 'USD': 157.0, 'TTD': 23.2, 'BBD': 78.5}
 
 
 def bs_fx(cur, eq, mcap):
