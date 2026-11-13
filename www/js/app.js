@@ -688,6 +688,7 @@ function viewTrade(d) {
     ${L ? `<input class="search" id="jse-q" placeholder="Find a stock symbol (e.g. NCBFG)" value="${esc(jseQuery)}" autocomplete="off" autocapitalize="characters">
     <div class="sorts">${JSE_SORTS.map(([k, l]) => `<button data-jsort="${k}" class="${jseSort === k ? 'on' : ''}">${l}</button>`).join('')}</div>` : ''}
     </section>
+    ${planCard(d)}
     ${positionsCard(d)}
     ${eventsCard(d)}
     ${newsCard(d)}
@@ -703,6 +704,7 @@ function viewTrade(d) {
     </tbody></table></div>
     ${!jseAll && !jseQuery && rows.length > 20 ? `<button class="more" id="jse-all">Show all ${rows.length} stocks ›</button>` : ''}
     <p class="fine">Trend columns compare today’s close with saved closes (prices exclude dividends). In the latest tests (Mar 2023–Nov 2026, dividends included, buying the next day), 3- and 6-month trends on their own gave no reliable edge; being near the 52-week high and a positive 12-month trend helped a little and are part of the Edge score. ⚠ = more than 35% below its 52-week high. Thinly traded stocks can be hard to buy at the quoted close. Research shortlist, not advice.</p>`}
+    ${trackCard(F)}
     ${regimeCard(F)}
     ${sizingCard(F)}
     ${F?.ideas ? '<button class="more" id="ideas-btn">Every idea we tested — results & explanations ›</button>' : ''}
@@ -725,9 +727,10 @@ function bindTrade(v) {
   const pa = v.querySelector('#pos-add'); if (pa) pa.addEventListener('click', () => posForm(data()));
   const pe = v.querySelector('#pos-export'); if (pe) pe.addEventListener('click', posBackup);
   const pi = v.querySelector('#pos-import'); if (pi) pi.addEventListener('click', posRestore);
-  const cap = v.querySelector('#sz-cap'); if (cap) cap.addEventListener('change', () => { sizeCap = +String(cap.value).replace(/[^\d.]/g, '') || 0; render({ keepScroll: true }); });
-  v.querySelectorAll('[data-szn]').forEach((b) => b.addEventListener('click', () => { sizeN = +b.dataset.szn; render({ keepScroll: true }); }));
-  v.querySelectorAll('[data-szm]').forEach((b) => b.addEventListener('click', () => { sizeMode = b.dataset.szm; render({ keepScroll: true }); }));
+  v.querySelectorAll('#sz-cap, #plan-cap').forEach((cap) => cap.addEventListener('change', () => { sizeCap = +String(cap.value).replace(/[^\d.]/g, '') || 0; saveSize(); render({ keepScroll: true }); }));
+  v.querySelectorAll('[data-szn]').forEach((b) => b.addEventListener('click', () => { sizeN = +b.dataset.szn; saveSize(); render({ keepScroll: true }); }));
+  v.querySelectorAll('[data-szm]').forEach((b) => b.addEventListener('click', () => { sizeMode = b.dataset.szm; saveSize(); render({ keepScroll: true }); }));
+  v.querySelectorAll('[data-buy]').forEach((b) => b.addEventListener('click', () => { const d = data(); posForm(d, { sym: b.dataset.buy, shares: +b.dataset.sh || '', price: priceNow(d, b.dataset.buy) ?? '' }); }));
   const rl = v.querySelector('#fc-reload'); if (rl) rl.addEventListener('click', () => { delete cache.forecasts?.at; refresh(false); });
   v.querySelectorAll('[data-tv]').forEach((b) => b.addEventListener('click', () => { tvSym = b.dataset.tv; render({ keepScroll: true }); }));
   const ts = v.querySelector('#tv-sym'); if (ts) ts.addEventListener('change', () => { const t = ts.value.trim().toUpperCase(); if (t) { tvSym = t; render({ keepScroll: true }); } });
@@ -842,7 +845,9 @@ function sizingVerdict(S) {
   const best = Object.keys(names).filter((k) => S[k]).sort((a, b) => (S[b].returnPerRisk ?? -9) - (S[a].returnPerRisk ?? -9))[0];
   return `Tested (3-month holds, 1.5% costs charged only on what changes): ${Object.keys(names).filter((k) => S[k]).map((k) => `${names[k]} ${ptsTxt(S[k].annReturn, '%/yr')}`).join(' · ')}; market ${ptsTxt(S.market?.annReturn, '%/yr')}. Best return for the risk: <b>${names[best]}</b> (worst drop ${fmt(S[best].maxDrawdown, 1)}%, ahead of the market ${S[best].beatMarketPct}% of quarters).`;
 }
-let sizeCap = 1000000; let sizeN = 10; let sizeMode = 'edge';
+const SIZE_KEY = 'ep_size_v1';
+let { sizeCap, sizeN, sizeMode } = (() => { try { return { sizeCap: 1000000, sizeN: 10, sizeMode: 'edge', ...(JSON.parse(localStorage.getItem(SIZE_KEY)) || {}) }; } catch (_) { return { sizeCap: 1000000, sizeN: 10, sizeMode: 'edge' }; } })();
+const saveSize = () => { try { localStorage.setItem(SIZE_KEY, JSON.stringify({ sizeCap, sizeN, sizeMode })); } catch (_) { /* full */ } };
 function sizingCard(F) {
   if (!F?.stocks) return '';
   const S = g2(F, 'ideas', 'position_sizing');
@@ -882,7 +887,7 @@ function marketSince(from, to) {
   const at = (iso) => { let k = null; for (const x of ks) { if (x <= iso) k = x; else break; } return k; };
   const a = at(from); const b = at(to || ks[ks.length - 1]); if (!a || !b || a === b) return a && a === b ? 0 : null;
   const A = jseHist[a]; const B = jseHist[b]; const r = [];
-  for (const s in A) if (A[s] > 0 && B[s] > 0 && !/\d\.\d|PREF|\d{2}$/.test(s)) r.push(B[s] / A[s] - 1);
+  for (const s in A) if (A[s] > 0 && B[s] > 0 && !/\d\.\d|PREF|\d{2}$/.test(s)) r.push(Math.max(-0.9, Math.min(1, B[s] / A[s] - 1))); // same limits as the back-tests
   return r.length >= 20 ? (r.reduce((x, y) => x + y, 0) / r.length) * 100 : null;
 }
 function posStats(p, d) {
@@ -896,7 +901,7 @@ function posStats(p, d) {
   const plPct = pl == null ? null : (pl / cost) * 100;
   const end = closed ? p.exit.date : isoToday();
   const mkt = marketSince(p.date, closed ? p.exit.date : null);
-  return { fees, cost, divs, px, value, pl, plPct, exitFees, held: daysBetween(p.date, end), mkt, vsMkt: plPct != null && mkt != null ? plPct - mkt : null, review: addDays(p.date, 91) };
+  return { fees, cost, divs, px, value, pl, plPct, exitFees, held: daysBetween(p.date, end), mkt, vsMkt: plPct != null && mkt != null ? plPct - mkt : null, review: addDays(p.reviewed || p.date, 91) };
 }
 // tested rules applied to an open position
 function posFlags(p, F) {
@@ -906,7 +911,7 @@ function posFlags(p, F) {
   if (s?.edge && s.edge.rank > 20) out.push(['warn', `Edge rank #${s.edge.rank}`, `Out of the Edge top 20${p.entry?.rank ? ` (was #${p.entry.rank} when you bought)` : ''}. The tested rule keeps a holding only while it stays in the top 20, checked every 3 months${K ? ` — that rule returned ${ptsTxt(K.annReturn, '%/yr')} after costs` : ''}.`]);
   else if (s?.edge) out.push(['good', `Edge rank #${s.edge.rank}`, `Still in the Edge top 20${p.entry?.rank ? ` (was #${p.entry.rank})` : ''} — the tested rule says keep it at the next review.`]);
   if (s?.hype?.score >= 55) out.push(['warn', '⚡ Speculative trading', 'Trading pattern looks speculative — big swings both ways. Size it small.']);
-  const due = daysBetween(isoToday(), addDays(p.date, 91));
+  const due = daysBetween(isoToday(), addDays(p.reviewed || p.date, 91));
   out.push([due <= 0 ? 'warn' : 'ok', due <= 0 ? '3-month review due' : `Review in ${due} days`, 'Every test held for 3 months, then re-picked. At the review: keep if still in the Edge top 20 and no weak results; otherwise sell. Selling in the last 3 trading days of a month has caught the month-end lift.']);
   return out;
 }
@@ -996,13 +1001,14 @@ function positionSheet(id) {
     ${p.note ? `<p class="fine">Why you bought: ${esc(p.note)}</p>` : ''}
     ${fl.length ? `<h4>What the tested rules say</h4><div class="sigs">${fl.map(([c, t, why]) => `<div class="sig"><div class="sig-h"><b>${esc(t)}</b><span class="vchip ${c}">${c === 'bad' ? 'Sell signal' : c === 'warn' ? 'Review' : c === 'good' ? 'Keep' : 'Plan'}</span></div><div class="fine">${why}</div></div>`).join('')}</div>` : ''}
     ${!p.exit ? `<h4>Record a sale</h4><section class="calc"><label>Date sold<input id="ps-date" type="date" value="${isoToday()}"></label><label>Price per share (J$)<input id="ps-price" inputmode="decimal" value="${s.px ?? ''}"></label><label class="wide">Fees (J$)<input id="ps-fees" inputmode="decimal" placeholder="blank = est. 1.5%"></label></section>` : ''}
-    <div class="btnrow">${!p.exit ? '<button class="btn pri" id="ps-sell">Mark as sold</button>' : '<button class="btn" id="ps-reopen">Undo sale</button>'}<button class="btn" id="ps-edit">Edit</button><button class="btn" data-sym="${esc(p.sym)}" id="ps-stock">Stock details</button><button class="btn" id="ps-del">Delete</button><button class="btn" data-close>Close</button></div>`,
+    <div class="btnrow">${!p.exit && daysBetween(isoToday(), s.review) <= 0 ? '<button class="btn" id="ps-rev">Reviewed — keep</button>' : ''}${!p.exit ? '<button class="btn pri" id="ps-sell">Mark as sold</button>' : '<button class="btn" id="ps-reopen">Undo sale</button>'}<button class="btn" id="ps-edit">Edit</button><button class="btn" data-sym="${esc(p.sym)}" id="ps-stock">Stock details</button><button class="btn" id="ps-del">Delete</button><button class="btn" data-close>Close</button></div>`,
   (root) => {
     const q = (x) => root.querySelector(x);
     q('#ps-edit').addEventListener('click', () => posForm(d, p));
     q('#ps-stock').addEventListener('click', () => stockSheet(p.sym));
     q('#ps-del').addEventListener('click', (e) => { if (posDelArm !== p.id) { posDelArm = p.id; e.target.textContent = 'Tap again to delete'; return; } positions = positions.filter((x) => x.id !== p.id); savePos(); closeSheet(); render({ keepScroll: true }); });
     const sell = q('#ps-sell'); if (sell) sell.addEventListener('click', () => { const pr = num(q('#ps-price').value); if (!(pr > 0)) return; p.exit = { date: q('#ps-date').value || isoToday(), price: pr, fees: q('#ps-fees').value.trim() === '' ? '' : num(q('#ps-fees').value) }; savePos(); positionSheet(p.id); render({ keepScroll: true }); });
+    const rv = q('#ps-rev'); if (rv) rv.addEventListener('click', () => { p.reviewed = isoToday(); savePos(); positionSheet(p.id); render({ keepScroll: true }); });
     const ro = q('#ps-reopen'); if (ro) ro.addEventListener('click', () => { delete p.exit; savePos(); positionSheet(p.id); render({ keepScroll: true }); });
   });
 }
@@ -1024,6 +1030,91 @@ function posRestore() {
       closeSheet(); render({ keepScroll: true });
     } catch (e) { root.querySelector('#pr-msg').textContent = `Couldn’t restore: ${e.message}`; }
   }));
+}
+// ---------- Today's plan: the tested rules applied to today's ranks, your positions and your money ----------
+// No AI here: every line comes from a rule that was back-tested (Edge top N held ~3 months, keep while in the top 20,
+// sell on weak results, month-end timing, high-yield dividend capture).
+function planItems(d) {
+  const F = d.forecasts; const S = F.stocks; const today = isoToday(); const I = F.ideas;
+  const susp = new Set((F.events || []).filter((e) => e.kind === 'suspend').map((e) => e.sym));
+  const ranked = Object.entries(S).filter(([, v]) => v.edge && !v.pref).sort((a, b) => a[1].edge.rank - b[1].edge.rank);
+  const target = ranked.filter(([k]) => !susp.has(k)).slice(0, sizeN);
+  const w = target.map(([, v]) => (sizeMode === 'edge' ? Math.max(0.5, v.edge.score - 50) : 1)); const ws = w.reduce((a, b) => a + b, 0) || 1;
+  const open = positions.filter((p) => !p.exit);
+  const heldVal = (sym) => open.filter((p) => p.sym === sym).reduce((a, p) => a + p.shares * (priceNow(d, sym) ?? p.price), 0);
+  const me = F.regime?.monthEnd; const meT = g2(I, 'calendar', 'monthEnd');
+  const W = g2(I, 'post_earnings_drift', 'weakResults63');
+  const sell = []; const hold = []; const buy = [];
+  for (const p of open) {
+    const st = posStats(p, d); const s = S[p.sym]; const rank = s?.edge?.rank; const due = daysBetween(today, st.review) <= 0;
+    const base = { sym: p.sym, id: p.id, pl: st.plPct };
+    if (susp.has(p.sym)) hold.push({ ...base, cls: 'warn', act: 'Can’t trade', why: 'Trading is suspended — nothing to do until it lifts.' });
+    else if (s?.signals?.results?.kind === 'weak') sell.push({ ...base, cls: 'bad', act: 'Sell', why: `Weak results (profit down ${Math.abs(s.signals.results.yoy)}% on the year). Tested: stocks trailed the market by ${ptsTxt(Math.abs(W?.avgExcess ?? 0))} over the next 3 months.` });
+    else if (rank > 20 && due) sell.push({ ...base, cls: 'bad', act: 'Sell', why: `3-month review is due and it’s now Edge #${rank}, outside the top 20. Tested rule: sell and move the money to the buy list.` });
+    else if (rank > 20) hold.push({ ...base, cls: 'warn', act: 'Sell at review', why: `Now Edge #${rank}, outside the top 20. Tested rule: don’t sell early — sell at the 3-month review on ${fd(st.review)} unless it climbs back.` });
+    else if (rank && due) hold.push({ ...base, cls: 'good', act: 'Keep', why: `Review is due: still Edge #${rank} (top 20), so the tested rule keeps it another 3 months. Open it and tap “Reviewed — keep”.` });
+    else if (rank) hold.push({ ...base, cls: 'good', act: 'Hold', why: `Edge #${rank}. Next review ${fd(st.review)}.` });
+    else hold.push({ ...base, cls: 'ok', act: 'Hold', why: `No Edge score for this stock, so the tested rules don’t cover it. Next review ${fd(st.review)}.` });
+  }
+  target.forEach(([sym, v], i) => {
+    const amt = (sizeCap * w[i]) / ws; const held = heldVal(sym); const need = amt - held; const px = priceNow(d, sym) ?? v.close;
+    if (held >= amt * 0.8 || need < px) return;
+    const sh = Math.floor(need / px); const adv = v.signals?.liquidity?.adv20 || 0; const days = adv > 0 ? need / (adv * 0.2) : Infinity;
+    let cls = 'good'; let act = held > 0 ? 'Add' : 'Buy'; const notes = [];
+    if (v.signals?.results?.kind === 'weak') { cls = 'warn'; act = 'Skip for now'; notes.push('just reported weak results (a tested warning)'); }
+    else if (v.signals?.spread?.chase) { cls = 'warn'; act = 'Wait a few days'; notes.push('spread snapped tight on an up day — tested as a bad moment to chase'); }
+    else if (me?.inWindow) { cls = 'warn'; act = 'Wait for next month'; }
+    if (days === Infinity) notes.push('hasn’t traded lately — may be hard to buy');
+    else if (days > 3) notes.push(`spread the order over about ${fmt(days, 0)} days`);
+    if (v.hype?.score >= 55) notes.push('⚡ speculative trading pattern');
+    buy.push({ sym, cls, act, rank: v.edge.rank, up: v.chanceUp, amt: need, sh, px, held, notes });
+  });
+  const ev = (F.events || []).filter((e) => e.tested?.action === 'consider' && !susp.has(e.sym) && !(e.daysToEx != null && e.daysToEx < 1));
+  return { sell, hold, buy, ev, me, meT, target, open };
+}
+function planCard(d) {
+  const F = d.forecasts; if (!F?.edgeInfo || !F.stocks) return '';
+  const P_ = planItems(d); const { sell, hold, buy, ev, me, meT } = P_;
+  const PS = F.ideas?.position_sizing; const T_ = PS && (sizeN === 5 ? PS.top5equal : sizeMode === 'edge' ? PS.scoreWeighted : PS.equal);
+  const tb = F.regime?.rates?.tbill3m;
+  const chip = (c, t) => `<span class="vchip ${c}">${esc(t)}</span>`;
+  const count = [buy.filter((b) => b.cls === 'good').length && `${buy.filter((b) => b.cls === 'good').length} to buy`, sell.length && `${sell.length} to sell`, hold.length && `${hold.length} to hold`, buy.filter((b) => b.cls !== 'good').length && `${buy.filter((b) => b.cls !== 'good').length} to wait on`, ev.length && `${ev.length} event trade${ev.length > 1 ? 's' : ''}`].filter(Boolean).join(' · ');
+  const timing = me?.inWindow ? `<div class="note"><b>Timing: hold off buying for a few days.</b> It’s the last 3 trading days of the month, when prices have run up ${ptsTxt(meT?.last3Days, '%')} on average and then given back ${ptsTxt(Math.abs(meT?.first3DaysNextMonth ?? 0), '%')} early the next month. A good window to <b>sell</b>; buy early next month.</div>`
+    : me?.earlyMonth ? '<p class="fine"><b>Timing: good.</b> Early in the month, after the month-end run-up has faded, has been the cheaper time to buy.</p>'
+      : me ? `<p class="fine">Timing: neutral — ${me.tradingDaysLeft} trading days left this month. Sells have done slightly better in the last 3 trading days of a month; buys early in the next.</p>` : '';
+  const sellRows = sell.map((x) => `<div class="sig pl" data-pos="${esc(x.id)}"><div class="sig-h"><span><b>${esc(x.sym)}</b>${x.pl != null ? ` <span class="${x.pl >= 0 ? 'good' : 'bad'}">${signed(x.pl, 1)}</span>` : ''}</span>${chip(x.cls, x.act)}</div><div class="fine">${esc(x.why)}</div></div>`).join('');
+  const holdRows = hold.map((x) => `<div class="sig pl" data-pos="${esc(x.id)}"><div class="sig-h"><span><b>${esc(x.sym)}</b>${x.pl != null ? ` <span class="${x.pl >= 0 ? 'good' : 'bad'}">${signed(x.pl, 1)}</span>` : ''}</span>${chip(x.cls, x.act)}</div><div class="fine">${esc(x.why)}</div></div>`).join('');
+  const buyRows = buy.map((x) => `<div class="sig pl"><div class="sig-h"><span><b class="symlink" data-sym="${esc(x.sym)}">${esc(x.sym)}</b> <span class="fine">Edge #${x.rank}${x.up != null ? ` · ${x.up}% chance up` : ''}</span></span>${chip(x.cls, x.act)}</div>
+      <div>${jmd(x.amt)} ≈ <b>${x.sh.toLocaleString('en-US')} shares</b> at about J$${fmt(x.px, 2)}${x.held > 0 ? ` <span class="fine">(you hold ${jmd(x.held)})</span>` : ''}</div>
+      <div class="fine">Limit order at or below J$${fmt(x.px, 2)}${x.notes.length ? ` · ${esc(x.notes.join(' · '))}` : ''}. <button class="linkish" data-buy="${esc(x.sym)}" data-sh="${x.sh}">I bought this</button></div></div>`).join('');
+  const evRows = ev.map((e) => `<div class="sig pl"><div class="sig-h"><span><b class="symlink" data-sym="${esc(e.sym)}">${esc(e.sym)}</b> <span class="fine">${EV_KIND[e.kind] || e.kind}</span></span>${chip('good', 'Consider')}</div>
+      <div>${esc(evNums(e))}${e.buyBy ? ` · <b>buy by ${fd(e.buyBy)}</b>, sell on ${fd(e.ex)}` : ''}</div><div class="fine">Short trade outside the 3-month plan; the test had few cases, so keep it small — up to about ${jmd(sizeCap * 0.05)} (5% of your money). ${esc(e.tested?.why || '')}</div></div>`).join('');
+  const empty_ = !sell.length && !hold.length && !buy.length;
+  return `<h2 class="sec">Today’s plan <small>${F.asof ? `from ${fd(F.asof)}’s close` : ''}</small></h2>
+    <section class="calc plan-cap"><label>Money for JSE stocks (J$)<input id="plan-cap" inputmode="numeric" value="${sizeCap}"></label>
+      <div class="sorts"><button data-szn="5" class="${sizeN === 5 ? 'on' : ''}">Hold 5 stocks</button><button data-szn="10" class="${sizeN === 10 ? 'on' : ''}">Hold 10</button></div></section>
+    ${count ? `<p class="lede-s"><b>${count}</b></p>` : ''}
+    ${timing}
+    ${sell.length ? `<h4>Sell</h4><div class="sigs">${sellRows}</div>` : ''}
+    ${buy.length ? `<h4>Buy <small class="fine">Edge top ${sizeN} you don’t fully hold</small></h4><div class="sigs">${buyRows}</div>` : empty_ ? '' : `<p class="fine">Nothing to buy: you already hold today’s Edge top ${sizeN} at about the right size.</p>`}
+    ${ev.length ? `<h4>Event trade</h4><div class="sigs">${evRows}</div>` : ''}
+    ${hold.length ? `<h4>Hold</h4><div class="sigs">${holdRows}</div>` : ''}
+    <p class="fine"><b>The rule behind this</b> (the one that was tested): buy the Edge top ${sizeN}, hold about 3 months, then keep what’s still in the top 20 and replace the rest — sell early only on weak results. ${T_ ? `In testing this returned ${ptsTxt(T_.annReturn, '%/yr')} after costs (the average JSE stock: ${ptsTxt(PS.market?.annReturn, '%/yr')}), was ahead of the market in ${T_.beatMarketPct}% of quarters, and its worst quarter was ${fmt(T_.worstQuarter, 1)}%.` : ''} The list changes a little every night; you don’t need to chase it — once you’ve bought, only the 3-month review matters.${tb ? ` Money you’ll need within a year belongs in T-bills (about ${fmt(tb, 1)}% now), not here.` : ''} Not advice — the back-test can’t promise the future; see “Is it working?” below.</p>`;
+}
+function trackCard(F) {
+  const T = F?.track; const E = F?.edgeInfo; if (!T && !E?.byYear) return '';
+  const by = E?.byYear ? Object.entries(E.byYear) : [];
+  const c = (T?.cohorts || []).filter((r) => r.top5 != null);
+  const sf = T?.soFar; const cp = T?.completed;
+  const verdict = cp ? (cp.avgNetExcessTop5 > 0 ? ['good', 'Ahead so far'] : ['bad', 'Behind so far']) : ['ok', 'Too early to judge'];
+  return `<h2 class="sec">Is it working? <small>the picks’ record</small></h2><div class="sigs">
+    ${T ? `<div class="sig"><div class="sig-h"><b>Live — since ${fd(T.since)}</b><span class="vchip ${verdict[0]}">${verdict[1]}</span></div>
+      <div>${cp ? `${cp.n} completed 3-month result${cp.n > 1 ? 's' : ''}: Edge top 5 ${ptsTxt(cp.avgNetExcessTop5)} vs the market after costs, ahead ${cp.aheadPct}% of the time.` : `No 3-month result is complete yet — the first one lands around <b>${T.firstFullResult ? fd(T.firstFullResult) : 'February'}</b>.`}${sf ? ` In progress (${sf.n} nights of picks, about ${sf.avgDays} trading days each): top 5 ${ptsTxt(sf.avgTop5, '%')} vs market ${ptsTxt(sf.avgMarket, '%')}, before costs.` : ''}</div>
+      ${c.length ? `<ul class="trk">${c.map((r) => `<li><b>${fd(r.date)}</b> picks (${esc(r.picks.join(', '))}): <b class="${r.top5 >= r.market ? 'good' : 'bad'}">${signed(r.top5, 1)}</b> vs market ${signed(r.market, 1)} after ${r.days} trading day${r.days === 1 ? '' : 's'}${r.done ? ' (complete)' : ' — still running'}</li>`).join('')}</ul>` : ''}
+      <div class="fine">${esc(T.explain)} ${T.daysLogged} nights logged. A few days or weeks prove nothing either way — judge it after several completed 3-month results.</div></div>` : ''}
+    ${by.length ? `<div class="sig"><div class="sig-h"><b>Back-test, year by year</b><span class="vchip good">Every year ahead</span></div><div>${by.map(([y, v]) => `${y}: <b class="${v >= 0 ? 'good' : 'bad'}">${ptsTxt(v)}</b>`).join(' · ')}</div>
+      <div class="fine">Average points per 3-month period that the Edge top 10 beat the market by, after costs. A back-test is built with hindsight about which signals to use, so expect the live record to be weaker than this.</div></div>` : ''}
+  </div>`;
 }
 // ---------- JSE announcements + on-device Gemini Nano ----------
 const KIND_LABEL = { results: 'Results', dividend: 'Dividend', insider: 'Insider trade', meeting: 'Meeting', board: 'Board', capital: 'Capital', notice: 'Notice' };

@@ -313,3 +313,8 @@ span.warn, p.warn { color: var(--warn); }
 .calc select { width: 100%; font: 500 16px var(--sans); padding: 8px; border: 1px solid var(--rule); border-radius: 3px; background: var(--paper); color: var(--ink); }
 .symlink { text-decoration: underline; text-decoration-color: var(--rule); cursor: pointer; } .sig.ev .sig-h { align-items: center; }
 .ai-out h5 { font: 700 11px var(--sans); letter-spacing: .08em; text-transform: uppercase; color: var(--muted); margin: 10px 0 2px; }
+/* today's plan */
+.plan-cap { margin-bottom: 4px; }
+.sig.pl[data-pos] { cursor: pointer; }
+.sig.pl .sig-h { align-items: center; }
+.trk { margin: 6px 0; padding-left: 18px; font-size: 14px; } .trk li { margin: 3px 0; }

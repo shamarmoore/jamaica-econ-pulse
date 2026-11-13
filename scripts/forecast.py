@@ -104,6 +104,13 @@ try:
     print('SIGNALS', len(sigs), 'stocks; regime', json.dumps(regime)[:300])
 except Exception as e:
     print('signals skipped:', repr(e)[:200])
+# ---- live track record: log tonight's picks and score every earlier night's picks ----
+try:
+    import factor_study as fs2, track_record as tr
+    out['track'] = tr.update(out, fs2)
+    print('TRACK', json.dumps({k: out['track'][k] for k in ('since', 'daysLogged', 'soFar', 'completed', 'firstFullResult')}))
+except Exception as e:
+    print('track record skipped:', repr(e)[:200])
 # ---- actionable corporate events (dividends, splits, take-overs, rights issues, suspensions) ----
 try:
     import events as evm
