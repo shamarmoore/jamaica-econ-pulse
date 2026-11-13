@@ -104,6 +104,20 @@ try:
     print('SIGNALS', len(sigs), 'stocks; regime', json.dumps(regime)[:300])
 except Exception as e:
     print('signals skipped:', repr(e)[:200])
+# ---- actionable corporate events (dividends, splits, take-overs, rights issues, suspensions) ----
+try:
+    import events as evm
+    _H = json.load(open('data/jse_history.json'))['dates']; _ks = sorted(_H)[-30:]
+    def _px(sym):
+        for k in reversed(_ks):
+            v = _H[k].get(sym)
+            if v and v[0] > 0:
+                return float(v[0])
+        return None
+    out['events'] = evm.live_opportunities(out, _px, out.get('ideas', {}))
+    print('EVENTS', len(out['events']), [(e['sym'], e['kind'], e['tested']['action']) for e in out['events'][:8]])
+except Exception as e:
+    print('events skipped:', repr(e)[:200])
 json.dump(out, open('data/forecasts.json', 'w'), separators=(',', ':'))
 print('FORECASTS', len(out['stocks']), 'stocks as of', out['asof'])
 top = sorted(out['stocks'].items(), key=lambda kv: -(kv[1]['q'][-1][10] / kv[1]['close']))[:5]

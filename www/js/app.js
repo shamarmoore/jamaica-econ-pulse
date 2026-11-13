@@ -7,7 +7,7 @@ import { fredKey, ghToken } from './sources.js';
 import { MODELS, jacarsLinks } from './cars.js';
 import { quotesOn, rankStocks, TV_SYMBOLS, tvUrl, GLOBAL_TAGS, targetOdds, fcAt, fcChange, hypeLabel, calibrate } from './markets.js';
 import { fmt, signed, last, changeOver, yoySeries } from './util.js';
-import { nano, nanoCheck, nanoDownload, nanoAsk, nanoCached, nanoForget, nanoLabel, nanoUsed, nanoSetMode, MODEL_NAME, aiReady, aiLabel, cloud, PROVIDERS, cloudTest, willUseCloud, explainPrompt, newsPrompt, digestPrompt } from './nano.js';
+import { nano, nanoCheck, nanoDownload, nanoAsk, nanoCached, nanoForget, nanoLabel, nanoUsed, nanoSetMode, MODEL_NAME, aiReady, aiLabel, cloud, PROVIDERS, cloudTest, willUseCloud, explainPrompt, newsPrompt, digestPrompt, planPrompt } from './nano.js';
 
 const KEY = 'ep_cache_v1';
 const PREV = 'ep_prev_gauges_v1';
@@ -689,6 +689,7 @@ function viewTrade(d) {
     <div class="sorts">${JSE_SORTS.map(([k, l]) => `<button data-jsort="${k}" class="${jseSort === k ? 'on' : ''}">${l}</button>`).join('')}</div>` : ''}
     </section>
     ${positionsCard(d)}
+    ${eventsCard(d)}
     ${newsCard(d)}
     ${!L ? empty(running.has('jsequotes') ? 'Loading JSE quotes…' : 'JSE quotes haven’t loaded yet — tap refresh.') : `
     ${!F?.edgeInfo ? `<div class="note"><b>Edge score, forecasts and target odds aren’t loaded.</b> ${!ghToken.get()
@@ -719,6 +720,7 @@ function tradeLesson(F) {
 }
 function bindTrade(v) {
   const ib = v.querySelector('#ideas-btn'); if (ib) ib.addEventListener('click', () => ideasSheet(data().forecasts));
+  const pl = v.querySelector('#ai-plan'); if (pl) pl.addEventListener('click', () => runAi(pl, v.querySelector('#ai-plan-out'), pl.dataset.aikey, planPrompt(eventsFacts(data())), { maxTokens: 700 }));
   const dg = v.querySelector('#ai-digest'); if (dg) dg.addEventListener('click', () => runAi(dg, v.querySelector('#ai-digest-out'), dg.dataset.aikey, digestPrompt(relevantNews(data()).slice(0, 25)), { maxTokens: 450 }));
   const pa = v.querySelector('#pos-add'); if (pa) pa.addEventListener('click', () => posForm(data()));
   const pe = v.querySelector('#pos-export'); if (pe) pe.addEventListener('click', posBackup);
@@ -1040,9 +1042,15 @@ function aiOut(id, key) {
   return `<div class="ai-out${t ? '' : ' hide'}" id="${id}">${t ? aiHtml(t, nanoUsed(key)) : ''}</div>`;
 }
 function aiHtml(t, used) {
-  const lines = String(t).split(/\n+/).map((l) => l.trim()).filter(Boolean);
-  const li = lines.filter((l) => /^[•*-]\s/.test(l)); const other = lines.filter((l) => !/^[•*-]\s/.test(l));
-  return `${li.length ? `<ul>${li.map((l) => `<li>${esc(l.replace(/^[•*-]\s*/, '').replace(/\*\*/g, ''))}</li>`).join('')}</ul>` : ''}${other.map((l) => `<p>${esc(l.replace(/\*\*/g, ''))}</p>`).join('')}
+  const lines = String(t).split(/\n+/).map((l) => l.trim().replace(/\*\*/g, '').replace(/^#+\s*/, '')).filter(Boolean);
+  let html = ''; let open = false;
+  for (const l of lines) {
+    if (/^[•*-]\s/.test(l)) { if (!open) { html += '<ul>'; open = true; } html += `<li>${esc(l.replace(/^[•*-]\s*/, ''))}</li>`; continue; }
+    if (open) { html += '</ul>'; open = false; }
+    html += /^[A-Z][A-Z ()/&,'’-]{3,}:?$/.test(l) ? `<h5>${esc(l.replace(/:$/, ''))}</h5>` : `<p>${esc(l)}</p>`;
+  }
+  if (open) html += '</ul>';
+  return `${html}
     <p class="fine">Written by ${esc(aiLabel(used))} from the app’s numbers. It can misread things — check against the figures above.</p>`;
 }
 function aiButton(id, label, key) {
@@ -1085,7 +1093,8 @@ function stockFacts(d, sym) {
 function newsBlock(d, sym) {
   const L = (d.jsenews?.posts || []).filter((p) => p.s === sym).slice(0, 8);
   const ex = `ai-x-${sym}-${d.forecasts?.asof || ''}`; const nk = `ai-n-${sym}-${L.map((p) => p.id).join('.')}`;
-  return `<h4>Ask the AI</h4>
+  const evs = (d.forecasts?.events || []).filter((e) => e.sym === sym);
+  return `${evs.length ? `<h4>From announcements</h4><div class="sigs">${evs.map(evRow).join('')}</div>` : ''}<h4>Ask the AI</h4>
     ${aiButton('ai-explain', 'Explain this stock', ex)}${aiOut('ai-explain-out', ex)}
     <h4>Company announcements <small class="fine">last 90 days</small></h4>
     ${L.length ? `<div class="news">${L.map((p) => newsItem(p)).join('')}</div>${aiButton('ai-news', 'Summarise these announcements', nk)}${aiOut('ai-news-out', nk)}` : `<p class="fine">${d.jsenews ? 'No announcements matched to this stock in the last 90 days.' : 'Announcements load from your GitHub with the forecasts.'}</p>`}`;
@@ -1100,6 +1109,52 @@ function relevantNews(d) {
   const top = new Set(Object.entries(F?.stocks || {}).filter(([, v]) => v.edge && v.edge.rank <= 20).map(([k]) => k));
   return (d.jsenews?.posts || []).filter((p) => p.s && (held.has(p.s) || top.has(p.s) || p.ins)).slice(0, 40)
     .map((p) => ({ ...p, why: held.has(p.s) ? 'held' : top.has(p.s) ? 'top' : 'ins' }));
+}
+const EV_KIND = { dividend: 'Dividend', divcons: 'Dividend meeting', split: 'Share split', takeover: 'Take-over', raise: 'Rights issue / APO', suspend: 'Suspended' };
+const EV_ACT = { consider: ['good', 'Consider'], avoid: ['bad', 'Avoid'], holders: ['warn', 'If you hold'], watch: ['ok', 'Watch'], info: ['ok', 'Info'] };
+function evNums(e) {
+  const b = [];
+  if (e.kind === 'dividend') {
+    if (e.amt != null) b.push(`${e.cur === 'USD' ? 'US$' : 'J$'}${+Number(e.amt).toPrecision(4)} a share`);
+    if (e.yieldPct != null) b.push(`${fmt(e.yieldPct, 2)}% of today’s price`);
+    if (e.ex) b.push(`ex-date ${fd(e.ex)}${e.exEstimated ? ' (est.)' : ''}${e.daysToEx != null && e.daysToEx >= 0 ? ` · ${e.daysToEx} days` : ''}`);
+    if (e.changePct != null && Math.abs(e.changePct) >= 10) b.push(`${e.changePct > 0 ? 'up' : 'down'} ${Math.abs(e.changePct)}% on a year ago`);
+  }
+  if (e.ratio) b.push(`${e.ratio}`);
+  if (e.price && e.kind !== 'dividend' && e.offerGapPct != null) b.push(`offer ${fmt(e.offerGapPct, 1)}% vs market`);
+  if (e.edgeRank) b.push(`Edge #${e.edgeRank}`);
+  return b.join(' · ');
+}
+function evRow(e) {
+  const [cls, lab] = EV_ACT[e.tested?.action] || EV_ACT.info; const held = positions.some((p) => p.sym === e.sym && !p.exit);
+  return `<div class="sig ev"><div class="sig-h"><span><b class="symlink" data-sym="${esc(e.sym)}">${esc(e.sym)}</b> · ${EV_KIND[e.kind] || e.kind}${held ? ' <span class="tag good">held</span>' : ''}</span><span class="vchip ${cls}">${lab}</span></div>
+    <div>${esc(evNums(e))}</div><div class="fine">${esc(e.tested?.why || '')}</div></div>`;
+}
+function eventsFacts(d) {
+  const F = d.forecasts; const L = []; const today = new Date().toISOString().slice(0, 10);
+  L.push(`Today ${today}. Market regime: 3-month T-bill ${F.regime?.rates?.tbill3m}% (${F.regime?.rates?.regime}); US$/J$ ${F.regime?.fx?.regime}; ${F.regime?.monthEnd?.tradingDaysLeft} trading days left this month (tested: prices tend to rise in the last 3 trading days of a month and give back early next month).`);
+  const top = Object.entries(F.stocks || {}).filter(([, v]) => v.edge?.rank <= 10).sort((a, b) => a[1].edge.rank - b[1].edge.rank);
+  const P_ = F.ideas?.position_sizing?.scoreWeighted;
+  L.push(`Edge top 10 (Tested: holding the Edge top 5–10 for 3 months then re-picking beat the market after costs${P_ ? `, ${P_.annReturn}%/yr score-weighted` : ''}): ${top.map(([k, v]) => `#${v.edge.rank} ${k}${v.chanceUp != null ? ` (chance up ${v.chanceUp}%)` : ''}${v.signals?.results?.kind === 'weak' ? ' [weak results — tested warning]' : ''}${v.signals?.spread?.chase ? ' [don’t chase today]' : ''}`).join(', ')}.`);
+  const share = !willUseCloud() || cloud.get().sharePositions;
+  const open = positions.filter((p) => !p.exit);
+  if (open.length) L.push(share ? `Investor holds: ${open.map((p) => { const st = posStats(p, d); const fl = posFlags(p, F).filter((f) => f[0] !== 'ok').map((f) => f[1]).join('; '); return `${p.sym} (bought ${p.date}, P/L ${signed(st.plPct ?? 0, 1)}, review ${st.review}${fl ? `; flags: ${fl}` : ''})`; }).join(', ')}.` : `Investor holds: ${open.map((p) => p.sym).join(', ')}.`);
+  for (const e of (F.events || []).filter((x) => x.kind !== 'divcons').slice(0, 14)) L.push(`EVENT ${e.sym} ${EV_KIND[e.kind] || e.kind} (${e.date}): ${evNums(e)}. Tested: ${e.tested?.why} Suggested label: ${e.tested?.action}.`);
+  const dc = (F.events || []).filter((x) => x.kind === 'divcons').map((x) => x.sym); if (dc.length) L.push(`Dividend meetings coming (Tested: buying on these notices lost about 2 pts vs the market after costs): ${dc.join(', ')}.`);
+  const ins = g2(F, 'ideas', 'insiders', 'buy63'); const news = relevantNews(d).slice(0, 10);
+  if (news.length) L.push(`Other recent headlines: ${news.map((p) => `[${p.d.slice(0, 10)}] ${p.s}: ${p.t}${p.ins ? ` (insider ${p.ins.side})` : ''}`).join('; ')}.${ins ? ` Tested: insider buy notices did ${ins.avgExcess} pts vs the market after costs (${ins.verdict}).` : ''}`);
+  return L.join('\n');
+}
+function eventsCard(d) {
+  const E = d.forecasts?.events; if (!E?.length) return '';
+  const main = E.filter((e) => ['consider', 'avoid', 'holders', 'watch'].includes(e.tested?.action));
+  const info = E.filter((e) => !main.includes(e));
+  const key = `ai-plan-${d.forecasts.asof}-${E.length}-${positions.filter((p) => !p.exit).map((p) => p.sym).join('.')}`;
+  return `<h2 class="sec">Opportunities from announcements <small>tested on JSE history</small></h2>
+    ${aiButton('ai-plan', 'What should I do this week?', key)}${aiOut('ai-plan-out', key)}
+    <div class="sigs">${main.map(evRow).join('') || '<p class="fine">Nothing actionable from recent announcements.</p>'}</div>
+    ${info.length ? `<details data-k="ev-info"><summary>${info.length} more — dividend meetings, splits, other notices</summary><div class="sigs">${info.map(evRow).join('')}</div></details>` : ''}
+    <p class="fine">Labels come from back-tests of each event type since 2018 (after 1.5% costs each way, vs the average JSE stock). The one event with a consistent edge so far: buying high-yield dividends (≥3% of the price) before the ex-date — a small sample, so size it modestly.</p>`;
 }
 function newsCard(d) {
   if (!d.jsenews) return '';
@@ -1173,6 +1228,15 @@ const IDEA_ROWS = [
   ['…when its sector is flat or falling', (I) => g2(I, 'sector_strength', 'relativeStrengthWhenSectorFlatOrDown'), (T_) => `${ptsTxt(T_?.avgExcess)} / 3 mo`, () => ''],
   ['Bid–ask spread tightening', (I) => g2(I, 'bid_ask_spread', 'tighterThanUsual_factor'), (T_) => `${ptsTxt(T_?.avgExcess)} / 1 mo`, (I) => I?.bid_ask_spread?.explain],
   ['Sudden spread tightening + up close', (I) => g2(I, 'bid_ask_spread', 'suddenTighteningWithUpClose_trade21'), (T_) => `${ptsTxt(T_?.avgExcess)} / 1 mo after costs`, () => ''],
+  ['Dividend capture, yield ≥3% (buy after declaration, sell on ex-date)', (I) => g2(I, 'events', 'dividendCapture', 'high'), (T_) => `${ptsTxt(T_?.avgExcess)} per trade after costs`, (I) => I?.events?.explain],
+  ['…same, buying in the last 5 days before the ex-date', (I) => g2(I, 'events', 'dividendCaptureLate', 'high'), (T_) => `${ptsTxt(T_?.avgExcess)} per trade after costs`, () => ''],
+  ['Dividend capture, yield 1.5–3%', (I) => g2(I, 'events', 'dividendCapture', 'mid'), (T_) => `${ptsTxt(T_?.avgExcess)} per trade after costs`, () => ''],
+  ['Dividend capture, yield under 1.5%', (I) => g2(I, 'events', 'dividendCapture', 'low'), (T_) => `${ptsTxt(T_?.avgExcess)} per trade after costs`, () => 'Costs eat small dividends.'],
+  ['Dividend raised ≥10% vs a year ago', (I) => g2(I, 'events', 'dividendRaise63'), (T_) => `${ptsTxt(T_?.avgExcess)} / 3 mo after costs`, () => ''],
+  ['Dividend cut ≥10% vs a year ago', (I) => g2(I, 'events', 'dividendCut63'), (T_) => `${ptsTxt(T_?.avgExcess)} / 3 mo after costs`, () => ''],
+  ['Buying on a “dividend consideration” notice', (I) => g2(I, 'events', 'dividendConsideration21'), (T_) => `${ptsTxt(T_?.avgExcess)} / 1 mo after costs`, () => ''],
+  ['Rights issue / additional public offer notice', (I) => g2(I, 'events', 'raise63'), (T_) => `${ptsTxt(T_?.avgExcess)} / 3 mo after costs`, () => 'Small sample, but consistently bad for the share price.'],
+  ['Share split notice', (I) => g2(I, 'events', 'split63'), (T_) => T_?.avgExcess != null ? `${ptsTxt(T_?.avgExcess)} / 3 mo` : `only ${T_?.n} cases`, () => ''],
   ['Insider buy notice (buy the next day)', (I) => g2(I, 'insiders', 'buy63'), (T_) => `${ptsTxt(T_?.avgExcess)} / 3 mo after costs`, (I) => I?.insiders?.explain],
   ['…director or senior officer buying', (I) => g2(I, 'insiders', 'directorBuy63'), (T_) => `${ptsTxt(T_?.avgExcess)} / 3 mo after costs`, () => ''],
   ['…big insider buy (≥ J$1M and 3× normal trading)', (I) => g2(I, 'insiders', 'bigBuy63'), (T_) => `${ptsTxt(T_?.avgExcess)} / 3 mo after costs`, () => ''],

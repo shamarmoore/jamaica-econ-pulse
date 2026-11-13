@@ -311,3 +311,5 @@ span.warn, p.warn { color: var(--warn); }
 .ai-out.hide { display: none; }
 .seg-ap button:disabled { opacity: .35; }
 .calc select { width: 100%; font: 500 16px var(--sans); padding: 8px; border: 1px solid var(--rule); border-radius: 3px; background: var(--paper); color: var(--ink); }
+.symlink { text-decoration: underline; text-decoration-color: var(--rule); cursor: pointer; } .sig.ev .sig-h { align-items: center; }
+.ai-out h5 { font: 700 11px var(--sans); letter-spacing: .08em; text-transform: uppercase; color: var(--muted); margin: 10px 0 2px; }

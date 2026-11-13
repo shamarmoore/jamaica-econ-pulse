@@ -150,6 +150,19 @@ ANNOUNCEMENTS:
 ${posts.map((p) => `[${p.d.slice(0, 10)}] ${p.t}\n${p.x.slice(0, 500)}`).join('\n---\n')}`;
 }
 
+export function planPrompt(facts) {
+  return `You are helping a careful private investor on the Jamaica Stock Exchange decide what to do this week. A research app has back-tested its signals on JSE history; every "Tested:" note says what that signal was worth after trading costs. The investor decides; you organise the evidence.
+${RULES}
+Only recommend an action when a Tested note with a positive verdict (edge) supports it, or for Edge-ranked picks (the Edge top 5 were the tested portfolio). Never turn an untested or "no reliable edge" item into a buy. Quote the numbers.
+Write these sections, each line starting with "• ":
+ACTIONS TO CONSIDER (at most 5, best first): symbol — buy / sell / hold / wait — the timing (dates) — the tested evidence in a few words — the main risk.
+AVOID OR CAREFUL: up to 4 items with the reason.
+IF YOU HOLD: up to 4 items for existing holders (dividends to keep for, suspensions, review dates).
+JUDGEMENT CALLS (untested): up to 3 items that might be mispriced but have no tested edge — say why they are untested.
+FACTS:
+${facts}`;
+}
+
 export function digestPrompt(posts) {
   return `Here are recent Jamaica Stock Exchange announcements for stocks an investor holds or is watching.
 ${RULES}

@@ -563,6 +563,89 @@ _ins = insider_tests()
 if _ins:
     RESULTS['insiders'] = _ins
 
+# ---------------------------------------------------------------- corporate events from announcements
+def event_tests():
+    try:
+        import events as EVM
+        A = EVM.archive_events()
+    except Exception as e:
+        print('event tests skipped:', e)
+        return None
+    def tix(d):
+        return int(idx.searchsorted(pd.Timestamp(d), side='right')) - 1   # info known by the close of the notice day
+    cats = {k: ([], []) for k in ('capture_high', 'capture_mid', 'capture_low', 'late_high', 'late_mid', 'late_low', 'dividendRaise63', 'dividendCut63', 'dividendSame63',
+                                  'dividendConsideration21', 'split21', 'split63', 'raise63', 'takeover63')}
+    last = {}
+    prev_div = {}
+    def add(cat, s, t, r):
+        k = (cat, s)
+        if r is None or t - last.get(k, -999) < (60 if cat.startswith(('split', 'raise', 'takeover')) else 15):
+            return
+        cats[cat][0].append(r); cats[cat][1].append(idx[t]); last[k] = t
+    for e in A:
+        s = e['sym']
+        if s not in P.columns:
+            continue
+        t = tix(e['date'])
+        if t < 130 or t >= N - 2 or not UNIV[s].iloc[t]:
+            if e['kind'] == 'dividend':
+                prev_div.setdefault(s, []).append(e)
+            continue
+        k = e['kind']
+        if k == 'dividend':
+            px = P[s].iloc[t]
+            fx = 157.0 if e['cur'] == 'USD' else 1.0
+            y = e['amt'] * fx / px if px > 0 else None
+            if y is not None and y > 0.4 and fx > 1:
+                y = e['amt'] / px
+            ex = e.get('ex')
+            if not ex and e.get('record'):
+                ex = (pd.Timestamp(e['record']) - pd.Timedelta(days=1)).strftime('%Y-%m-%d')
+            if y and 0 < y < 0.25 and ex and ex > e['date']:
+                b = t + 1; xe = int(idx.searchsorted(pd.Timestamp(ex), side='left'))
+                if b < xe < N and xe - b <= 45 and P[s].iloc[b] > 0:
+                    r = P[s].iloc[xe] / P[s].iloc[b] - 1 + e['amt'] * (fx if y != e['amt'] / px else 1.0) / P[s].iloc[b]
+                    r = float(np.clip(r, -0.9, 1.0) - bench(b, xe, t))
+                    band = 'high' if y >= 0.03 else 'mid' if y >= 0.015 else 'low'
+                    add('capture_' + band, s, t, r)
+                    lb = xe - 5  # late buyer: 5 trading days before the ex-date
+                    if lb > b and P[s].iloc[lb] > 0:
+                        r2 = P[s].iloc[xe] / P[s].iloc[lb] - 1 + e['amt'] * (fx if y != e['amt'] / px else 1.0) / P[s].iloc[lb]
+                        add('late_' + band, s, lb, float(np.clip(r2, -0.9, 1.0) - bench(lb, xe, lb - 1)))
+            ref = EVM.reference_dividend(prev_div.get(s, []), e)
+            if ref:
+                ch = e['amt'] / ref - 1
+                add('dividendRaise63' if ch >= 0.10 else 'dividendCut63' if ch <= -0.10 else 'dividendSame63', s, t, fwd_excess(s, t, 63))
+            prev_div.setdefault(s, []).append(e)
+        elif k == 'divcons':
+            add('dividendConsideration21', s, t, fwd_excess(s, t, 21))
+        elif k == 'split':
+            add('split21', s, t, fwd_excess(s, t, 21)); add('split63', s, t, fwd_excess(s, t, 63))
+        elif k == 'raise':
+            add('raise63', s, t, fwd_excess(s, t, 63))
+        elif k == 'takeover':
+            add('takeover63', s, t, fwd_excess(s, t, 63))
+    out = {}
+    for k, (v, d) in cats.items():
+        key = k.replace('capture_', '')
+        res = summarize(v, d, COST)
+        if k.startswith('capture_'):
+            out.setdefault('dividendCapture', {})[key] = res
+        elif k.startswith('late_'):
+            out.setdefault('dividendCaptureLate', {})[k[5:]] = res
+        else:
+            out[k] = res
+    out['dividendCut63_holding'] = summarize(cats['dividendCut63'][0], cats['dividendCut63'][1], 0.0)
+    out['explain'] = ('Parsed from the JSE’s dividend, split, take-over and rights-issue notices since 2018. Dividend capture: buy at the close after the declaration, '
+                      'sell at the close on the ex-date, dividend included; yield bands high ≥3%, mid 1.5–3%, low <1.5% of the price. Raises/cuts compare the new dividend with the '
+                      'same payment a year earlier (±10%, adjusted for share splits). All results after 1.5% costs each way, compared with the average JSE stock over the same days.')
+    return out
+
+
+_ev = event_tests()
+if _ev:
+    RESULTS['events'] = _ev
+
 json.dump(RESULTS, open('data/idea_tests.json', 'w'), indent=1, default=float)
 for k, v in RESULTS.items():
     print('\n==', k)
