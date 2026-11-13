@@ -172,22 +172,24 @@ def num(v):
         return None
 
 
-def jse_profits(sym):
-    """Every profit figure the JSE publishes for this company: each quarter, year-to-date sums and yearly totals."""
-    f = (_load('data/jse_fundamentals.json', {}).get('stocks') or {}).get(sym) or {}
-    c = set()
-    for y, q in (f.get('quarters') or {}).items():
-        run = 0
-        for v in q:
-            if v:
-                run += v; c.add(float(v)); c.add(float(run))
-    for y, v in (f.get('annual') or {}).items():
-        if v:
-            c.add(float(v))
-    return c
+def jse_profit_slots(sym, period_end, months):
+    """The JSE's own year-to-date profit for the same period: quarters are stored per financial year, and the label can
+    be the year the period ends in or the next one, so both are returned (plus last year's, to catch a relabelled year)."""
+    f = (_FUND.get(sym) or {})
+    if not period_end or not months:
+        return []
+    y = int(period_end[:4]); n = months // 3
+    out = []
+    for yy in (y, y + 1, y - 1):
+        q = (f.get('quarters') or {}).get(str(yy)) or []
+        if len(q) >= n and all(q[:n]):
+            out.append(float(sum(q[:n])))
+        if n == 4 and (f.get('annual') or {}).get(str(yy)):
+            out.append(float(f['annual'][str(yy)]))
+    return out
 
 
-_PROF = {}
+_FUND = _load('data/jse_fundamentals.json', {}).get('stocks') or {}
 
 
 def check(sym, r):
@@ -196,24 +198,19 @@ def check(sym, r):
     out = {k: (None if num(r.get(k)) is None else num(r.get(k)) * u) for k in FIELDS}
     A, L, E = out['total_assets'], out['total_liabilities'], out['total_equity']
     out['balances'] = bool(A and L is not None and E is not None and abs(A - (L + E)) <= 0.02 * abs(A))
-    if sym not in _PROF:
-        _PROF[sym] = jse_profits(sym)
-    cands = _PROF[sym]
-    ok = None
-    if cands:
-        ok = False
-        for p in (out['net_profit_attributable_to_owners'], out['net_profit']):
-            if p is not None and any(abs(p - c) <= 0.02 * abs(c) + 1 for c in cands):
-                ok = True
-    out['profitMatchesJSE'] = ok
     pe = str(r.get('period_end') or '')
     out['period_end'] = pe if re.match(r'^\d{4}-\d{2}-\d{2}$', pe) else None
     m = num(r.get('months'))
     out['months'] = int(m) if m in (3, 6, 9, 12) else None
+    cands = jse_profit_slots(sym, out['period_end'], out['months'])
+    ok = None   # None = the JSE hasn't published a figure for this period to compare with
+    if cands:
+        ok = any(p is not None and abs(p - c) <= 0.02 * abs(c) + 1 for p in (out['net_profit_attributable_to_owners'], out['net_profit']) for c in cands)
+    out['profitMatchesJSE'] = ok
     out['currency'] = r.get('currency') if r.get('currency') in ('JMD', 'USD', 'TTD') else None
     out['consolidated'] = bool(r.get('consolidated')); out['audited'] = bool(r.get('audited'))
     # usable = the balance sheet adds up, and the profit agrees with the JSE's own figure when there is one to compare
-    out['ok'] = bool(out['balances'] and out['period_end'] and out['currency'] and ok is not False)
+    out['ok'] = bool(out['balances'] and out['period_end'] and out['months'] and out['currency'] and ok is not False)
     return out
 
 
@@ -221,7 +218,7 @@ def read_report(p):
     """-> (reading, None) or (None, reason)."""
     links = sorted(p['links'], key=lambda l: 0 if re.search(r'financ|statement|result|interim|quarter|unaudited|audited|report', l[0] + ' ' + l[1], re.I) and not re.search(r'cover|letter|notice|largest|shareholding|top.?ten|director', l[0] + ' ' + l[1], re.I) else 1)
     last, best = 'no PDF link', None
-    for url, _ in links[:3]:
+    for url, _ in links[:4]:
         try:
             b = get(url, binary=True, timeout=120)
         except Exception as e:
@@ -235,23 +232,27 @@ def read_report(p):
             pages = pdf_pages(f.name)
         prompt = PROMPT.format(title=p['title'], date=p['date'])
         text_chars = sum(len(x.strip()) for x in pages)
-        if text_chars > 3000 and text_chars / max(1, len(pages)) > 120:
-            pick, got = statement_pages(pages)
+        if len(pages) <= 45 and len(b) <= 18e6:
+            # the model reads the file itself (printed text and scanned pages alike)
+            r = ask_gemini([{'inline_data': {'mime_type': 'application/pdf', 'data': base64.b64encode(b).decode()}}, {'text': prompt}]); src = 'pdf' if text_chars > 3000 else 'scan'
+        elif text_chars > 3000:
+            pick, got = statement_pages(pages)   # long report (audited accounts): send only the statement pages as text
             if not got['bal']:
-                last = 'no balance sheet found in this file'; continue
+                last = 'long report: balance sheet page not found'; continue
             body = '\n\n'.join(f'=== PAGE {i + 1} ===\n{pages[i][:9000]}' for i in pick)
             r = ask_gemini([{'text': prompt + '\n\nSTATEMENTS:\n' + body}]); src = 'text'
         else:
-            if len(pages) > 45 or len(b) > 18e6:
-                last = 'scanned report too long to read'; continue
-            r = ask_gemini([{'inline_data': {'mime_type': 'application/pdf', 'data': base64.b64encode(b).decode()}}, {'text': prompt}]); src = 'scan'
+            last = 'scanned report too long to read'; continue
         if not r:
             last = 'model returned nothing usable'; continue
         out = check(p['sym'], r)
         out.update(sym=p['sym'], pub=p['date'], src=src, title=p['title'][:90])
         if out['ok']:
             return out, None
-        best = best or out   # keep a flagged reading unless another file in the post reads cleanly
+        if out['total_assets'] is not None and (best is None or best['total_assets'] is None):
+            best = out   # keep a flagged reading unless another file in the post reads cleanly
+        elif best is None:
+            last = 'no statements in this file'
     return (best, None) if best else (None, last)
 
 
