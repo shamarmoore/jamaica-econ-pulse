@@ -19,14 +19,19 @@ jobs:
         with: { python-version: '3.12' }
       - name: PDF tools
         run: sudo apt-get update -qq && sudo apt-get install -y -qq poppler-utils
-      - name: Read reports
+      - name: Read reports (saving after every batch)
         env:
           GEMINI_API_KEY: ${{ secrets.GEMINI_API_KEY }}
-        run: python scripts/read_reports.py "${{ github.event.inputs.max }}" "${{ github.event.inputs.indexpages }}"
-      - name: Save
         run: |
           git config user.name "github-actions[bot]"
           git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
-          git add data/reports_index.json data/financials.json 2>/dev/null || true
-          git diff --cached --quiet || git commit -m "data: financial report readings $(date -u +%F) [skip ci]"
-          for i in 1 2 3; do git pull --rebase -X theirs -q && git push -q && break; git rebase --abort 2>/dev/null; sleep 5; done
+          left=${{ github.event.inputs.max }}
+          while [ "$left" -gt 0 ]; do
+            n=$(( left < 150 ? left : 150 ))
+            python scripts/read_reports.py "$n" "${{ github.event.inputs.indexpages }}" || true
+            git add data/reports_index.json data/financials.json 2>/dev/null || true
+            git diff --cached --quiet || git commit -q -m "data: financial report readings $(date -u +%F) [skip ci]"
+            for i in 1 2 3; do git pull --rebase -X theirs -q && git push -q && break; git rebase --abort 2>/dev/null; sleep 5; done
+            [ "$(cat /tmp/reports_more 2>/dev/null)" = "yes" ] || break
+            left=$(( left - n ))
+          done

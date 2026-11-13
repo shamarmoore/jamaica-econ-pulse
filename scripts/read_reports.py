@@ -317,6 +317,10 @@ def main():
     print(f'CHECKS balance sheet adds up: {sum(1 for r in allr if r["balances"])}/{len(allr)}; profit equals the JSE figure: {sum(1 for r in chk if r["profitMatchesJSE"])}/{len(chk)} comparable; size believable: {sum(1 for r in allr if r.get("scaleOk") is not False)}/{len(allr)}')
     print(f'REPORTS read {n} this run ({ok} passed checks); total {len(allr)} readings, {sum(1 for r in allr if r["ok"])} usable, {len(D["skipped"])} skipped; '
           f'{len(todo) - min(len(todo), MAX)} still to read; tokens in {tokens["in"]:,} out {tokens["out"]:,}')
+    stopped = n < min(len(todo), MAX)
+    if os.environ.get('GITHUB_OUTPUT'):
+        open(os.environ['GITHUB_OUTPUT'], 'a').write(f'more={"yes" if len(todo) > n and not stopped else "no"}\n')
+    open('/tmp/reports_more', 'w').write('yes' if len(todo) > n and not stopped else 'no')
     for r in allr[-3:]:
         print('   e.g.', r['sym'], r['pub'], r['src'], 'ok' if r['ok'] else 'FLAGGED', {k: r[k] for k in ('period_end', 'months', 'currency', 'total_assets', 'total_equity', 'borrowings', 'net_profit', 'operating_cash_flow', 'balances', 'profitMatchesJSE', 'scaleOk')})
 
