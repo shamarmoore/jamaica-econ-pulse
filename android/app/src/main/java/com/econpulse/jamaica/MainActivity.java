@@ -7,6 +7,7 @@ public class MainActivity extends BridgeActivity {
     @Override
     public void onCreate(Bundle savedInstanceState) {
         registerPlugin(NanoPlugin.class); // on-device Gemini Nano (AICore)
+        registerPlugin(AlertsPlugin.class); // background alerts for the JSE plan
         super.onCreate(savedInstanceState);
     }
 }
