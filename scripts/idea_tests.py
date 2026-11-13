@@ -646,6 +646,134 @@ _ev = event_tests()
 if _ev:
     RESULTS['events'] = _ev
 
+
+# ---------------------------------------------------------------- quiet setups, chart indicators, turnarounds, cheap small caps
+def _sched(h=63, step=63):
+    for off in (0, 21, 42):
+        for t in range(260 + off, N - h - 1, step):
+            yield t
+
+
+def quiet_setups():
+    """Strong fundamentals whose price hasn't moved yet vs strong fundamentals already moving."""
+    cols = ['ey', 'dy', 'growth', 'q_yoy', 'stable', 'noloss', 'iv_ddm']
+    G = {k: ([], []) for k in ('fundTop', 'quiet', 'quietDeep', 'moving', 'nearHigh')}
+    for t in _sched():
+        f = fs.features(t)
+        live = [s for s in syms if UNIV[s].iloc[t]]
+        ff = f.loc[live]
+        ok = ff[cols].notna().sum(axis=1) >= 4
+        fund = ff[cols].rank(pct=True).mean(axis=1)[ok].sort_values(ascending=False)
+        top = fund.index[:max(1, len(live) // 3)]
+        med = ff['mom63'].median()
+        for s in top:
+            e = fwd_excess(s, t, 63)
+            if e is None:
+                continue
+            m, hi = ff.loc[s, 'mom63'], ff.loc[s, 'hi52']
+            G['fundTop'][0].append(e); G['fundTop'][1].append(idx[t])
+            if m <= med and hi < 0.9:
+                G['quiet'][0].append(e); G['quiet'][1].append(idx[t])
+            if m <= med and hi < 0.75:
+                G['quietDeep'][0].append(e); G['quietDeep'][1].append(idx[t])
+            if m > med:
+                G['moving'][0].append(e); G['moving'][1].append(idx[t])
+            if hi >= 0.9:
+                G['nearHigh'][0].append(e); G['nearHigh'][1].append(idx[t])
+    out = {k: summarize(v[0], v[1], 0.0) for k, v in G.items()}
+    # fresh strong results where the price did / didn't run up in the month before they became public
+    C = {k: ([], []) for k in ('strongResultsQuiet63', 'strongResultsRanUp63', 'backToProfit63', 'backToProfit126')}
+    for s in syms:
+        f = fs.FUND.get(s)
+        if not f:
+            continue
+        ev = _quarter_events(f)
+        if len(ev) < 6:
+            continue
+        ser = pd.Series([v for _, v in ev], index=pd.DatetimeIndex([d for d, _ in ev]))
+        ser = ser[~ser.index.duplicated(keep='last')]
+        yoy = (ser - ser.shift(4)) / ser.shift(4).abs().replace(0, np.nan)
+        prev = ser.shift(1)
+        for d in ser.index[4:]:
+            pos = idx.searchsorted(d)
+            if pos < 130 or pos + 130 >= N or not UNIV[s].iloc[pos]:
+                continue
+            g = yoy.get(d)
+            if pd.notna(g) and g > 0.25 and ser[d] > 0:
+                run = P[s].iloc[pos] / P[s].iloc[pos - 21] - 1
+                e = fwd_excess(s, pos, 63)
+                if e is not None:
+                    k = 'strongResultsQuiet63' if run <= 0.02 else 'strongResultsRanUp63' if run > 0.05 else None
+                    if k:
+                        C[k][0].append(e); C[k][1].append(idx[pos])
+            if ser[d] > 0 and pd.notna(prev.get(d)) and prev[d] < 0:  # turnaround: a loss-making quarter followed by a profit
+                for h, k in ((63, 'backToProfit63'), (126, 'backToProfit126')):
+                    e = fwd_excess(s, pos, h)
+                    if e is not None:
+                        C[k][0].append(e); C[k][1].append(idx[pos])
+    out.update({k: summarize(v[0], v[1], COST) for k, v in C.items()})
+    out['explain'] = ('“Strong fundamentals” = top third of stocks on the Edge score’s non-price signals (cheap vs profits, dividend yield, profit growth, steady profits, no losses, below dividend value). '
+                      'Quiet = 3-month price change at or below the typical stock and more than 10% under its 52-week high; moving = 3-month change above the typical stock. '
+                      'Held 3 months vs the average JSE stock. Results-based rows pay 1.5% costs each way; “ran up” = price rose more than 5% in the month before the results.')
+    return out
+
+
+def chart_indicators():
+    d = P.diff()
+    up = d.clip(lower=0).rolling(14).mean(); dn = (-d.clip(upper=0)).rolling(14).mean()
+    rsi = 100 - 100 / (1 + up / dn.replace(0, np.nan))
+    ma20, sd20 = P.rolling(20).mean(), P.rolling(20).std()
+    z = (P - ma20) / sd20.replace(0, np.nan)
+    ma50, ma200 = P.rolling(50).mean(), P.rolling(200).mean()
+    obv = (np.sign(d).fillna(0) * V).cumsum()
+    obv_s = (obv - obv.shift(63)) / (V.rolling(63).sum() + 1)
+    vwap = (P * V).rolling(20).sum() / V.rolling(20).sum().replace(0, np.nan)
+    roc = P / P.shift(63) - 1
+    out = {
+        'rsiOversold21': factor_check(-rsi, 'RSI oversold', 21, 21),
+        'rsiStrong63': factor_check(rsi, 'RSI strong', 63, 63),
+        'bollingerLow21': factor_check(-z, 'below Bollinger band', 21, 21),
+        'goldenCross63': factor_check(ma50 / ma200 - 1, '50-day above 200-day average'),
+        'above50dma63': factor_check(P / ma50 - 1, 'price above 50-day average'),
+        'roc63': factor_check(roc, '3-month rate of change'),
+        'obv63': factor_check(obv_s, 'on-balance volume rising'),
+        'belowVwap21': factor_check(-(P / vwap - 1), 'below 20-day VWAP', 21, 21),
+        'explain': 'Each indicator ranks all stocks; the top third is held 1 or 3 months (as labelled) against the average JSE stock, before costs. Monthly ideas would pay about 3 points in costs per round trip on top.'}
+    return out
+
+
+def strategy_tests():
+    EY = (fs.FF['ttm'] * fs.fx / fs.MCAP).clip(-0.5, 0.5)
+    small = fs.MCAP.rank(axis=1, pct=True) <= 0.5
+    DY = (fs.DIV12 / P).clip(0, 0.4).where(fs.FF['lossq'] == 0)
+    out = {'cheapSmallCaps63': factor_check(EY.where(small & (EY > 0)), 'cheap small caps'),
+           'cheapLargeCaps63': factor_check(EY.where(~small & (EY > 0)), 'cheap large caps')}
+    lull = MKT.pct_change(126).abs() < 0.05
+    G = {'lull': ([], []), 'trending': ([], [])}
+    for t in _sched():
+        live = [s for s in syms if UNIV[s].iloc[t] and pd.notna(DY[s].iloc[t]) and DY[s].iloc[t] > 0]
+        if len(live) < 9:
+            continue
+        top = DY.iloc[t][live].sort_values(ascending=False).index[:len(live) // 3]
+        k = 'lull' if bool(lull.iloc[t]) else 'trending'
+        for s in top:
+            e = fwd_excess(s, t, 63)
+            if e is not None:
+                G[k][0].append(e); G[k][1].append(idx[t])
+    out['dividendPayersInLull63'] = summarize(G['lull'][0], G['lull'][1], 0.0)
+    out['dividendPayersWhenTrending63'] = summarize(G['trending'][0], G['trending'][1], 0.0)
+    out['explain'] = ('Cheap = profit ÷ market value, profitable firms only; small = smaller half of the market by value. Dividend payers = top third by yield with no loss-making quarter in the last year; '
+                      'a lull = the market moved less than 5% over the previous 6 months. Book value, debt and cash-flow figures aren’t published in a machine-readable form on the JSE site, '
+                      'so price-to-book, ROE, leverage and accrual tests need the balance sheets read out of the PDF reports first.')
+    return out
+
+
+for _k, _fn in (('setups', quiet_setups), ('chart', chart_indicators), ('strategies', strategy_tests)):
+    try:
+        RESULTS[_k] = _fn()
+    except Exception as _e:
+        print(_k, 'tests skipped:', repr(_e)[:200])
+
 json.dump(RESULTS, open('data/idea_tests.json', 'w'), indent=1, default=float)
 for k, v in RESULTS.items():
     print('\n==', k)

@@ -125,6 +125,14 @@ try:
     print('EVENTS', len(out['events']), [(e['sym'], e['kind'], e['tested']['action']) for e in out['events'][:8]])
 except Exception as e:
     print('events skipped:', repr(e)[:200])
+# ---- alerts for the phone's background check (tested rules only; matched against positions on the device) ----
+try:
+    import factor_study as fs3, alerts as al
+    _A = al.build(out, fs3)
+    out['setups'] = _A['setups']
+    print('ALERTS', {'weak': list(_A['weak']), 'events': [e['id'] for e in _A['events']], 'setups': [x['sym'] for x in _A['setups']], 'news': len(_A['news'])})
+except Exception as e:
+    print('alerts skipped:', repr(e)[:200])
 json.dump(out, open('data/forecasts.json', 'w'), separators=(',', ':'))
 print('FORECASTS', len(out['stocks']), 'stocks as of', out['asof'])
 top = sorted(out['stocks'].items(), key=lambda kv: -(kv[1]['q'][-1][10] / kv[1]['close']))[:5]
