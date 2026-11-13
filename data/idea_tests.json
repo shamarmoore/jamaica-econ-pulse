@@ -605,13 +605,13 @@
   "buyback63": {
    "n": 36,
    "months": 28,
-   "avgExcess": -1.94,
+   "avgExcess": -3.78,
    "median": -4.56,
    "winRate": 31,
-   "t": -1.26,
-   "firstHalf": -1.73,
+   "t": -2.45,
+   "firstHalf": -4.6,
    "secondHalf": -2.33,
-   "verdict": "no reliable edge"
+   "verdict": "negative edge (avoid)"
   },
   "buy63_holding": {
    "n": 320,
@@ -653,5 +653,156 @@
    "2026-11-11"
   ],
   "explain": "Parsed from the JSE\u2019s \u201cTrading in shares\u201d notices (directors, senior officers, connected parties; company buybacks separately). Buy at the close of the trading day after the notice (most notices come after the 1 pm close), hold 1 or 3 months, 1.5% costs each way, compared with the average JSE stock over the same days. Big = at least J$1M and 3\u00d7 the stock\u2019s normal daily trading. Cluster = a second buy notice within a month."
+ },
+ "events": {
+  "dividendCapture": {
+   "high": {
+    "n": 21,
+    "months": 19,
+    "avgExcess": 5.23,
+    "median": 3.07,
+    "winRate": 76,
+    "t": 2.99,
+    "firstHalf": 6.13,
+    "secondHalf": 4.77,
+    "verdict": "edge"
+   },
+   "mid": {
+    "n": 79,
+    "months": 39,
+    "avgExcess": 0.92,
+    "median": -0.72,
+    "winRate": 43,
+    "t": 1.11,
+    "firstHalf": 1.03,
+    "secondHalf": 0.83,
+    "verdict": "no reliable edge"
+   },
+   "low": {
+    "n": 188,
+    "months": 48,
+    "avgExcess": -2.39,
+    "median": -3.36,
+    "winRate": 26,
+    "t": -1.74,
+    "firstHalf": -2.34,
+    "secondHalf": -2.44,
+    "verdict": "weak negative"
+   }
+  },
+  "dividendCaptureLate": {
+   "high": {
+    "n": 21,
+    "months": 17,
+    "avgExcess": 3.42,
+    "median": 1.98,
+    "winRate": 67,
+    "t": 2.28,
+    "firstHalf": 4.91,
+    "secondHalf": 2.68,
+    "verdict": "edge"
+   },
+   "mid": {
+    "n": 75,
+    "months": 37,
+    "avgExcess": -0.59,
+    "median": -0.48,
+    "winRate": 37,
+    "t": -0.1,
+    "firstHalf": 0.49,
+    "secondHalf": -1.48,
+    "verdict": "no reliable edge"
+   },
+   "low": {
+    "n": 181,
+    "months": 50,
+    "avgExcess": -2.3,
+    "median": -2.67,
+    "winRate": 27,
+    "t": -0.99,
+    "firstHalf": -3.03,
+    "secondHalf": -1.58,
+    "verdict": "no reliable edge"
+   }
+  },
+  "dividendRaise63": {
+   "n": 91,
+   "months": 41,
+   "avgExcess": 1.77,
+   "median": -0.13,
+   "winRate": 49,
+   "t": 0.91,
+   "firstHalf": 2.0,
+   "secondHalf": 1.48,
+   "verdict": "no reliable edge"
+  },
+  "dividendCut63": {
+   "n": 76,
+   "months": 37,
+   "avgExcess": -2.52,
+   "median": -4.27,
+   "winRate": 34,
+   "t": -1.16,
+   "firstHalf": -2.53,
+   "secondHalf": -2.51,
+   "verdict": "no reliable edge"
+  },
+  "dividendSame63": {
+   "n": 109,
+   "months": 43,
+   "avgExcess": -2.81,
+   "median": -3.76,
+   "winRate": 30,
+   "t": -2.18,
+   "firstHalf": -4.08,
+   "secondHalf": -1.92,
+   "verdict": "negative edge (avoid)"
+  },
+  "dividendConsideration21": {
+   "n": 424,
+   "months": 54,
+   "avgExcess": -1.99,
+   "median": -2.6,
+   "winRate": 33,
+   "t": -3.46,
+   "firstHalf": -2.07,
+   "secondHalf": -1.92,
+   "verdict": "negative edge (avoid)"
+  },
+  "split21": {
+   "n": 9,
+   "verdict": "too few cases to judge"
+  },
+  "split63": {
+   "n": 8,
+   "verdict": "too few cases to judge"
+  },
+  "raise63": {
+   "n": 16,
+   "months": 14,
+   "avgExcess": -14.51,
+   "median": -9.11,
+   "winRate": 19,
+   "t": -2.51,
+   "firstHalf": -15.84,
+   "secondHalf": null,
+   "verdict": "no reliable edge"
+  },
+  "takeover63": {
+   "n": 11,
+   "verdict": "too few cases to judge"
+  },
+  "dividendCut63_holding": {
+   "n": 76,
+   "months": 37,
+   "avgExcess": 0.48,
+   "median": -1.27,
+   "winRate": 46,
+   "t": 0.93,
+   "firstHalf": 0.47,
+   "secondHalf": 0.49,
+   "verdict": "no reliable edge"
+  },
+  "explain": "Parsed from the JSE\u2019s dividend, split, take-over and rights-issue notices since 2018. Dividend capture: buy at the close after the declaration, sell at the close on the ex-date, dividend included; yield bands high \u22653%, mid 1.5\u20133%, low <1.5% of the price. Raises/cuts compare the new dividend with the same payment a year earlier (\u00b110%, adjusted for share splits). All results after 1.5% costs each way, compared with the average JSE stock over the same days."
  }
 }
