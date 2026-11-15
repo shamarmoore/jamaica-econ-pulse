@@ -951,6 +951,14 @@ function sizingCard(F) {
 const POS_KEY = 'ep_positions_v1';
 let positions = (() => { try { const v = JSON.parse(localStorage.getItem(POS_KEY)); return Array.isArray(v) ? v : []; } catch (_) { return []; } })();
 let posDelArm = null;
+// Seed the position the owner holds, once, so it survives reinstalling the app. Removing it in the app keeps it removed.
+const SEED_KEY = 'ep_seed_tjh_2026_11';
+try {
+  if (!localStorage.getItem(SEED_KEY)) {
+    if (!positions.some((p) => p.sym === 'TJH' && !p.exit)) positions.push({ id: 'TJH-seed-2026-11', sym: 'TJH', date: '2026-11-13', price: 10.1, shares: 2475, fees: '', divs: 0, note: 'J$25,000 at J$10.10', entry: null });
+    localStorage.setItem(POS_KEY, JSON.stringify(positions)); localStorage.setItem(SEED_KEY, '1');
+  }
+} catch (_) { /* storage blocked */ }
 function savePos() { try { localStorage.setItem(POS_KEY, JSON.stringify(positions)); } catch (_) { /* storage full */ } syncAlerts(); }
 // give the phone's background check the open positions' symbols and review dates (never sizes or prices)
 function syncAlerts() { return alertsSync(ghToken.get(), FORECAST_REPO, positions.filter((p) => !p.exit).map((p) => ({ id: p.id, sym: p.sym, review: addDays(p.reviewed || p.date, 91) }))); }
