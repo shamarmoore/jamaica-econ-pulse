@@ -52,6 +52,8 @@ jobs:
         run: |
           python scripts/insiders.py || echo "announcement feed skipped"
           python scripts/idea_tests.py > /dev/null && echo "ideas ok" || echo "idea tests skipped"
+      - name: Edge v2 study (walk-forward, realistic fills) + test registry
+        run: python scripts/edge_v2.py > /dev/null && echo "edge v2 ok" || echo "edge v2 study skipped"
       - name: Forecast every stock
         run: if [ -f scripts/forecast.py ]; then python scripts/forecast.py; fi
       - name: Save

@@ -123,6 +123,13 @@ try:
     print('TRACK', json.dumps({k: out['track'][k] for k in ('since', 'daysLogged', 'soFar', 'completed', 'firstFullResult')}))
 except Exception as e:
     print('track record skipped:', repr(e)[:200])
+# ---- Edge v2: walk-forward, theme-weighted, cost-aware ranking next to the original Edge (scripts/edge_v2.py) ----
+try:
+    import factor_study as fs5, edge_v2
+    edge_v2.today(out, fs5)
+    print('EDGE V2', [k for _, k in sorted((v['edge2']['rank'], k) for k, v in out['stocks'].items() if (v.get('edge2') or {}).get('rank'))[:10]])
+except Exception as e:
+    print('edge v2 skipped:', repr(e)[:200])
 # ---- actionable corporate events (dividends, splits, take-overs, rights issues, suspensions) ----
 try:
     import events as evm
