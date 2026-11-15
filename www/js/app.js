@@ -6,7 +6,8 @@ import { EXPLAIN } from './explain.js';
 import { fredKey, ghToken, FORECAST_REPO } from './sources.js';
 import { MODELS, jacarsLinks } from './cars.js';
 import { quotesOn, rankStocks, TV_SYMBOLS, tvUrl, GLOBAL_TAGS, targetOdds, fcAt, fcChange, hypeLabel, calibrate } from './markets.js';
-import { fmt, signed, last, changeOver, yoySeries } from './util.js';
+import { fmt, signed, last, changeOver, yoySeries, esc, fd } from './util.js';
+import { edge2Card, edge2Block } from './edge2.js';
 import { alerts, alertPrefs, ALERT_KINDS, alertsSync, alertsStatus, alertsPermission, alertsCheckNow, alertsTest } from './alerts.js';
 import { nano, nanoCheck, nanoDownload, nanoAsk, nanoCached, nanoForget, nanoLabel, nanoUsed, nanoSetMode, MODEL_NAME, aiReady, aiLabel, cloud, PROVIDERS, cloudTest, willUseCloud, explainPrompt, newsPrompt, digestPrompt, planPrompt } from './nano.js';
 
@@ -27,7 +28,6 @@ function recordHistory() {
   try { localStorage.setItem(HIST, JSON.stringify(hist)); } catch (_) { /* ignore */ }
 }
 const $ = (s) => document.querySelector(s);
-const esc = (s) => String(s ?? '').replace(/[&<>"]/g, (c) => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;' }[c]));
 
 let cache = {};
 try { cache = JSON.parse(localStorage.getItem(KEY)) || {}; } catch (_) { cache = {}; }
@@ -83,8 +83,6 @@ function status() {
     : 'No data yet — tap refresh';
 }
 
-const MON = ['Jan','Feb','Mar','Apr','May','Jun','Jul','Aug','Sep','Oct','Nov','Dec'];
-function fd(iso, day = true) { if (!iso || !/^\d{4}-\d{2}-\d{2}/.test(iso)) return iso || ''; const [y, m, d] = iso.split('-'); return `${day ? `${+d} ` : ''}${MON[+m - 1]} ${y}`; }
 
 function ago(d) {
   const m = Math.round((Date.now() - d) / 60000);
@@ -658,15 +656,16 @@ async function jseBackfill() {
   }
   jseFill.running = false; jseFill.msg = ''; if (tab === 'decide' && sub === 'trade') bgRender();
 }
-const JSE_SORTS = [['up', 'Chance up'], ['edge', 'Edge score'], ['val', 'Below fair value'], ['fc', '3-mo forecast'], ['health', 'Financial health'], ['hype', 'Speculation'], ['m6', '6-month trend'], ['m3', '3-month'], ['m12', '12-month'], ['offHigh', 'Near 52-wk high'], ['chg', 'Today'], ['vol', 'Most traded'], ['az', 'A–Z']];
+const JSE_SORTS = [['up', 'Chance up'], ['edge', 'Edge score'], ['edge2', 'Edge v2'], ['val', 'Below fair value'], ['fc', '3-mo forecast'], ['health', 'Financial health'], ['hype', 'Speculation'], ['m6', '6-month trend'], ['m3', '3-month'], ['m12', '12-month'], ['offHigh', 'Near 52-wk high'], ['chg', 'Today'], ['vol', 'Most traded'], ['az', 'A–Z']];
 let jseSort = 'edge'; let jseQuery = ''; let jseAll = false;
 const dark = () => matchMedia('(prefers-color-scheme: dark)').matches;
 function jseRows(d) {
   const L = d.jsequotes; const r = rankStocks(L, jseHist);
   let key = jseSort === 'm6' && !r.dates?.d6 ? (r.dates?.d3 ? 'm3' : 'offHigh') : jseSort;
+  if (key === 'edge2' && !d.forecasts?.edge2Info) key = 'edge';
   if (['fc', 'hype', 'health', 'edge', 'up', 'val'].includes(key) && !d.forecasts?.edgeInfo) key = r.dates?.d6 ? 'm6' : 'offHigh';
   const F = d.forecasts;
-  let rows = (r.all || []).map((x) => ({ ...x, fc: fcChange(F, x.sym), hype: F?.stocks?.[x.sym]?.hype?.score ?? null, health: F?.stocks?.[x.sym]?.health?.score ?? null, edge: F?.stocks?.[x.sym]?.edge?.score ?? null, up: F?.stocks?.[x.sym]?.chanceUp ?? null, val: (() => { const iv = F?.stocks?.[x.sym]?.signals?.intrinsic; return iv && !iv.thin && iv.peerPe != null ? iv.mos ?? null : null; })() }));
+  let rows = (r.all || []).map((x) => ({ ...x, fc: fcChange(F, x.sym), hype: F?.stocks?.[x.sym]?.hype?.score ?? null, health: F?.stocks?.[x.sym]?.health?.score ?? null, edge: F?.stocks?.[x.sym]?.edge?.score ?? null, edge2: F?.stocks?.[x.sym]?.edge2?.net ?? null, up: F?.stocks?.[x.sym]?.chanceUp ?? null, val: (() => { const iv = F?.stocks?.[x.sym]?.signals?.intrinsic; return iv && !iv.thin && iv.peerPe != null ? iv.mos ?? null : null; })() }));
   if (jseQuery) rows = rows.filter((x) => x.sym.includes(jseQuery.toUpperCase()));
   if (key === 'az') rows.sort((a, b) => a.sym.localeCompare(b.sym));
   else rows.sort((a, b) => ((b[key] ?? -1e9) - (a[key] ?? -1e9)));
@@ -680,7 +679,7 @@ function viewTrade(d) {
   const all = r.all || []; const up = all.filter((x) => x.chg > 0).length; const dn = all.filter((x) => x.chg < 0).length;
   const leaders = (r.rows || []).filter((x) => x.vol > 0).slice(0, 3).map((x) => x.sym);
   const shown = jseAll || jseQuery ? rows : rows.slice(0, 20);
-  const extra = key === 'health' ? [['health', 'Health']] : key === 'hype' ? [['hype', 'Spec.']] : key === 'up' ? [['up', 'Chance up'], ['edge', 'Edge']] : key === 'val' ? [['val', 'To fair value'], ['edge', 'Edge']] : [['edge', 'Edge']];
+  const extra = key === 'health' ? [['health', 'Health']] : key === 'hype' ? [['hype', 'Spec.']] : key === 'up' ? [['up', 'Chance up'], ['edge', 'Edge']] : key === 'val' ? [['val', 'To fair value'], ['edge', 'Edge']] : key === 'edge2' ? [['edge2', 'v2 net'], ['edge', 'Edge']] : [['edge', 'Edge']];
   const cols = [...extra, ...(F ? [['fc', 'Fcst 3m']] : []), ['m6', '6m'], ['m12', '12m'], ['offHigh', 'vs high']].filter(([k]) => k === 'edge' || k === 'up' || rows.some((x) => x[k] != null)).slice(0, 4);
   const cell = (x, k) => (k === 'up' ? (x.up == null ? '—' : `<b class="${x.up >= 52 ? 'good' : x.up >= 42 ? 'ok' : 'bad'}">${x.up}%</b>`) : ['health', 'hype', 'edge'].includes(k) ? (x[k] == null ? '—' : `<b class="${k === 'hype' ? hypeLabel(x[k])[1] : HEALTH_LABEL(x[k])[1]}">${x[k]}</b>`) : pct(x[k]));
   return `<section class="hero-b"><div class="gname">JSE stocks · ${L ? fd(L.date) : '—'}</div>
@@ -707,6 +706,7 @@ function viewTrade(d) {
     <p class="fine">Trend columns compare today’s close with saved closes (prices exclude dividends). In the latest tests (Mar 2023–Nov 2026, dividends included, buying the next day), 3- and 6-month trends on their own gave no reliable edge; being near the 52-week high and a positive 12-month trend helped a little and are part of the Edge score. ⚠ = more than 35% below its 52-week high. Thinly traded stocks can be hard to buy at the quoted close. Research shortlist, not advice.</p>`}
     ${asymCard(F)}
     ${trackCard(F)}
+    ${edge2Card(F, new Set(positions.filter((p) => !p.exit).map((p) => p.sym)))}
     ${regimeCard(F)}
     ${sizingCard(F)}
     ${F?.ideas ? '<button class="more" id="ideas-btn">Every idea we tested — results & explanations ›</button>' : ''}
@@ -761,6 +761,7 @@ function stockSheet(sym) {
     ${x.offHigh != null && x.offHigh < -35 ? '<p class="fine bad">⚠ More than 35% below its 52-week high — stocks like this kept lagging in our tests.</p>' : ''}
     ${!x.vol ? '<p class="fine">No shares traded on this day — the quoted price may be stale and hard to buy or sell at.</p>' : ''}
     ${edgeBlock(d.forecasts, sym)}
+    ${edge2Block(d.forecasts, sym)}
     ${oddsBlock(d.forecasts, sym)}
     ${signalsBlock(d.forecasts, sym)}
     ${bsBlock(d.forecasts, sym)}
@@ -992,6 +993,7 @@ function posFlags(p, F) {
   if (s?.signals?.results?.kind === 'weak') out.push(['bad', 'Weak results', `Profit fell ${Math.abs(s.signals.results.yoy)}% on the year. After weak results, stocks trailed the market by ${ptsTxt(W?.avgExcess)} over 3 months (after costs). The strongest sell signal we found.`]);
   if (s?.edge && s.edge.rank > 20) out.push(['warn', `Edge rank #${s.edge.rank}`, `Out of the Edge top 20${p.entry?.rank ? ` (was #${p.entry.rank} when you bought)` : ''}. The tested rule keeps a holding only while it stays in the top 20, checked every 3 months${K ? ` — that rule returned ${ptsTxt(K.annReturn, '%/yr')} after costs` : ''}.`]);
   else if (s?.edge) out.push(['good', `Edge rank #${s.edge.rank}`, `Still in the Edge top 20${p.entry?.rank ? ` (was #${p.entry.rank})` : ''} — the tested rule says keep it at the next review.`]);
+  if (s?.edge2?.rank) out.push([s.edge2.rank <= 20 ? 'good' : 'warn', `Edge v2 #${s.edge2.rank}`, `Edge v2 ranks it #${s.edge2.rank} of ${s.edge2.of} after trading costs: expected ${signed(s.edge2.exp, 1)} vs the market over 3 months, minus ${fmt(s.edge2.cost, 1)}% cost = ${signed(s.edge2.net, 1)}.`]);
   if (s?.hype?.score >= 55) out.push(['warn', '⚡ Speculative trading', 'Trading pattern looks speculative — big swings both ways. Size it small.']);
   const due = daysBetween(isoToday(), addDays(p.reviewed || p.date, 91));
   out.push([due <= 0 ? 'warn' : 'ok', due <= 0 ? '3-month review due' : `Review in ${due} days`, 'Every test held for 3 months, then re-picked. At the review: keep if still in the Edge top 20 and no weak results; otherwise sell. Selling in the last 3 trading days of a month has caught the month-end lift.']);

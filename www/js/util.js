@@ -146,6 +146,9 @@ export function yoySeries(series) {
   return out;
 }
 
+export const esc = (s) => String(s ?? '').replace(/[&<>"]/g, (c) => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;' }[c]));
+const MON = ['Jan','Feb','Mar','Apr','May','Jun','Jul','Aug','Sep','Oct','Nov','Dec'];
+export function fd(iso, day = true) { if (!iso || !/^\d{4}-\d{2}-\d{2}/.test(iso)) return iso || ''; const [y, m, d] = iso.split('-'); return `${day ? `${+d} ` : ''}${MON[+m - 1]} ${y}`; }
 export function fmt(v, d = 1) {
   if (v == null || Number.isNaN(v)) return '—';
   return Number(v).toLocaleString('en-US', { minimumFractionDigits: d, maximumFractionDigits: d });
