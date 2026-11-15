@@ -41,6 +41,16 @@ A loan-rates outlook for the next 3–6 months (inflation vs target, real policy
 ## How the readings work
 `www/js/analysis.js` holds about 25 transparent rules plus the borrowing outlook. Each one takes a live number, decides whether it signals **pressure**, **watch**, **relief** or **steady**, and states the transmission channel into Jamaica (for example: oil → import bill → current account → JMD → electricity and transport costs → CPI). The signals add up into four gauges: inflation pressure, growth momentum, external pressure and shock risk. To change a threshold, edit that file and push.
 
+## Stock picks: Edge and Edge v2
+The Trade section ranks JSE stocks two ways. Both are made nightly by `.github/workflows/forecast.yml` and saved in `data/forecasts.json`.
+
+- **Edge** (`scripts/factor_study.py`) adds up the signals that ranked stocks well in the first half of the price history, with equal weights.
+- **Edge v2** (`scripts/edge_v2.py`) runs next to Edge and does not replace it. It groups signals into themes, refits their signs and weights every quarter from data whose outcome was already known, measures pullbacks on the bid/ask midpoint, adds the Timestral forecast and company announcements, and ranks by expected 3-month excess return minus the stock's quoted spread and fees.
+
+Both are back-tested with realistic fills: buy at the closing ask, sell at the closing bid, 0.5% fees each way, dividends included. `data/edge_v2.json` holds the v2 model, the v1 vs v2 comparison and one back-test per upgrade switched off. Each night's top 10 is logged (`data/picks_log.json`, `data/picks_log_v2.json`) and scored as it plays out.
+
+`scripts/test_registry.py` keeps every test ever run in `data/test_registry.json` and judges each by a stricter bar: overlap-adjusted |t| of at least 3, the same sign in both halves, and at least 30 cases.
+
 ## Building
 Every push to `main` runs `.github/workflows/build.yml`:
 1. **Check data sources** runs every scraper against the live sites and posts a pass/fail table in the run summary. It also runs every Monday, so if a site changes its layout you'll see a red row.
