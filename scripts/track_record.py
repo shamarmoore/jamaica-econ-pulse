@@ -15,29 +15,29 @@ HOLD = 63
 COST = 0.015
 
 
-def _load():
+def _load(log=LOG):
     try:
-        return json.load(open(LOG))
+        return json.load(open(log))
     except Exception:
         return {'days': {}}
 
 
-def _top(stocks, n=10):
-    r = sorted(((v['edge']['rank'], k, v['edge']['score'], v.get('close')) for k, v in stocks.items() if v.get('edge') and not v.get('pref')))
+def _top(stocks, n=10, key='edge'):
+    r = sorted(((v[key]['rank'], k, v[key]['score'], v.get('close')) for k, v in stocks.items() if (v.get(key) or {}).get('rank') and not v.get('pref')))
     return [[k, s, c] for _, k, s, c in r[:n]]
 
 
-def log_today(out):
-    L = _load()
-    top = _top(out.get('stocks', {}))
+def log_today(out, key='edge', log=LOG):
+    L = _load(log)
+    top = _top(out.get('stocks', {}), key=key)
     if top and out.get('asof'):
         L['days'][out['asof']] = top
-        json.dump(L, open(LOG, 'w'), separators=(',', ':'))
+        json.dump(L, open(log, 'w'), separators=(',', ':'))
     return L
 
 
-def update(out, fs):
-    L = log_today(out)
+def update(out, fs, key='edge', log=LOG):
+    L = log_today(out, key, log)
     idx, TRI, P, V = fs.idx, fs.TRI, fs.P, fs.V
     N = len(idx)
     univ = ((V > 0).rolling(60).mean() >= 0.2) & (P > 0)
