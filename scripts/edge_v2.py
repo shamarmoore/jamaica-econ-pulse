@@ -175,7 +175,8 @@ def themes_for(variant):
 
 def _ic(x, y):
     m = x.notna() & y.notna()
-    if m.sum() < 15 or x[m].nunique() < 2 or x[m].value_counts().iloc[-1] < 3:
+    vc = x[m].value_counts()
+    if m.sum() < 15 or len(vc) < 2 or m.sum() - vc.iloc[0] < 3:   # a yes/no flag needs at least 3 stocks off the common value
         return np.nan
     return spearmanr(x[m], y[m]).correlation
 
