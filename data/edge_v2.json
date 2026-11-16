@@ -1,0 +1,629 @@
+{
+ "made": "2026-11-13",
+ "hold": 63,
+ "fee": 0.005,
+ "step": 21,
+ "selectT": 2.0,
+ "basis": "buy at the closing ask, sell at the closing bid, 0.5% fees each side, dividends included, top 10 held 3 months",
+ "v1Split": "2024-09-19",
+ "model": {
+  "signs": {
+   "mom12_1": 1,
+   "hi52": 1,
+   "ey": 1,
+   "dy": 1,
+   "iv_ddm": 1,
+   "iv_epv": 1,
+   "growth": 1,
+   "q_yoy": 1,
+   "fresh_beat": 1,
+   "no_weak_results": 1,
+   "stable": 1,
+   "noloss": 1,
+   "divpayer": 1,
+   "lowvol": 1,
+   "lottery": 1,
+   "bs_roe": 1,
+   "bs_cashq": -1,
+   "bs_margin": 1,
+   "small": -1,
+   "turnover": 1,
+   "turn_surge": 1,
+   "volsurge": 1,
+   "illiq": -1,
+   "div_notice": 1,
+   "share_issue": -1,
+   "fcast": 1
+  },
+  "weights": {
+   "trend": 0.14,
+   "value": 0.1663,
+   "earnings": 0.1535,
+   "quality": 0.1645,
+   "trading": 0.1346,
+   "events": 0.1096,
+   "forecast": 0.1316
+  },
+  "slope": 0.1007,
+  "buckets": [
+   [
+    0,
+    20,
+    -4.06
+   ],
+   [
+    20,
+    40,
+    -1.94
+   ],
+   [
+    40,
+    60,
+    0.48
+   ],
+   [
+    60,
+    80,
+    1.31
+   ],
+   [
+    80,
+    100,
+    4.04
+   ]
+  ],
+  "stats": {
+   "mom63": {
+    "ic": 0.01,
+    "t": 0.3,
+    "n": 44
+   },
+   "mom126": {
+    "ic": 0.05,
+    "t": 1.6,
+    "n": 44
+   },
+   "mom12_1": {
+    "ic": 0.109,
+    "t": 3.33,
+    "n": 44
+   },
+   "hi52": {
+    "ic": 0.107,
+    "t": 2.9,
+    "n": 44
+   },
+   "rev5m": {
+    "ic": 0.041,
+    "t": 1.61,
+    "n": 44
+   },
+   "rev21m": {
+    "ic": -0.021,
+    "t": -0.71,
+    "n": 44
+   },
+   "bbm": {
+    "ic": 0.015,
+    "t": 0.59,
+    "n": 44
+   },
+   "ey": {
+    "ic": 0.147,
+    "t": 5.45,
+    "n": 44
+   },
+   "dy": {
+    "ic": 0.137,
+    "t": 5.15,
+    "n": 44
+   },
+   "iv_ddm": {
+    "ic": 0.17,
+    "t": 5.95,
+    "n": 44
+   },
+   "iv_epv": {
+    "ic": 0.078,
+    "t": 2.42,
+    "n": 44
+   },
+   "bs_bp": {
+    "ic": 0.018,
+    "t": 0.39,
+    "n": 20
+   },
+   "bs_fcfy": {
+    "ic": 0.002,
+    "t": 0.03,
+    "n": 20
+   },
+   "bs_ocfy": {
+    "ic": 0.032,
+    "t": 0.71,
+    "n": 20
+   },
+   "growth": {
+    "ic": 0.108,
+    "t": 3.49,
+    "n": 44
+   },
+   "q_yoy": {
+    "ic": 0.137,
+    "t": 6.3,
+    "n": 44
+   },
+   "accel": {
+    "ic": 0.044,
+    "t": 1.42,
+    "n": 44
+   },
+   "fresh_beat": {
+    "ic": 0.165,
+    "t": 3.02,
+    "n": 24
+   },
+   "no_weak_results": {
+    "ic": 0.103,
+    "t": 4.5,
+    "n": 44
+   },
+   "stable": {
+    "ic": 0.124,
+    "t": 4.25,
+    "n": 44
+   },
+   "noloss": {
+    "ic": 0.148,
+    "t": 4.94,
+    "n": 44
+   },
+   "divpayer": {
+    "ic": 0.128,
+    "t": 5.19,
+    "n": 44
+   },
+   "lowvol": {
+    "ic": 0.088,
+    "t": 2.36,
+    "n": 44
+   },
+   "lottery": {
+    "ic": 0.074,
+    "t": 2.5,
+    "n": 44
+   },
+   "bs_roe": {
+    "ic": 0.179,
+    "t": 4.49,
+    "n": 20
+   },
+   "bs_lowdebt": {
+    "ic": 0.024,
+    "t": 0.68,
+    "n": 20
+   },
+   "bs_netcash": {
+    "ic": 0.042,
+    "t": 0.8,
+    "n": 20
+   },
+   "bs_cashq": {
+    "ic": -0.09,
+    "t": -2.24,
+    "n": 20
+   },
+   "bs_margin": {
+    "ic": 0.2,
+    "t": 4.33,
+    "n": 20
+   },
+   "bs_eq_assets": {
+    "ic": 0.023,
+    "t": 0.5,
+    "n": 20
+   },
+   "small": {
+    "ic": -0.097,
+    "t": -2.88,
+    "n": 44
+   },
+   "turnover": {
+    "ic": 0.058,
+    "t": 2.11,
+    "n": 44
+   },
+   "turn_surge": {
+    "ic": 0.055,
+    "t": 2.14,
+    "n": 44
+   },
+   "volsurge": {
+    "ic": 0.05,
+    "t": 2.15,
+    "n": 44
+   },
+   "illiq": {
+    "ic": -0.084,
+    "t": -2.3,
+    "n": 44
+   },
+   "div_chg": {
+    "ic": 0.062,
+    "t": 0.74,
+    "n": 29
+   },
+   "div_notice": {
+    "ic": 0.048,
+    "t": 2.11,
+    "n": 40
+   },
+   "share_issue": {
+    "ic": -0.125,
+    "t": -2.92,
+    "n": 11
+   },
+   "insider_net": {
+    "ic": -0.001,
+    "t": -0.03,
+    "n": 44
+   },
+   "fcast": {
+    "ic": 0.102,
+    "t": 3.88,
+    "n": 44
+   }
+  },
+  "trainDates": 44
+ },
+ "themes": {
+  "trend": [
+   "mom63",
+   "mom126",
+   "mom12_1",
+   "hi52"
+  ],
+  "pullback": [
+   "rev5m",
+   "rev21m",
+   "bbm"
+  ],
+  "value": [
+   "ey",
+   "dy",
+   "iv_ddm",
+   "iv_epv",
+   "bs_bp",
+   "bs_fcfy",
+   "bs_ocfy"
+  ],
+  "earnings": [
+   "growth",
+   "q_yoy",
+   "accel",
+   "fresh_beat",
+   "no_weak_results"
+  ],
+  "quality": [
+   "stable",
+   "noloss",
+   "divpayer",
+   "lowvol",
+   "lottery",
+   "bs_roe",
+   "bs_lowdebt",
+   "bs_netcash",
+   "bs_cashq",
+   "bs_margin",
+   "bs_eq_assets"
+  ],
+  "trading": [
+   "small",
+   "turnover",
+   "turn_surge",
+   "volsurge",
+   "illiq"
+  ],
+  "events": [
+   "div_chg",
+   "div_notice",
+   "share_issue",
+   "insider_net"
+  ],
+  "forecast": [
+   "fcast"
+  ]
+ },
+ "results": {
+  "v1": {
+   "close": {
+    "from": "2024-10-14",
+    "to": "2026-07-21",
+    "periods": 7,
+    "annNet": 19.3,
+    "annMarket": -3.4,
+    "avgExcess": 5.36,
+    "beatPct": 86,
+    "t": 2.77,
+    "firstHalf": 4.6,
+    "secondHalf": 6.12,
+    "worstPeriod": -5.3
+   },
+   "honest": {
+    "from": "2024-10-14",
+    "to": "2026-07-21",
+    "periods": 7,
+    "annNet": 12.6,
+    "annMarket": -3.2,
+    "avgExcess": 3.86,
+    "beatPct": 86,
+    "t": 2.01,
+    "firstHalf": 3.13,
+    "secondHalf": 4.52,
+    "worstPeriod": -5.6
+   },
+   "honestSkipDay": {
+    "from": "2024-10-14",
+    "to": "2026-07-21",
+    "periods": 7,
+    "annNet": 14.5,
+    "annMarket": -3.2,
+    "avgExcess": 4.22,
+    "beatPct": 82,
+    "t": 2.16,
+    "firstHalf": 2.92,
+    "secondHalf": 5.51,
+    "worstPeriod": -5.4
+   },
+   "since2026": {
+    "from": "2026-01-21",
+    "to": "2026-07-21",
+    "periods": 2,
+    "annNet": 29.0,
+    "annMarket": -0.5,
+    "avgExcess": 5.47,
+    "beatPct": 83,
+    "t": 1.09,
+    "firstHalf": 7.95,
+    "secondHalf": 3.0,
+    "worstPeriod": 0.4
+   }
+  },
+  "full": {
+   "walk": {
+    "from": "2024-03-13",
+    "to": "2026-07-21",
+    "periods": 9,
+    "annNet": 14.1,
+    "annMarket": -1.7,
+    "avgExcess": 3.89,
+    "beatPct": 82,
+    "t": 2.13,
+    "firstHalf": 3.06,
+    "secondHalf": 4.73,
+    "worstPeriod": -5.6
+   },
+   "common": {
+    "from": "2024-10-14",
+    "to": "2026-07-21",
+    "periods": 7,
+    "annNet": 15.2,
+    "annMarket": -3.2,
+    "avgExcess": 4.5,
+    "beatPct": 90,
+    "t": 2.07,
+    "firstHalf": 3.33,
+    "secondHalf": 5.57,
+    "worstPeriod": -5.6
+   },
+   "honestSkipDay": {
+    "from": "2024-10-14",
+    "to": "2026-07-21",
+    "periods": 7,
+    "annNet": 18.2,
+    "annMarket": -3.2,
+    "avgExcess": 5.13,
+    "beatPct": 82,
+    "t": 2.24,
+    "firstHalf": 3.02,
+    "secondHalf": 7.24,
+    "worstPeriod": -6.3
+   },
+   "top5": {
+    "from": "2024-10-14",
+    "to": "2026-07-21",
+    "periods": 7,
+    "annNet": 25.7,
+    "annMarket": -3.2,
+    "avgExcess": 6.61,
+    "beatPct": 90,
+    "t": 2.56,
+    "firstHalf": 5.76,
+    "secondHalf": 7.38,
+    "worstPeriod": -5.9
+   },
+   "since2026": {
+    "from": "2026-01-21",
+    "to": "2026-07-21",
+    "periods": 2,
+    "annNet": 38.3,
+    "annMarket": -0.5,
+    "avgExcess": 8.01,
+    "beatPct": 83,
+    "t": 1.25,
+    "firstHalf": 10.55,
+    "secondHalf": 5.47,
+    "worstPeriod": 2.1
+   }
+  },
+  "no_forecast": {
+   "walk": {
+    "from": "2024-03-13",
+    "to": "2026-07-21",
+    "periods": 9,
+    "annNet": 11.8,
+    "annMarket": -1.7,
+    "avgExcess": 3.34,
+    "beatPct": 82,
+    "t": 1.94,
+    "firstHalf": 2.47,
+    "secondHalf": 4.21,
+    "worstPeriod": -6.3
+   },
+   "common": {
+    "from": "2024-10-14",
+    "to": "2026-07-21",
+    "periods": 7,
+    "annNet": 12.7,
+    "annMarket": -3.2,
+    "avgExcess": 3.86,
+    "beatPct": 90,
+    "t": 1.92,
+    "firstHalf": 2.65,
+    "secondHalf": 4.97,
+    "worstPeriod": -5.9
+   }
+  },
+  "no_events": {
+   "walk": {
+    "from": "2024-03-13",
+    "to": "2026-07-21",
+    "periods": 9,
+    "annNet": 13.7,
+    "annMarket": -1.7,
+    "avgExcess": 3.81,
+    "beatPct": 82,
+    "t": 2.05,
+    "firstHalf": 3.06,
+    "secondHalf": 4.55,
+    "worstPeriod": -5.6
+   },
+   "common": {
+    "from": "2024-10-14",
+    "to": "2026-07-21",
+    "periods": 7,
+    "annNet": 14.6,
+    "annMarket": -3.2,
+    "avgExcess": 4.39,
+    "beatPct": 90,
+    "t": 1.97,
+    "firstHalf": 3.33,
+    "secondHalf": 5.35,
+    "worstPeriod": -5.6
+   }
+  },
+  "no_spread": {
+   "walk": {
+    "from": "2024-03-13",
+    "to": "2026-07-21",
+    "periods": 9,
+    "annNet": 13.2,
+    "annMarket": -1.7,
+    "avgExcess": 3.72,
+    "beatPct": 79,
+    "t": 2.11,
+    "firstHalf": 3.86,
+    "secondHalf": 3.58,
+    "worstPeriod": -5.2
+   },
+   "common": {
+    "from": "2024-10-14",
+    "to": "2026-07-21",
+    "periods": 7,
+    "annNet": 14.0,
+    "annMarket": -3.2,
+    "avgExcess": 4.25,
+    "beatPct": 81,
+    "t": 1.96,
+    "firstHalf": 4.0,
+    "secondHalf": 4.47,
+    "worstPeriod": -3.8
+   }
+  },
+  "last_trade_pullback": {
+   "walk": {
+    "from": "2024-03-13",
+    "to": "2026-07-21",
+    "periods": 9,
+    "annNet": 11.4,
+    "annMarket": -1.7,
+    "avgExcess": 3.25,
+    "beatPct": 79,
+    "t": 2.18,
+    "firstHalf": 3.56,
+    "secondHalf": 2.94,
+    "worstPeriod": -4.4
+   },
+   "common": {
+    "from": "2024-10-14",
+    "to": "2026-07-21",
+    "periods": 7,
+    "annNet": 10.9,
+    "annMarket": -3.2,
+    "avgExcess": 3.47,
+    "beatPct": 81,
+    "t": 2.02,
+    "firstHalf": 3.37,
+    "secondHalf": 3.57,
+    "worstPeriod": -4.4
+   }
+  },
+  "equal_theme_weights": {
+   "walk": {
+    "from": "2024-03-13",
+    "to": "2026-07-21",
+    "periods": 9,
+    "annNet": 13.9,
+    "annMarket": -1.7,
+    "avgExcess": 3.83,
+    "beatPct": 82,
+    "t": 2.12,
+    "firstHalf": 3.23,
+    "secondHalf": 4.43,
+    "worstPeriod": -5.6
+   },
+   "common": {
+    "from": "2024-10-14",
+    "to": "2026-07-21",
+    "periods": 7,
+    "annNet": 15.3,
+    "annMarket": -3.2,
+    "avgExcess": 4.49,
+    "beatPct": 90,
+    "t": 2.12,
+    "firstHalf": 3.57,
+    "secondHalf": 5.33,
+    "worstPeriod": -5.6
+   }
+  },
+  "flat_v1_signals": {
+   "walk": {
+    "from": "2024-03-13",
+    "to": "2026-07-21",
+    "periods": 9,
+    "annNet": 14.3,
+    "annMarket": -1.7,
+    "avgExcess": 3.9,
+    "beatPct": 86,
+    "t": 2.26,
+    "firstHalf": 2.85,
+    "secondHalf": 4.95,
+    "worstPeriod": -6.8
+   },
+   "common": {
+    "from": "2024-10-14",
+    "to": "2026-07-21",
+    "periods": 7,
+    "annNet": 15.0,
+    "annMarket": -3.2,
+    "avgExcess": 4.37,
+    "beatPct": 90,
+    "t": 2.21,
+    "firstHalf": 2.99,
+    "secondHalf": 5.63,
+    "worstPeriod": -6.5
+   }
+  }
+ },
+ "forecastOrigins": 1071
+}
