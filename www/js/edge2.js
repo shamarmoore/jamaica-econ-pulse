@@ -22,6 +22,8 @@ function compareRows(C) {
     ['Edge v2 top 5, realistic fills', C.v2Top5],
     ['Edge v1, buying a day later', C.v1SkipDay],
     ['Edge v2, buying a day later', C.v2SkipDay],
+    ['Edge v1, only buys made in 2026', C.v1Since2026],
+    ['Edge v2, only buys made in 2026 (no forecast history yet)', C.v2Since2026],
   ].filter(([, r]) => r);
   return `<div class="tblwrap"><table class="yt"><thead><tr><th>Back-test</th><th>Per year</th><th>Market</th><th>Beat it</th></tr></thead><tbody>
     ${rows.map(([l, r]) => `<tr><td>${l}</td><td>${pctCell(r.annNet)}</td><td>${signed(r.annMarket, 1)}</td><td>${r.beatPct}%</td></tr>`).join('')}

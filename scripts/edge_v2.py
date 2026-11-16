@@ -341,9 +341,11 @@ def study():
     idx = fs.idx
     v1 = json.load(open('data/factor_study.json', encoding='utf-8'))
     split = idx.get_loc(pd.Timestamp(v1['h63']['split']))
+    y26 = int(idx.searchsorted(pd.Timestamp('2026-01-01')))   # no design choice looked at 2026; reported on its own
     r1 = v1_ranks(df, Z, v1['h63']['chosen'])
+    s1 = simulate(D, df, r1)
     res = {'v1': {'close': summary(simulate(D, df, r1, honest=False, fee=0.01), idx, split),
-                  'honest': summary(simulate(D, df, r1), idx, split), 'honestSkipDay': summary(simulate(D, df, r1, lag=1), idx, split)}}
+                  'honest': summary(s1, idx, split), 'honestSkipDay': summary(simulate(D, df, r1, lag=1), idx, split), 'since2026': summary(s1, idx, y26)}}
     for name in VARIANTS:
         rk = walk(df, Z, name)
         sim = simulate(D, df, rk)
@@ -351,6 +353,7 @@ def study():
         if name == 'full':
             res[name]['honestSkipDay'] = summary(simulate(D, df, rk, lag=1), idx, split)
             res[name]['top5'] = summary(simulate(D, df, rk, top=5), idx, split)
+            res[name]['since2026'] = summary(sim, idx, y26)
         print(name, json.dumps(res[name]))
     print('v1', json.dumps(res['v1']))
     known = df.t + 1 + HOLD + 1 <= fs.N - 1
@@ -400,7 +403,8 @@ def today(out, fs):
                    for th, ks in THEMES.items()},
         'calib': model['buckets'], 'slope': model['slope'],
         'compare': {'v1Close': R['v1']['close'], 'v1': R['v1']['honest'], 'v2': R['full']['common'], 'v2Walk': R['full']['walk'],
-                    'v1SkipDay': R['v1']['honestSkipDay'], 'v2SkipDay': R['full'].get('honestSkipDay'), 'v2Top5': R['full'].get('top5')},
+                    'v1SkipDay': R['v1']['honestSkipDay'], 'v2SkipDay': R['full'].get('honestSkipDay'), 'v2Top5': R['full'].get('top5'),
+                    'v1Since2026': R['v1'].get('since2026'), 'v2Since2026': R['full'].get('since2026')},
         'ablations': {k: R[k]['common'] for k in VARIANTS if k != 'full' and k in R},
         'registry': reg,
     }
