@@ -43,6 +43,13 @@ jobs:
         run: |
           if [ -n "$TOK" ]; then printf "export const BUILT_IN_GH_TOKEN = '%s';\n" "$TOK" > www/js/config.js; echo "token built in"; else echo "no FORECAST_TOKEN secret — app will use the token entered in Sources"; fi
       - run: npx cap sync android
+      - name: Branch builds install next to the regular app (own app id and name)
+        if: github.ref_name != 'main'
+        run: |
+          sed -i 's/applicationId "com.econpulse.jamaica"/applicationId "com.econpulse.jamaica.test"/' android/app/build.gradle
+          sed -i 's#>JA Econ Pulse<#>JA Econ Pulse TEST<#g' android/app/src/main/res/values/strings.xml
+          grep -q 'com.econpulse.jamaica.test' android/app/build.gradle
+          echo "TEST_BUILD=1" >> $GITHUB_ENV
       - name: Restore signing key
         env: { KEYSTORE_B64: '${{ secrets.KEYSTORE_B64 }}' }
         run: |
@@ -77,13 +84,21 @@ jobs:
         run: |
           mkdir -p out
           APK=$(ls android/app/build/outputs/apk/release/app-release.apk android/app/build/outputs/apk/debug/app-debug.apk 2>/dev/null | head -1)
-          cp "$APK" out/JA-Econ-Pulse-1.0.${{ github.run_number }}.apk
+          cp "$APK" out/JA-Econ-Pulse${TEST_BUILD:+-TEST}-1.0.${{ github.run_number }}.apk
           ls -la out
       - uses: actions/upload-artifact@v4
         with: { name: apk, path: out/*.apk }
       - name: Publish release
+        if: github.ref_name == 'main'
         env: { GH_TOKEN: '${{ github.token }}' }
         run: |
           gh release create "v1.0.${{ github.run_number }}" out/*.apk \
             --title "JA Econ Pulse 1.0.${{ github.run_number }}" \
             --notes "Install the APK on your Android phone. The app fetches all data itself."
+      - name: Publish test pre-release (branch builds)
+        if: github.ref_name != 'main'
+        env: { GH_TOKEN: '${{ github.token }}', BRANCH: '${{ github.ref_name }}' }
+        run: |
+          gh release create "test-${BRANCH//\//-}-${{ github.run_number }}" out/*.apk --prerelease --target "$GITHUB_SHA" \
+            --title "JA Econ Pulse TEST (${BRANCH}) 1.0.${{ github.run_number }}" \
+            --notes "Test build of branch ${BRANCH}. It installs as a separate app (JA Econ Pulse TEST) and does not replace or update the regular app. Its settings and saved positions start empty."
