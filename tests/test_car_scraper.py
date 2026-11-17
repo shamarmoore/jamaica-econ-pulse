@@ -1,8 +1,11 @@
 from pathlib import Path
+from unittest import mock
 import contextlib
 import io
 import json
+import shutil
 import sys
+import tempfile
 import unittest
 
 ROOT = Path(__file__).resolve().parents[1]
@@ -50,6 +53,69 @@ class JaCarsParserTests(unittest.TestCase):
         rows = json.loads(out.getvalue())
         self.assertEqual([r['id'] for r in rows], list(self.by_id))
         self.assertEqual(rows[0]['price'], 3_250_000)
+
+
+def response(url, html, status=200):
+    from scrapling.engines.toolbelt.custom import Response
+    return Response(url, html, status, 'OK', {}, {}, {})
+
+
+class FakeSession:
+    pages = {}
+    fetched = []
+
+    def __init__(self, **options):
+        pass
+
+    def __enter__(self):
+        return self
+
+    def __exit__(self, *exc):
+        return False
+
+    def fetch(self, url):
+        FakeSession.fetched.append(url)
+        return FakeSession.pages[url]
+
+
+CIVIC = 'https://www.jacars.net/cars/honda/civic/'
+
+
+class JaCarsFetchTests(unittest.TestCase):
+    def setUp(self):
+        FakeSession.fetched = []
+        patches = [mock.patch('scrapling.fetchers.StealthySession', FakeSession), mock.patch.object(cs.time, 'sleep')]
+        for patch in patches:
+            patch.start()
+            self.addCleanup(patch.stop)
+        self.snapshot = Path(tempfile.mkdtemp()) / 'cars.json'
+        self.addCleanup(shutil.rmtree, self.snapshot.parent)
+
+    def run_fetch(self):
+        cs.main(['fetch', 'jacars', '--model', 'civic', '--output', str(self.snapshot)])
+
+    def test_pages_are_followed_until_the_last_and_only_the_searched_model_is_kept(self):
+        FakeSession.pages = {
+            CIVIC: response(CIVIC, PAGE.replace('"next_page":null', '"next_page":2')),
+            CIVIC + '?page=2': response(CIVIC + '?page=2', PAGE.replace('10000', '20000')),
+        }
+        self.run_fetch()
+        snapshot = json.loads(self.snapshot.read_text(encoding='utf-8'))
+        self.assertEqual(FakeSession.fetched, [CIVIC, CIVIC + '?page=2'])
+        self.assertEqual([x['id'] for x in snapshot['items']],
+                         ['jc:1000001', 'jc:1000002', 'jc:1000005', 'jc:2000001', 'jc:2000002', 'jc:2000005'])
+        self.assertEqual(snapshot['source'], 'JaCars')
+
+    def test_a_blocked_or_challenged_run_keeps_the_last_snapshot(self):
+        self.snapshot.write_text('previous', encoding='utf-8')
+        for blocked in (response(CIVIC, 'Forbidden', status=403),
+                        response(CIVIC, '<html><p>Just a moment...</p></html>'),
+                        response('https://www.jacars.net/login/', PAGE)):
+            FakeSession.pages = {CIVIC: blocked}
+            with self.assertRaises(SystemExit), contextlib.redirect_stderr(io.StringIO()):
+                self.run_fetch()
+            self.assertEqual(self.snapshot.read_text(encoding='utf-8'), 'previous')
+        self.assertEqual(list(self.snapshot.parent.iterdir()), [self.snapshot])
 
 
 if __name__ == '__main__':

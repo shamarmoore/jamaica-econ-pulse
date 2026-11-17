@@ -1,2 +1,2 @@
-# Car listing parser (scripts/car_scraper.py). Base Scrapling is the HTML parser only; its fetchers are not installed.
-scrapling==0.5
+# Parser and stealth browser transport. Install the browser with `scrapling install`.
+scrapling[fetchers]==0.5
