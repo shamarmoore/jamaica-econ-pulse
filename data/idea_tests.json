@@ -170,73 +170,73 @@
  "volume_breakout": {
   "tight_2x": {
    "hold21": {
-    "n": 214,
+    "n": 215,
     "months": 51,
-    "avgExcess": -4.34,
-    "median": -4.75,
+    "avgExcess": -4.29,
+    "median": -4.73,
     "winRate": 30,
-    "t": -4.5,
+    "t": -4.44,
     "firstHalf": -4.2,
-    "secondHalf": -4.48,
+    "secondHalf": -4.38,
     "verdict": "negative edge (avoid)"
    },
    "hold63": {
-    "n": 214,
+    "n": 215,
     "months": 51,
-    "avgExcess": -3.55,
-    "median": -5.55,
+    "avgExcess": -3.5,
+    "median": -5.47,
     "winRate": 33,
-    "t": -2.51,
+    "t": -2.47,
     "firstHalf": -3.81,
-    "secondHalf": -3.29,
+    "secondHalf": -3.2,
     "verdict": "negative edge (avoid)"
    }
   },
   "tight_3x": {
    "hold21": {
-    "n": 175,
+    "n": 176,
     "months": 49,
-    "avgExcess": -3.69,
-    "median": -3.93,
+    "avgExcess": -3.64,
+    "median": -3.89,
     "winRate": 33,
-    "t": -3.68,
+    "t": -3.61,
     "firstHalf": -3.96,
-    "secondHalf": -3.41,
+    "secondHalf": -3.3,
     "verdict": "negative edge (avoid)"
    },
    "hold63": {
-    "n": 175,
+    "n": 176,
     "months": 49,
-    "avgExcess": -3.36,
-    "median": -5.05,
-    "winRate": 35,
-    "t": -2.54,
+    "avgExcess": -3.31,
+    "median": -4.84,
+    "winRate": 36,
+    "t": -2.49,
     "firstHalf": -3.64,
-    "secondHalf": -3.07,
+    "secondHalf": -2.96,
     "verdict": "negative edge (avoid)"
    }
   },
   "any_2x": {
    "hold21": {
-    "n": 436,
+    "n": 437,
     "months": 52,
-    "avgExcess": -4.68,
-    "median": -4.85,
+    "avgExcess": -4.65,
+    "median": -4.84,
     "winRate": 29,
-    "t": -6.77,
+    "t": -6.8,
     "firstHalf": -4.11,
-    "secondHalf": -5.24,
+    "secondHalf": -5.19,
     "verdict": "negative edge (avoid)"
    },
    "hold63": {
-    "n": 436,
+    "n": 437,
     "months": 52,
-    "avgExcess": -3.67,
-    "median": -5.77,
-    "winRate": 34,
-    "t": -3.49,
+    "avgExcess": -3.65,
+    "median": -5.69,
+    "winRate": 35,
+    "t": -3.42,
     "firstHalf": -3.08,
-    "secondHalf": -4.26,
+    "secondHalf": -4.21,
     "verdict": "negative edge (avoid)"
    }
   },
@@ -401,29 +401,29 @@
   "relativeStrength": {
    "n": 1532,
    "months": 45,
-   "avgExcess": 0.41,
+   "avgExcess": 0.39,
    "median": -1.23,
    "winRate": 45,
-   "t": 1.0,
+   "t": 0.95,
    "firstHalf": 0.29,
-   "secondHalf": 0.5,
+   "secondHalf": 0.46,
    "verdict": "no reliable edge"
   },
   "relativeStrengthWhenSectorFlatOrDown": {
-   "n": 1062,
+   "n": 1064,
    "months": 41,
-   "avgExcess": 0.7,
-   "median": -0.88,
-   "winRate": 46,
-   "t": 1.56,
-   "firstHalf": 0.52,
-   "secondHalf": 0.82,
+   "avgExcess": 0.69,
+   "median": -0.81,
+   "winRate": 47,
+   "t": 1.52,
+   "firstHalf": 0.49,
+   "secondHalf": 0.83,
    "verdict": "weak edge"
   },
   "sectorsFound": {
    "Other": 57,
-   "Junior Market": 33,
-   "Manufacturing & Distribution": 14,
+   "Junior Market": 34,
+   "Manufacturing & Distribution": 13,
    "Financial": 10
   },
   "explain": "Relative strength = stock\u2019s 3-month return minus its sector index (Financial, Manufacturing & Distribution, Junior Market, else the main JSE Index). Sector is assigned by which index the stock moves with most. Top third held 3 months."
@@ -441,17 +441,17 @@
    "verdict": "no reliable edge"
   },
   "suddenTighteningWithUpClose_trade21": {
-   "n": 1391,
+   "n": 1392,
    "months": 54,
-   "avgExcess": -3.87,
-   "median": -4.32,
+   "avgExcess": -3.86,
+   "median": -4.31,
    "winRate": 29,
-   "t": -12.79,
+   "t": -12.66,
    "firstHalf": -4.02,
-   "secondHalf": -3.7,
+   "secondHalf": -3.68,
    "verdict": "negative edge (avoid)"
   },
-  "coverageDays": 1262,
+  "coverageDays": 1263,
   "explain": "Spread = (closing ask \u2212 closing bid) \u00f7 mid-price. Z-score compares today\u2019s spread with its own 20-day average; a big negative z means buyers and sellers suddenly agree on price."
  },
  "rates": {
@@ -460,19 +460,19 @@
     "months": 17,
     "market3m": -2.64,
     "financialsVsMarket3m": 1.25,
-    "juniorVsMarket3m": -0.34
+    "juniorVsMarket3m": -0.08
    },
    "rising": {
     "months": 11,
     "market3m": -2.91,
     "financialsVsMarket3m": 0.1,
-    "juniorVsMarket3m": 1.55
+    "juniorVsMarket3m": 0.66
    },
    "steady": {
     "months": 23,
     "market3m": 1.21,
     "financialsVsMarket3m": -2.08,
-    "juniorVsMarket3m": 0.23
+    "juniorVsMarket3m": -0.02
    }
   },
   "breakoutsByRegime": {
@@ -487,9 +487,9 @@
     "avgExcessBeforeCosts": -2.39
    },
    "steady": {
-    "n": 198,
+    "n": 199,
     "winRate": 43,
-    "avgExcessBeforeCosts": -0.79
+    "avgExcessBeforeCosts": -0.74
    }
   },
   "corrRateChangeVsNext3mMarket": -0.02,
@@ -518,9 +518,9 @@
     "usdLinkedVsMarket1m": 0.25
    },
    "J$ weakening fast": {
-    "cases": 31,
-    "market1m": -0.77,
-    "usdLinkedVsMarket1m": -0.32
+    "cases": 32,
+    "market1m": -0.56,
+    "usdLinkedVsMarket1m": -0.1
    },
    "steady": {
     "cases": 72,
@@ -528,7 +528,7 @@
     "usdLinkedVsMarket1m": 0.14
    }
   },
-  "corrFx20dVsNextMonthMarket": -0.17,
+  "corrFx20dVsNextMonthMarket": -0.15,
   "usdLinkedStocks": [
    "ASBH",
    "CPFV",
@@ -553,7 +553,7 @@
   ],
   "period": [
    "2024-03-04",
-   "2026-11-13"
+   "2026-11-16"
   ],
   "explain": "USD/JMD 20-day change (daily rates from March 2024). \u201cJ$ weakening fast\u201d = more than 0.5% in 20 trading days. USD-linked = stocks quoted in or paying dividends in US dollars."
  },
@@ -570,14 +570,14 @@
    "verdict": "negative edge (avoid)"
   },
   "buy63": {
-   "n": 320,
+   "n": 321,
    "months": 52,
-   "avgExcess": -2.2,
-   "median": -4.09,
+   "avgExcess": -2.19,
+   "median": -3.98,
    "winRate": 34,
-   "t": -2.01,
+   "t": -2.08,
    "firstHalf": -4.26,
-   "secondHalf": -0.48,
+   "secondHalf": -0.47,
    "verdict": "negative edge (avoid)"
   },
   "directorBuy63": {
@@ -592,15 +592,15 @@
    "verdict": "weak negative"
   },
   "connectedBuy63": {
-   "n": 170,
+   "n": 171,
    "months": 50,
-   "avgExcess": -2.44,
-   "median": -5.15,
+   "avgExcess": -2.42,
+   "median": -4.92,
    "winRate": 34,
-   "t": -1.84,
+   "t": -2.03,
    "firstHalf": -5.7,
-   "secondHalf": -0.22,
-   "verdict": "weak negative"
+   "secondHalf": -0.2,
+   "verdict": "negative edge (avoid)"
   },
   "bigBuy63": {
    "n": 113,
@@ -614,15 +614,15 @@
    "verdict": "weak negative"
   },
   "clusterBuy63": {
-   "n": 151,
+   "n": 153,
    "months": 47,
-   "avgExcess": -2.02,
-   "median": -4.61,
-   "winRate": 37,
-   "t": -1.58,
+   "avgExcess": -1.56,
+   "median": -4.48,
+   "winRate": 38,
+   "t": -1.2,
    "firstHalf": -3.96,
-   "secondHalf": -0.42,
-   "verdict": "weak negative"
+   "secondHalf": 0.36,
+   "verdict": "no reliable edge"
   },
   "sell21": {
    "n": 285,
@@ -660,23 +660,23 @@
   "buyback63": {
    "n": 36,
    "months": 28,
-   "avgExcess": -3.22,
+   "avgExcess": -1.39,
    "median": -4.74,
    "winRate": 31,
-   "t": -2.18,
-   "firstHalf": -3.7,
+   "t": -1.08,
+   "firstHalf": -0.82,
    "secondHalf": -2.39,
-   "verdict": "negative edge (avoid)"
+   "verdict": "no reliable edge"
   },
   "buy63_holding": {
-   "n": 320,
+   "n": 321,
    "months": 52,
-   "avgExcess": 0.8,
-   "median": -1.09,
+   "avgExcess": 0.81,
+   "median": -0.98,
    "winRate": 45,
-   "t": 0.51,
+   "t": 0.47,
    "firstHalf": -1.26,
-   "secondHalf": 2.52,
+   "secondHalf": 2.53,
    "verdict": "no reliable edge"
   },
   "sell63_holding": {
@@ -723,26 +723,26 @@
     "verdict": "edge"
    },
    "mid": {
-    "n": 79,
+    "n": 80,
     "months": 39,
-    "avgExcess": 0.92,
-    "median": -0.75,
-    "winRate": 43,
-    "t": 1.1,
+    "avgExcess": 0.63,
+    "median": -0.76,
+    "winRate": 42,
+    "t": 0.93,
     "firstHalf": 1.07,
-    "secondHalf": 0.8,
+    "secondHalf": 0.29,
     "verdict": "no reliable edge"
    },
    "low": {
-    "n": 188,
-    "months": 48,
-    "avgExcess": -2.41,
+    "n": 190,
+    "months": 49,
+    "avgExcess": -2.78,
     "median": -3.42,
     "winRate": 26,
-    "t": -1.78,
+    "t": -2.07,
     "firstHalf": -2.37,
-    "secondHalf": -2.44,
-    "verdict": "weak negative"
+    "secondHalf": -3.18,
+    "verdict": "negative edge (avoid)"
    }
   },
   "dividendCaptureLate": {
@@ -758,25 +758,25 @@
     "verdict": "edge"
    },
    "mid": {
-    "n": 75,
-    "months": 37,
-    "avgExcess": -0.57,
-    "median": -0.5,
-    "winRate": 40,
-    "t": -0.07,
+    "n": 76,
+    "months": 38,
+    "avgExcess": -0.52,
+    "median": -0.47,
+    "winRate": 41,
+    "t": 0.07,
     "firstHalf": 0.51,
-    "secondHalf": -1.47,
+    "secondHalf": -1.36,
     "verdict": "no reliable edge"
    },
    "low": {
-    "n": 181,
-    "months": 50,
-    "avgExcess": -2.31,
-    "median": -2.65,
+    "n": 183,
+    "months": 51,
+    "avgExcess": -2.67,
+    "median": -2.62,
     "winRate": 27,
-    "t": -1.0,
-    "firstHalf": -3.03,
-    "secondHalf": -1.59,
+    "t": -1.37,
+    "firstHalf": -2.92,
+    "secondHalf": -2.42,
     "verdict": "no reliable edge"
    }
   },
@@ -816,11 +816,11 @@
   "dividendConsideration21": {
    "n": 424,
    "months": 54,
-   "avgExcess": -1.94,
-   "median": -2.63,
+   "avgExcess": -1.93,
+   "median": -2.55,
    "winRate": 34,
-   "t": -3.26,
-   "firstHalf": -2.02,
+   "t": -3.2,
+   "firstHalf": -1.99,
    "secondHalf": -1.88,
    "verdict": "negative edge (avoid)"
   },
@@ -1101,107 +1101,107 @@
   "explain": "Cheap = profit \u00f7 market value, profitable firms only; small = smaller half of the market by value. Dividend payers = top third by yield with no loss-making quarter in the last year; a lull = the market moved less than 5% over the previous 6 months. Book value, debt and cash-flow figures aren\u2019t published in a machine-readable form on the JSE site, so price-to-book, ROE, leverage and accrual tests need the balance sheets read out of the PDF reports first."
  },
  "balance_sheet": {
-  "readings": 630,
-  "companies": 98,
-  "from": "2024-08-09",
+  "readings": 729,
+  "companies": 100,
+  "from": "2024-04-25",
   "complete": false,
   "bp": {
-   "n": 616,
-   "months": 24,
-   "avgExcess": 1.9,
-   "median": -0.09,
-   "winRate": 49,
-   "t": 2.34,
-   "firstHalf": null,
-   "secondHalf": 1.9,
-   "verdict": "no reliable edge"
-  },
-  "roe": {
-   "n": 645,
-   "months": 24,
+   "n": 718,
+   "months": 27,
    "avgExcess": 1.73,
    "median": -0.09,
    "winRate": 49,
-   "t": 3.04,
+   "t": 2.79,
    "firstHalf": null,
    "secondHalf": 1.73,
    "verdict": "no reliable edge"
   },
+  "roe": {
+   "n": 754,
+   "months": 27,
+   "avgExcess": 1.41,
+   "median": -0.08,
+   "winRate": 49,
+   "t": 3.19,
+   "firstHalf": null,
+   "secondHalf": 1.41,
+   "verdict": "no reliable edge"
+  },
   "lowdebt": {
-   "n": 451,
-   "months": 24,
+   "n": 522,
+   "months": 27,
+   "avgExcess": 0.64,
+   "median": -0.8,
+   "winRate": 48,
+   "t": 1.3,
+   "firstHalf": null,
+   "secondHalf": 0.64,
+   "verdict": "no reliable edge"
+  },
+  "netcash": {
+   "n": 501,
+   "months": 27,
+   "avgExcess": -0.78,
+   "median": -1.23,
+   "winRate": 46,
+   "t": -1.25,
+   "firstHalf": null,
+   "secondHalf": -0.78,
+   "verdict": "no reliable edge"
+  },
+  "cashq": {
+   "n": 541,
+   "months": 27,
+   "avgExcess": -1.9,
+   "median": -1.44,
+   "winRate": 43,
+   "t": -2.73,
+   "firstHalf": null,
+   "secondHalf": -1.9,
+   "verdict": "no reliable edge"
+  },
+  "ocfy": {
+   "n": 507,
+   "months": 27,
    "avgExcess": 0.67,
-   "median": -1.25,
+   "median": -0.47,
    "winRate": 47,
-   "t": 1.42,
+   "t": 1.19,
    "firstHalf": null,
    "secondHalf": 0.67,
    "verdict": "no reliable edge"
   },
-  "netcash": {
-   "n": 434,
-   "months": 24,
-   "avgExcess": -0.7,
-   "median": -1.7,
-   "winRate": 45,
-   "t": -0.49,
-   "firstHalf": null,
-   "secondHalf": -0.7,
-   "verdict": "no reliable edge"
-  },
-  "cashq": {
-   "n": 470,
-   "months": 24,
-   "avgExcess": -2.24,
-   "median": -1.87,
-   "winRate": 43,
-   "t": -3.07,
-   "firstHalf": null,
-   "secondHalf": -2.24,
-   "verdict": "no reliable edge"
-  },
-  "ocfy": {
-   "n": 442,
-   "months": 24,
-   "avgExcess": 0.47,
-   "median": -0.56,
-   "winRate": 46,
-   "t": 0.7,
-   "firstHalf": null,
-   "secondHalf": 0.47,
-   "verdict": "no reliable edge"
-  },
   "fcfy": {
-   "n": 442,
-   "months": 24,
-   "avgExcess": -0.25,
-   "median": -1.12,
-   "winRate": 44,
-   "t": -0.47,
+   "n": 507,
+   "months": 27,
+   "avgExcess": 0.04,
+   "median": -0.9,
+   "winRate": 45,
+   "t": 0.1,
    "firstHalf": null,
-   "secondHalf": -0.25,
+   "secondHalf": 0.04,
    "verdict": "no reliable edge"
   },
   "margin": {
-   "n": 622,
-   "months": 24,
-   "avgExcess": 2.09,
-   "median": 0.73,
-   "winRate": 53,
-   "t": 3.37,
+   "n": 727,
+   "months": 27,
+   "avgExcess": 2.08,
+   "median": 0.85,
+   "winRate": 54,
+   "t": 4.34,
    "firstHalf": null,
-   "secondHalf": 2.09,
+   "secondHalf": 2.08,
    "verdict": "no reliable edge"
   },
   "eq_assets": {
-   "n": 453,
-   "months": 24,
-   "avgExcess": 0.93,
-   "median": -1.54,
-   "winRate": 46,
-   "t": 1.58,
+   "n": 525,
+   "months": 27,
+   "avgExcess": 0.85,
+   "median": -0.84,
+   "winRate": 47,
+   "t": 1.37,
    "firstHalf": null,
-   "secondHalf": 0.93,
+   "secondHalf": 0.85,
    "verdict": "no reliable edge"
   },
   "explain": "Figures are read from each company\u2019s PDF reports by an AI model, kept only when the balance sheet adds up and the profit agrees with the JSE\u2019s own figure, and used only from the day the report was published. Each row holds the top third of stocks on that measure for 3 months against the average JSE stock. Debt and cash measures leave out banks, insurers and investment firms, where they mean something different."
