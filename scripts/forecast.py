@@ -83,12 +83,18 @@ try:
     # Chance up: probability of being higher in 3 months (dividends included), from the tested chance model
     cm = json.load(open('data/chance_model.json'))
     w = cm['w']
+    p20 = cm.get('plus20')
     for s_, st in out['stocks'].items():
         if st.get('edge'):
             med = float(np.clip(st['q'][-1][10] / st['close'] - 1, -0.5, 0.5))
             st['chanceUp'] = round(100 / (1 + np.exp(-(w[0] + w[1] * st['edge']['score'] / 100 + w[2] * med))))
+            if p20 and p20['show']:
+                v = p20['w']
+                st['chance20'] = round(100 / (1 + np.exp(-(v[0] + v[1] * st['edge']['score'] / 100 + v[2] * med))), 1)
     out['chanceInfo'] = {k: cm[k] for k in ('baseUp', 'testAUC', 'testCalib', 'top10UpRate', 'top10Mean', 'allMean', 'from', 'to', 'split', 'cases')}
+    out['chance20Info'] = {k: p20[k] for k in ('show', 'baseRate', 'testAUC', 'skill', 'testCalib', 'top10Rate', 'allRate', 'from', 'to', 'split', 'cases')} if p20 else None
     print('CHANCE UP', sorted(((st['chanceUp'], k) for k, st in out['stocks'].items() if 'chanceUp' in st), reverse=True)[:8])
+    print('CHANCE +20%', sorted(((st['chance20'], k) for k, st in out['stocks'].items() if 'chance20' in st), reverse=True)[:8])
 except Exception as e:
     print('edge score skipped:', e)
 # ---- per-stock signals, market regime and tested verdicts for each idea ----

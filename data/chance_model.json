@@ -43,5 +43,56 @@
  ],
  "top10UpRate": 58.6,
  "top10Mean": 5.3,
- "allMean": -0.0
+ "allMean": -0.0,
+ "plus20": {
+  "w": [
+   -2.5495,
+   0.2402,
+   1.1309
+  ],
+  "inputs": [
+   "edge percentile (0\u20131)",
+   "Timestral middle forecast (fraction)"
+  ],
+  "threshold": 20,
+  "cases": 4493,
+  "from": "2022-12-08",
+  "to": "2026-07-21",
+  "split": "2024-10-14",
+  "baseRate": 8.1,
+  "testAUC": 0.538,
+  "testBrier": 0.0717,
+  "testBrierBase": 0.0718,
+  "skill": 0.001,
+  "show": true,
+  "testCalib": [
+   [
+    8,
+    9,
+    456
+   ],
+   [
+    8,
+    7,
+    455
+   ],
+   [
+    8,
+    6,
+    455
+   ],
+   [
+    9,
+    6,
+    455
+   ],
+   [
+    9,
+    12,
+    455
+   ]
+  ],
+  "top10Rate": 14.1,
+  "allRate": 7.8
+ }
 }
