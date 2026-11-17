@@ -6,7 +6,7 @@ Needs: pip install -r requirements-scraper.txt, then `scrapling install` once fo
 fetch reads at most 5 pages per model, one at a time, 5+ seconds apart. A blocked run keeps the last snapshot.
 """
 from dataclasses import asdict, dataclass
-from datetime import datetime, timezone
+from datetime import datetime, timedelta, timezone
 from pathlib import Path
 from urllib.parse import urljoin, urlsplit
 import argparse
@@ -100,6 +100,21 @@ def parse_jacars(html, base_url='https://www.jacars.net/'):
 
 
 PARSERS = {'jacars': parse_jacars}
+JAMAICA = timezone(timedelta(hours=-5))
+AGO = re.compile(r'^(\d+|an?|one)\s+(minute|hour|day|week)s?\s+ago$')
+
+
+def posted_date(posted, now):
+    """'3 days ago' read at `now` -> '2026-11-13'. A wording this doesn't know gives None, never a guess."""
+    text = posted.strip().lower()
+    if text in ('just now', 'today'):
+        return now.date().isoformat()
+    if text == 'yesterday':
+        return (now - timedelta(days=1)).date().isoformat()
+    if not (m := AGO.match(text)):
+        return None
+    count = int(m.group(1)) if m.group(1).isdigit() else 1
+    return (now - timedelta(**{f'{m.group(2)}s': count})).date().isoformat()
 
 
 def scrape_jacars(models=None, pages=2, delay=8.0, timeout=45000, real_chrome=False):
@@ -148,7 +163,7 @@ def scrape_jacars(models=None, pages=2, delay=8.0, timeout=45000, real_chrome=Fa
                 for item in parse_jacars(html):
                     if item.model == model and item.id not in seen:
                         seen.add(item.id)
-                        items.append(asdict(item))
+                        items.append({**asdict(item), 'date': posted_date(item.posted, datetime.now(JAMAICA))})
                 if 'next_page' in listing and listing['next_page'] in (None, False, ''):
                     break
     return {'items': items, 'fetched': datetime.now(timezone.utc).isoformat(),

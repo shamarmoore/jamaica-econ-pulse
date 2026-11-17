@@ -586,8 +586,8 @@ function viewCar(d) {
       ${inc ? '' : '<p class="fine">Add your income under Home → Your buying power to see each payment as a share of income.</p>'}
     </section>
     ${C ? `<h2 class="sec">Recently posted <small>${list.length} listing${list.length === 1 ? '' : 's'}</small></h2><ul class="lsts">${list.map(card).join('') || '<li class="fine">None posted right now — check back; new ads are picked up every 6 hours.</li>'}</ul>` : empty(running.has('cars') ? 'Searching car ads…' : 'Car ads haven’t loaded yet — tap refresh.')}
-    <h2 class="sec">Also check</h2><ul class="tips">${jacarsLinks.map(([l, u]) => `<li><a href="${u}" target="_blank" rel="noopener">${l}</a> — JaCars blocks automated reading, so open it directly.</li>`).join('')}</ul>
-    <p class="fine">Listings from AutoAdsJa and Gleaner Classifieds. Jamaican cars are right-hand drive by default; ads that mention left-hand drive are hidden unless you switch them on — always confirm the steering side, import status and title before paying. Payment colours: green ≤15% of gross income, amber ≤22%, red above.</p>`;
+    <h2 class="sec">Also check</h2><ul class="tips">${jacarsLinks.map(([l, u]) => `<li><a href="${u}" target="_blank" rel="noopener">${l}</a> for ads newer than the last JaCars snapshot.</li>`).join('')}</ul>
+    <p class="fine">Listings from AutoAdsJa, Gleaner Classifieds and a JaCars snapshot saved from your PC. Jamaican cars are right-hand drive by default; ads that mention left-hand drive are hidden unless you switch them on — always confirm the steering side, import status and title before paying. Payment colours: green ≤15% of gross income, amber ≤22%, red above.</p>`;
 }
 
 function carSheet(id) {

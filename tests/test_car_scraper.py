@@ -105,6 +105,13 @@ class JaCarsFetchTests(unittest.TestCase):
         self.assertEqual([x['id'] for x in snapshot['items']],
                          ['jc:1000001', 'jc:1000002', 'jc:1000005', 'jc:2000001', 'jc:2000002', 'jc:2000005'])
         self.assertEqual(snapshot['source'], 'JaCars')
+        self.assertTrue(all(len(x['date']) == 10 for x in snapshot['items']), 'every fixture wording becomes a date')
+
+    def test_posted_wording_becomes_a_calendar_date(self):
+        now = cs.datetime(2026, 11, 16, 9, tzinfo=cs.JAMAICA)
+        cases = {'2 hours ago': '2026-11-16', 'Just now': '2026-11-16', 'yesterday': '2026-11-15',
+                 '3 days ago': '2026-11-13', 'a week ago': '2026-11-09', '12 November': None}
+        self.assertEqual({k: cs.posted_date(k, now) for k in cases}, cases)
 
     def test_a_blocked_or_challenged_run_keeps_the_last_snapshot(self):
         self.snapshot.write_text('previous', encoding='utf-8')
