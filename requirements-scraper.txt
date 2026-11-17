@@ -1,0 +1,2 @@
+# Car listing parser (scripts/car_scraper.py). Base Scrapling is the HTML parser only; its fetchers are not installed.
+scrapling==0.5
