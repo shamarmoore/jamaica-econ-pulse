@@ -5,7 +5,7 @@ import { NHT_DEFAULTS, FIN_DEFAULTS, scenario, bestScenario, geocode, driveTimes
 import { EXPLAIN } from './explain.js';
 import { fredKey, ghToken, FORECAST_REPO } from './sources.js';
 import { MODELS, jacarsLinks } from './cars.js';
-import { quotesOn, rankStocks, TV_SYMBOLS, tvUrl, GLOBAL_TAGS, targetOdds, fcAt, fcChange, hypeLabel, calibrate } from './markets.js';
+import { quotesOn, rankStocks, TV_SYMBOLS, tvUrl, GLOBAL_TAGS, targetOdds, fcAt, fcChange, hypeLabel, calibrate, oneIn, chance20Line } from './markets.js';
 import { fmt, signed, last, changeOver, yoySeries, esc, fd } from './util.js';
 import { edge2Card, edge2Block } from './edge2.js';
 import { alerts, alertPrefs, ALERT_KINDS, alertsSync, alertsStatus, alertsPermission, alertsCheckNow, alertsTest } from './alerts.js';
@@ -719,8 +719,8 @@ function viewTrade(d) {
 const pts = (v) => `${v >= 0.05 ? '+' : v <= -0.05 ? '−' : ''}${fmt(Math.abs(v), 1)} pts`;
 function tradeLesson(F) {
   const E = F?.edgeInfo; const t5 = E?.top5?.oos; if (!E) return '';
-  const C = F.chanceInfo;
-  return `${C ? ` <b>Chance up</b> = chance the stock is higher 3 months after you buy, dividends included. A typical JSE stock was up only ${fmt(C.baseUp, 0)}% of the time; on data the model hadn’t seen, its top 10 were up ${fmt(C.top10UpRate, 0)}% of the time (average ${signed(C.top10Mean, 1)} vs ${signed(C.allMean, 1)} for all stocks). It’s built from the Edge score plus a small nudge from the Timestral forecast.` : ''} <b>Edge score</b> blends ${Object.keys(E.labels).length} signals that held up in testing (cheap vs profits, dividends, steady profits, no losses, strong latest quarter, steady price, liquidity…).${t5 ? ` On data the model hadn’t seen (${fd(E.split, false)}–${fd(E.period[1], false)}), buying the <b>top 5</b>, holding 3 months and re-picking returned <b>${signed(t5.annNet, 0)}/yr</b> after trading costs vs ${signed(t5.annMarket, 0)}/yr for the market, ahead in ${t5.beatPct}% of quarters. A single pick beat the market only ${t5.singlePickBeatPct}% of the time — spread money over the top 5–10.` : ''}`;
+  const C = F.chanceInfo; const C20 = F.chance20Info;
+  return `${C ? ` <b>Chance up</b> = chance the stock is higher 3 months after you buy, dividends included. A typical JSE stock was up only ${fmt(C.baseUp, 0)}% of the time; on data the model hadn’t seen, its top 10 were up ${fmt(C.top10UpRate, 0)}% of the time (average ${signed(C.top10Mean, 1)} vs ${signed(C.allMean, 1)} for all stocks). It’s built from the Edge score plus a small nudge from the Timestral forecast.` : ''}${C20 ? ` <b>Chance of +20%</b> = chance the stock is 20% or more higher 3 months after you buy, built and tested the same way. A typical JSE stock managed that ${oneIn(C20.baseRate)} times.${C20.show ? ` On data the model hadn’t seen, its top 10 did it ${fmt(C20.top10Rate, 0)}% of the time vs ${fmt(C20.allRate, 0)}% for all stocks, but its odds were ${C20.skill < 0.02 ? 'only slightly ' : ''}better than giving every stock the same chance.` : ' The model couldn’t beat that typical rate on unseen data, so the app shows only the typical rate.'}` : ''} <b>Edge score</b> blends ${Object.keys(E.labels).length} signals that held up in testing (cheap vs profits, dividends, steady profits, no losses, strong latest quarter, steady price, liquidity…).${t5 ? ` On data the model hadn’t seen (${fd(E.split, false)}–${fd(E.period[1], false)}), buying the <b>top 5</b>, holding 3 months and re-picking returned <b>${signed(t5.annNet, 0)}/yr</b> after trading costs vs ${signed(t5.annMarket, 0)}/yr for the market, ahead in ${t5.beatPct}% of quarters. A single pick beat the market only ${t5.singlePickBeatPct}% of the time — spread money over the top 5–10.` : ''}`;
 }
 function bindTrade(v) {
   const ib = v.querySelector('#ideas-btn'); if (ib) ib.addEventListener('click', () => ideasSheet(data().forecasts));
@@ -783,6 +783,7 @@ function edgeBlock(F, sym) {
     ${good.length ? `<p><b>Strengths:</b> ${good.map(([k, v]) => `${esc(E.labels[k] || k)} <small class="fine">(better than ${v}%)</small>`).join(' · ')}</p>` : ''}
     ${bad.length ? `<p><b>Weak spots:</b> ${bad.map(([k, v]) => `${esc(E.labels[k] || k)} <small class="fine">(better than ${v}%)</small>`).join(' · ')}</p>` : ''}
     ${F.stocks[sym].chanceUp != null ? `<p class="now">Chance it’s higher in 3 months (dividends included): <b>${F.stocks[sym].chanceUp}%</b> — a typical JSE stock: ${fmt(F.chanceInfo?.baseUp ?? 43, 0)}%.</p>` : ''}
+    ${chance20Line(F, sym)}
     <p class="fine">${e.rank <= 5 ? 'In today’s top 5. ' : e.rank <= 10 ? 'In today’s top 10. ' : ''}Tested approach: hold the top 5–10 for about 3 months, then re-pick.${t5 ? ` On unseen data that returned ${signed(t5.annNet, 0)}/yr after costs (market ${signed(t5.annMarket, 0)}/yr); its worst quarter was ${signed(t5.worstPeriod, 1)}.` : ''}</p>`;
 }
 // ---------- upside vs downside: tested odds of a big win against a big loss, by Edge rank ----------
@@ -1259,6 +1260,7 @@ function stockFacts(d, sym) {
   L.push(`Stock: ${sym}. Price J$${fmt(q?.close ?? s.close, 2)}${q?.offHigh != null ? `, ${fmt(q.offHigh, 0)}% vs 52-week high` : ''}${q?.m12 != null ? `, 12-month price change ${signed(q.m12, 0)}` : ''}.`);
   if (s.edge) L.push(`Edge score ${s.edge.score}/100, rank ${s.edge.rank} of ${s.edge.of} (tested: top 5 by Edge beat the market after costs; outside the top 20 the tested rule sells). Strongest parts: ${Object.entries(s.edge.signals || {}).sort((a, b) => b[1] - a[1]).slice(0, 3).map(([k]) => F.edgeInfo?.labels?.[k] || k).join(', ')}.`);
   if (s.chanceUp != null) L.push(`Chance the price is higher in 3 months: ${s.chanceUp}% (typical JSE stock ${fmt(F.chanceInfo?.baseUp, 0)}%).`);
+  if (s.chance20 != null) L.push(`Chance the price is 20% or more higher in 3 months: ${fmt(s.chance20, 0)}% (typical JSE stock ${fmt(F.chance20Info?.baseRate, 0)}%; the tested odds were ${F.chance20Info?.skill < 0.02 ? 'only slightly ' : ''}better than that typical rate).`);
   const fc = fcChange(F, sym); if (fc != null) L.push(`Timestral 3-month median forecast change: ${signed(fc, 1)} (wide uncertainty).`);
   const x = s.signals || {};
   const iv = x.intrinsic;
@@ -1529,13 +1531,14 @@ function forecastBlock(F, sym) {
   const s = F?.stocks?.[sym];
   if (!F) return `<h4>3-month forecast</h4><p class="fine">${ghToken.get() ? 'Forecasts haven’t loaded yet.' : 'Add your read-only GitHub token under Sources to see the Timestral forecast and target odds for this stock.'}</p>`;
   if (!s) return '<h4>3-month forecast</h4><p class="fine">Not enough trading history to forecast this stock yet (needs about 6 months).</p>';
-  const m = fcAt(F, sym, 0.5); const a = fcAt(F, sym, 0.1); const e = fcAt(F, sym, 0.9);
+  const a = fcAt(F, sym, 0.1); const e = fcAt(F, sym, 0.9);
   const bt = F.backtest?.horizons?.['63'] || F.backtest?.horizons?.[63];
   const h = s.hype; const hl = hypeLabel(h?.score);
   const t0 = Math.round(s.close * 1.2 * 100) / 100;
   return `<h4>3-month forecast · Timestral ${esc(F.model?.replace('Timestral-', '') || '')} · as of ${fd(F.asof)}</h4>
     <div id="fan-wrap">${fanChart(F, sym, t0)}</div>
-    <p>Middle estimate for ${fd(F.dates[F.dates.length - 1])}: <b>J$${fmt(m, 2)}</b> (${signed((m / s.close - 1) * 100, 1)}). The model gives an 80% range of J$${fmt(a, 2)}–J$${fmt(e, 2)}${bt ? `; in back-testing, real prices ended inside that range ${fmt(bt.coverage80, 0)}% of the time` : ''}.</p>
+    ${chance20Line(F, sym)}
+    <p>By ${fd(F.dates[F.dates.length - 1])} the model gives an 80% range of J$${fmt(a, 2)}–J$${fmt(e, 2)} (${signed((a / s.close - 1) * 100, 0)} to ${signed((e / s.close - 1) * 100, 0)})${bt ? `; in back-testing, real prices ended inside that range ${fmt(bt.coverage80, 0)}% of the time` : ''}.${bt?.directionAcc ? ` The middle of that range called up or down correctly only ${fmt(bt.directionAcc, 0)}% of the time, so read it as a range, not a price target.` : ''}</p>
     <h4>Your target</h4>
     <div class="calc2"><label>Target price (J$)<input id="fc-target" inputmode="decimal" value="${t0}"></label></div>
     <div class="sorts">${[10, 20, 30, 50].map((p) => `<button data-tp="${p}">+${p}%</button>`).join('')}<button data-tp="-10">−10%</button></div>
@@ -1602,11 +1605,11 @@ function bindForecast(root, F, sym) {
     root.querySelector('#fan-wrap').innerHTML = fanChart(F, sym, t > 0 ? t : null); bindFan(root, F, sym);
     if (!(t > 0)) { out.innerHTML = ''; return; }
     const o = targetOdds(F, sym, t); const pct = (t / s.close - 1) * 100;
-    const word = o.up ? 'reaching' : 'dropping to';
+    const word = o.up ? 'touching' : 'dropping to';
     const pp = Math.round(o.p * 100);
-    out.innerHTML = `<div class="c-big"><span>Chance of ${word} J$${fmt(t, 2)} (${signed(pct, 1)}) by ${fd(F.dates[F.dates.length - 1])}</span><b class="${o.up ? (pp >= 50 ? 'good' : pp >= 25 ? 'warn' : 'bad') : ''}">${pp < 2 ? '<2' : pp > 97 ? '>97' : pp}%</b></div>
-      <table class="yt">${byMonth(F, o).map(([dt, p]) => `<tr><td>${o.up ? 'Reached' : 'Dropped to it'} by ${fd(dt)}</td><td>${p}%</td></tr>`).join('')}</table>
-      <p class="fine">${o.likelyDate ? `More likely than not from about <b>${fd(o.likelyDate)}</b>.` : 'Not more likely than not within 3 months.'}${o.up ? '' : ' Downside odds aren’t adjusted by the back-test.'}
+    out.innerHTML = `<div class="c-big"><span>Chance of ${word} J$${fmt(t, 2)} (${signed(pct, 1)}) at any point by ${fd(F.dates[F.dates.length - 1])}</span><b class="${o.up ? (pp >= 50 ? 'good' : pp >= 25 ? 'warn' : 'bad') : ''}">${pp < 2 ? '<2' : pp > 97 ? '>97' : pp}%</b></div>
+      <table class="yt">${byMonth(F, o).map(([dt, p]) => `<tr><td>${o.up ? 'Touched' : 'Dropped to it'} by ${fd(dt)}</td><td>${p}%</td></tr>`).join('')}</table>
+      <p class="fine">${o.likelyDate ? `More likely than not from about <b>${fd(o.likelyDate)}</b>.` : 'Not more likely than not within 3 months.'}${o.up ? ' Touching a price at some point is more likely than still being that high after 3 months, which is what the chance of +20% above measures.' : ' Downside odds aren’t adjusted by the back-test.'}
       ${o.up && o.raw !== o.p ? ` Model’s raw estimate was ${Math.round(o.raw * 100)}%; adjusted for how its past odds turned out.` : ''} Dates count trading days only, so they may run a day or two early around holidays.</p>`;
   };
   inp.addEventListener('input', draw);

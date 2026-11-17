@@ -1,5 +1,5 @@
 // Markets: live JSE quotes for an on-device trend picker, TradingView chart symbols, and global news relevant to Jamaica.
-import { getText, htmlToText, parseRSS } from './util.js';
+import { getText, htmlToText, parseRSS, fmt } from './util.js';
 
 // ---------- JSE Trade Quotes ----------
 const num = (s) => { const v = parseFloat(String(s).replace(/[,$*\s]/g, '')); return Number.isFinite(v) ? v : null; };
@@ -145,3 +145,12 @@ export function targetOdds(F, sym, target) {
 export const fcAt = (F, sym, lvl, step = -1) => { const s = F?.stocks?.[sym]; if (!s) return null; const q = s.q[step < 0 ? s.q.length + step : step]; return q[F.levels.indexOf(lvl)]; };
 export const fcChange = (F, sym) => { const s = F?.stocks?.[sym]; const m = fcAt(F, sym, 0.5); return s && m != null ? (m / s.close - 1) * 100 : null; };
 export const hypeLabel = (h) => (h == null ? null : h >= 55 ? ['Speculative', 'bad'] : h >= 30 ? ['Heating up', 'warn'] : ['Calm', 'good']);
+export const oneIn = (pct) => (pct < 1 ? 'less than 1 in 100' : pct < 50 ? `about 1 in ${Math.round(100 / pct)}` : `about ${Math.round(pct / 10)} in 10`);
+// Chance of ending 3 months 20%+ higher, from the tested chance model; chance20Info.show says whether per-stock odds beat the base rate.
+export function chance20Line(F, sym) {
+  const I = F?.chance20Info; if (!I) return '';
+  const p = F.stocks?.[sym]?.chance20; const base = `a typical JSE stock: ${oneIn(I.baseRate)}`;
+  const lead = 'Chance it’s 20% or more higher in 3 months (dividends included):';
+  if (p != null) return `<p class="now">${lead} <b>${oneIn(p)}</b> (${fmt(p, 0)}%) — ${base}.</p>`;
+  return `<p class="now">${lead} ${base}.${I.show ? '' : ' On unseen data the model couldn’t tell stocks apart better than that, so it shows no figure for each stock.'}</p>`;
+}
