@@ -1,0 +1,2 @@
+# Parser and stealth browser transport. Install the browser with `scrapling install`.
+scrapling[fetchers]==0.5

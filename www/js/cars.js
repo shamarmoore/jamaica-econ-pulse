@@ -1,4 +1,4 @@
-// Car listings: recently posted right-hand-drive Honda Civics and Toyota GT86s (AutoAdsJa, Gleaner Classifieds).
+// Car listings: recently posted right-hand-drive Honda Civics and Toyota GT86s (AutoAdsJa, Gleaner Classifieds, JaCars snapshot).
 import { getText, htmlToText, decodeEntities } from './util.js';
 
 export const MODELS = [
@@ -49,8 +49,21 @@ async function gleanerCars() {
   return out;
 }
 
+// JaCars can't be read from the phone; scripts/car_scraper.py saves a snapshot to the repo instead.
+const JACARS_SNAPSHOT = 'https://raw.githubusercontent.com/shamarmoore/jamaica-econ-pulse/main/data/cars.json';
+const SNAPSHOT_MAX_DAYS = 7;
+async function jacarsSnapshot() {
+  let txt;
+  try { txt = await getText(JACARS_SNAPSHOT); } catch (e) {
+    throw new Error(/HTTP 404/.test(e.message) ? 'No JaCars snapshot yet (run scripts/car_scraper.py fetch jacars --output data/cars.json)' : `JaCars snapshot: ${e.message}`);
+  }
+  const s = JSON.parse(txt); const days = (Date.now() - Date.parse(s.fetched)) / 864e5;
+  if (!(days < SNAPSHOT_MAX_DAYS)) throw new Error(`JaCars snapshot is ${Math.floor(days)} days old, so its ads are left out`);
+  return s.items.filter((x) => MODELS.some((m) => m.key === x.model));
+}
+
 export async function carListings() {
-  const jobs = [...MODELS.map((m) => autoAdsJa(m).then((r) => r.map((x) => ({ ...x, model: m.key })))), gleanerCars()];
+  const jobs = [...MODELS.map((m) => autoAdsJa(m).then((r) => r.map((x) => ({ ...x, model: m.key })))), gleanerCars(), jacarsSnapshot()];
   const res = await Promise.allSettled(jobs);
   const items = res.flatMap((r) => (r.status === 'fulfilled' ? r.value : []));
   const errors = res.filter((r) => r.status === 'rejected').map((r) => String(r.reason?.message || r.reason));
