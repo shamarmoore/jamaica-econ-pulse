@@ -305,49 +305,6 @@ def liquidity_features():
 
 RESULTS['liquidity'] = liquidity_features()
 
-# ---------------------------------------------------------------- 7) Position sizing for the Edge top 10
-def sizing():
-    """Top 10 by Edge each quarter; costs charged only on what changes (1.5% per side). Three start dates averaged."""
-    study = json.load(open('data/factor_study.json')); chosen = study['h63']['chosen']
-    vol63 = R.rolling(63).std()
-    variants = ('equal', 'inverseVol', 'scoreWeighted', 'top5equal', 'equalKeepTop20', 'market')
-    runs = {k: [] for k in variants}
-    for off in (0, 21, 42):
-        prev = {k: pd.Series(dtype=float) for k in variants}
-        series = {k: [] for k in variants}
-        for t in range(260 + off, N - 64, 63):
-            live = [s for s in syms if UNIV[s].iloc[t] and traded60[s].iloc[t] >= 0.5]
-            if len(live) < 25:
-                continue
-            f = fs.features(t).loc[live]
-            score = sum(fs.z(f[k]) * sgn for k, sgn in chosen.items()).sort_values(ascending=False)
-            top = score.index[:10]
-            kept = [s for s in prev['equalKeepTop20'].index if s in score.index[:20]]
-            keep = (kept + [s for s in top if s not in kept])[:10]
-            iv = 1 / vol63.iloc[t][top].clip(lower=0.005); sc = score[top] - score[top].min() + 0.5
-            W = {'equal': pd.Series(0.1, index=top), 'inverseVol': iv / iv.sum(), 'scoreWeighted': sc / sc.sum(),
-                 'top5equal': pd.Series(0.2, index=top[:5]), 'equalKeepTop20': pd.Series(0.1, index=keep)}
-            for k, w in W.items():
-                fwd = pd.Series({s: float(np.clip(TRI[s].iloc[t + 64] / TRI[s].iloc[t + 1] - 1, -0.9, 1)) for s in w.index})
-                turn = (w.subtract(prev[k], fill_value=0).abs().sum()) / 2 if len(prev[k]) else 1.0
-                series[k].append(float((fwd * w).sum()) - 2 * COST * turn)
-                prev[k] = w
-            series['market'].append(bench(t + 1, t + 64, t))
-        for k in variants:
-            runs[k].append(np.array(series[k]))
-    out = {}
-    for k, rs in runs.items():
-        ann = np.mean([(np.prod(1 + r) ** (4 / len(r)) - 1) * 100 for r in rs])
-        allr = np.concatenate(rs)
-        dd = np.mean([(np.cumprod(1 + r) / np.maximum.accumulate(np.cumprod(1 + r)) - 1).min() for r in rs])
-        out[k] = {'annReturn': round(float(ann), 1), 'quarterlyVol': round(float(allr.std() * 100), 1), 'returnPerRisk': round(float(allr.mean() / allr.std()), 2),
-                  'maxDrawdown': round(float(dd * 100), 1), 'worstQuarter': round(float(allr.min() * 100), 1),
-                  'beatMarketPct': None if k == 'market' else round(float(np.mean(np.concatenate([r - m for r, m in zip(rs, runs['market'])]) > 0) * 100))}
-    out['explain'] = 'Top 10 by Edge score each quarter among stocks that trade at least half of days; trading costs 1.5% per side, charged only on the part of the portfolio that changes; averaged over three start dates. “Keep while top 20” only sells a holding once it drops out of the top 20.'
-    return out
-
-
-RESULTS['position_sizing'] = sizing()
 
 
 # ================================================================ Part 2: tests that need index, bid/ask, rates and FX data

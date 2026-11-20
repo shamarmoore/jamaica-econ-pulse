@@ -69,11 +69,14 @@ def _factors(fs):
 
 def _edge_v2(v2):
     out = []
-    for name, r in (v2 or {}).get('results', {}).items():
+    res = (v2 or {}).get('results', {})
+    named = [('edge_v1/realistic_fills' if k == 'v1' else f'edge_v2/{k}', r) for k, r in res.items() if k != 'rules']
+    named += [(f'edge_v2/rule/{k}', r) for k, r in res.get('rules', {}).items()]
+    for name, r in named:
         w = r.get('walk') or r.get('honest')
         if not w:
             continue
-        out.append({'id': 'edge_v1/realistic_fills' if name == 'v1' else f'edge_v2/{name}', 'family': 'edge_v2', 'n': w['periods'] * 3, 't': w['t'], 'tAdj': w['t'], 'hold': 63, 'holdAssumed': False,
+        out.append({'id': name, 'family': 'edge_v2', 'n': w['periods'] * 3, 't': w['t'], 'tAdj': w['t'], 'hold': 63, 'holdAssumed': False,
                     'effect': w['avgExcess'], 'first': w['firstHalf'], 'second': w['secondHalf'], 'studyVerdict': 'walk-forward back-test'})
     return out
 
