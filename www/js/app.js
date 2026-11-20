@@ -7,7 +7,7 @@ import { fredKey, ghToken, FORECAST_REPO } from './sources.js';
 import { MODELS, jacarsLinks } from './cars.js';
 import { quotesOn, rankStocks, TV_SYMBOLS, tvUrl, GLOBAL_TAGS, targetOdds, fcAt, fcChange, hypeLabel, calibrate, oneIn, chance20Line } from './markets.js';
 import { fmt, signed, last, changeOver, yoySeries, esc, fd } from './util.js';
-import { edge2Card, edge2Block } from './edge2.js';
+import { edgeCard, edgeBlock, edgeRule, limitText } from './edge.js';
 import { alerts, alertPrefs, ALERT_KINDS, alertsSync, alertsStatus, alertsPermission, alertsCheckNow, alertsTest } from './alerts.js';
 import { nano, nanoCheck, nanoDownload, nanoAsk, nanoCached, nanoForget, nanoLabel, nanoUsed, nanoSetMode, MODEL_NAME, aiReady, aiLabel, cloud, PROVIDERS, cloudTest, willUseCloud, explainPrompt, newsPrompt, digestPrompt, planPrompt } from './nano.js';
 
@@ -656,16 +656,15 @@ async function jseBackfill() {
   }
   jseFill.running = false; jseFill.msg = ''; if (tab === 'decide' && sub === 'trade') bgRender();
 }
-const JSE_SORTS = [['up', 'Chance up'], ['edge', 'Edge score'], ['edge2', 'Edge v2'], ['val', 'Below fair value'], ['fc', '3-mo forecast'], ['health', 'Financial health'], ['hype', 'Speculation'], ['m6', '6-month trend'], ['m3', '3-month'], ['m12', '12-month'], ['offHigh', 'Near 52-wk high'], ['chg', 'Today'], ['vol', 'Most traded'], ['az', 'A–Z']];
+const JSE_SORTS = [['up', 'Chance up'], ['edge', 'Edge score'], ['val', 'Below fair value'], ['fc', '3-mo forecast'], ['health', 'Financial health'], ['hype', 'Speculation'], ['m6', '6-month trend'], ['m3', '3-month'], ['m12', '12-month'], ['offHigh', 'Near 52-wk high'], ['chg', 'Today'], ['vol', 'Most traded'], ['az', 'A–Z']];
 let jseSort = 'edge'; let jseQuery = ''; let jseAll = false;
 const dark = () => matchMedia('(prefers-color-scheme: dark)').matches;
 function jseRows(d) {
   const L = d.jsequotes; const r = rankStocks(L, jseHist);
   let key = jseSort === 'm6' && !r.dates?.d6 ? (r.dates?.d3 ? 'm3' : 'offHigh') : jseSort;
-  if (key === 'edge2' && !d.forecasts?.edge2Info) key = 'edge';
   if (['fc', 'hype', 'health', 'edge', 'up', 'val'].includes(key) && !d.forecasts?.edgeInfo) key = r.dates?.d6 ? 'm6' : 'offHigh';
   const F = d.forecasts;
-  let rows = (r.all || []).map((x) => ({ ...x, fc: fcChange(F, x.sym), hype: F?.stocks?.[x.sym]?.hype?.score ?? null, health: F?.stocks?.[x.sym]?.health?.score ?? null, edge: F?.stocks?.[x.sym]?.edge?.score ?? null, edge2: F?.stocks?.[x.sym]?.edge2?.net ?? null, up: F?.stocks?.[x.sym]?.chanceUp ?? null, val: (() => { const iv = F?.stocks?.[x.sym]?.signals?.intrinsic; return iv && !iv.thin && iv.peerPe != null ? iv.mos ?? null : null; })() }));
+  let rows = (r.all || []).map((x) => ({ ...x, fc: fcChange(F, x.sym), hype: F?.stocks?.[x.sym]?.hype?.score ?? null, health: F?.stocks?.[x.sym]?.health?.score ?? null, edge: F?.stocks?.[x.sym]?.edge?.score ?? null, up: F?.stocks?.[x.sym]?.chanceUp ?? null, val: (() => { const iv = F?.stocks?.[x.sym]?.signals?.intrinsic; return iv && !iv.thin && iv.peerPe != null ? iv.mos ?? null : null; })() }));
   if (jseQuery) rows = rows.filter((x) => x.sym.includes(jseQuery.toUpperCase()));
   if (key === 'az') rows.sort((a, b) => a.sym.localeCompare(b.sym));
   else rows.sort((a, b) => ((b[key] ?? -1e9) - (a[key] ?? -1e9)));
@@ -679,7 +678,7 @@ function viewTrade(d) {
   const all = r.all || []; const up = all.filter((x) => x.chg > 0).length; const dn = all.filter((x) => x.chg < 0).length;
   const leaders = (r.rows || []).filter((x) => x.vol > 0).slice(0, 3).map((x) => x.sym);
   const shown = jseAll || jseQuery ? rows : rows.slice(0, 20);
-  const extra = key === 'health' ? [['health', 'Health']] : key === 'hype' ? [['hype', 'Spec.']] : key === 'up' ? [['up', 'Chance up'], ['edge', 'Edge']] : key === 'val' ? [['val', 'To fair value'], ['edge', 'Edge']] : key === 'edge2' ? [['edge2', 'v2 net'], ['edge', 'Edge']] : [['edge', 'Edge']];
+  const extra = key === 'health' ? [['health', 'Health']] : key === 'hype' ? [['hype', 'Spec.']] : key === 'up' ? [['up', 'Chance up'], ['edge', 'Edge']] : key === 'val' ? [['val', 'To fair value'], ['edge', 'Edge']] : [['edge', 'Edge']];
   const cols = [...extra, ...(F ? [['fc', 'Fcst 3m']] : []), ['m6', '6m'], ['m12', '12m'], ['offHigh', 'vs high']].filter(([k]) => k === 'edge' || k === 'up' || rows.some((x) => x[k] != null)).slice(0, 4);
   const cell = (x, k) => (k === 'up' ? (x.up == null ? '—' : `<b class="${x.up >= 52 ? 'good' : x.up >= 42 ? 'ok' : 'bad'}">${x.up}%</b>`) : ['health', 'hype', 'edge'].includes(k) ? (x[k] == null ? '—' : `<b class="${k === 'hype' ? hypeLabel(x[k])[1] : HEALTH_LABEL(x[k])[1]}">${x[k]}</b>`) : pct(x[k]));
   return `<section class="hero-b"><div class="gname">JSE stocks · ${L ? fd(L.date) : '—'}</div>
@@ -697,7 +696,7 @@ function viewTrade(d) {
       ? 'They come from the nightly file in your private GitHub repo, which needs a read-only token: add it under <button class="linkish" data-goto="sources">Sources → Stock forecasts</button> (or build it into the app with the FORECAST_TOKEN secret).'
       : running.has('forecasts') ? '<span class="spin"></span>Loading now…'
       : `Last attempt: ${esc(cache.forecasts?.error || (F ? 'saved copy is from before the Edge score existed' : 'not loaded yet'))}. <button class="linkish" id="fc-reload">Load now</button>`}</div>`
-      : `<p class="fine">Edge scores & forecasts as of ${fd(F.asof)} (made nightly). ⚡ = speculative trading pattern · ▼ = just reported weak results (a tested warning).${tradeLesson(F)}</p>`}
+      : `<p class="fine">Edge scores & forecasts as of ${fd(F.asof)} (made nightly). ⚡ = speculative trading pattern · ▼ = just reported weak results (already counted in the Edge score).${tradeLesson(F)}</p>`}
     <p class="tap-hint">Sorted by ${esc(JSE_SORTS.find(([k]) => k === key)?.[1] || 'trend')}${key !== jseSort ? ' (longer history still loading)' : ''}. Tap a stock for details.</p>
     <div class="tblwrap"><table class="yt pick"><thead><tr><th>Stock</th><th>Close</th><th>Day</th>${cols.map(([, l]) => `<th>${l}</th>`).join('')}</tr></thead><tbody>
       ${shown.map((x) => `<tr data-sym="${esc(x.sym)}"><td><b>${esc(x.sym)}</b>${x.offHigh != null && x.offHigh < -35 ? ' <span class="bad">⚠</span>' : ''}${x.hype != null && x.hype >= 55 ? ' <span class="bad" title="Speculative trading">⚡</span>' : ''}${F?.stocks?.[x.sym]?.signals?.results?.kind === 'weak' ? ' <span class="bad" title="Just reported weak results">▼</span>' : ''}${positions.some((p) => p.sym === x.sym && !p.exit) ? ' <span class="tag good">held</span>' : ''}${!x.vol ? ' <small class="fine">no trades</small>' : ''}</td><td>${fmt(x.close, 2)}</td><td>${x.chg != null && x.close ? pct((x.chg / (x.close - x.chg)) * 100) : '—'}</td>${cols.map(([k]) => `<td>${cell(x, k)}</td>`).join('')}</tr>`).join('')}
@@ -706,7 +705,7 @@ function viewTrade(d) {
     <p class="fine">Trend columns compare today’s close with saved closes (prices exclude dividends). In the latest tests (Mar 2023–Nov 2026, dividends included, buying the next day), 3- and 6-month trends on their own gave no reliable edge; being near the 52-week high and a positive 12-month trend helped a little and are part of the Edge score. ⚠ = more than 35% below its 52-week high. Thinly traded stocks can be hard to buy at the quoted close. Research shortlist, not advice.</p>`}
     ${asymCard(F)}
     ${trackCard(F)}
-    ${edge2Card(F, new Set(positions.filter((p) => !p.exit).map((p) => p.sym)))}
+    ${edgeCard(F)}
     ${regimeCard(F)}
     ${sizingCard(F)}
     ${F?.ideas ? '<button class="more" id="ideas-btn">Every idea we tested — results & explanations ›</button>' : ''}
@@ -718,9 +717,9 @@ function viewTrade(d) {
 }
 const pts = (v) => `${v >= 0.05 ? '+' : v <= -0.05 ? '−' : ''}${fmt(Math.abs(v), 1)} pts`;
 function tradeLesson(F) {
-  const E = F?.edgeInfo; const t5 = E?.top5?.oos; if (!E) return '';
-  const C = F.chanceInfo; const C20 = F.chance20Info;
-  return `${C ? ` <b>Chance up</b> = chance the stock is higher 3 months after you buy, dividends included. A typical JSE stock was up only ${fmt(C.baseUp, 0)}% of the time; on data the model hadn’t seen, its top 10 were up ${fmt(C.top10UpRate, 0)}% of the time (average ${signed(C.top10Mean, 1)} vs ${signed(C.allMean, 1)} for all stocks). It’s built from the Edge score plus a small nudge from the Timestral forecast.` : ''}${C20 ? ` <b>Chance of +20%</b> = chance the stock is 20% or more higher 3 months after you buy, built and tested the same way. A typical JSE stock managed that ${oneIn(C20.baseRate)} times.${C20.show ? ` On data the model hadn’t seen, its top 10 did it ${fmt(C20.top10Rate, 0)}% of the time vs ${fmt(C20.allRate, 0)}% for all stocks, but its odds were ${C20.skill < 0.02 ? 'only slightly ' : ''}better than giving every stock the same chance.` : ' The model couldn’t beat that typical rate on unseen data, so the app shows only the typical rate.'}` : ''} <b>Edge score</b> blends ${Object.keys(E.labels).length} signals that held up in testing (cheap vs profits, dividends, steady profits, no losses, strong latest quarter, steady price, liquidity…).${t5 ? ` On data the model hadn’t seen (${fd(E.split, false)}–${fd(E.period[1], false)}), buying the <b>top 5</b>, holding 3 months and re-picking returned <b>${signed(t5.annNet, 0)}/yr</b> after trading costs vs ${signed(t5.annMarket, 0)}/yr for the market, ahead in ${t5.beatPct}% of quarters. A single pick beat the market only ${t5.singlePickBeatPct}% of the time — spread money over the top 5–10.` : ''}`;
+  const E = F?.edgeInfo; const R = E?.rule; if (!E) return '';
+  const C = F.chanceInfo; const C20 = F.chance20Info; const S = E.compare?.ship;
+  return `${C ? ` <b>Chance up</b> = chance the stock is higher 3 months after you buy, dividends included. A typical JSE stock was up only ${fmt(C.baseUp, 0)}% of the time; on data the model hadn’t seen, its top 10 were up ${fmt(C.top10UpRate, 0)}% of the time (average ${signed(C.top10Mean, 1)} vs ${signed(C.allMean, 1)} for all stocks). It’s built from the Edge score plus a small nudge from the Timestral forecast.` : ''}${C20 ? ` <b>Chance of +20%</b> = chance the stock is 20% or more higher 3 months after you buy, built and tested the same way. A typical JSE stock managed that ${oneIn(C20.baseRate)} times.${C20.show ? ` On data the model hadn’t seen, its top 10 did it ${fmt(C20.top10Rate, 0)}% of the time vs ${fmt(C20.allRate, 0)}% for all stocks, but its odds were ${C20.skill < 0.02 ? 'only slightly ' : ''}better than giving every stock the same chance.` : ' The model couldn’t beat that typical rate on unseen data, so the app shows only the typical rate.'}` : ''} <b>Edge score</b> (0–100) ranks every stock by its expected 3-month gain over the market after trading costs; it is the one score behind the buy list, the reviews and the alerts.${R && S ? ` Tested rule: buy the <b>top ${R.top}</b> with limit orders at the quote midpoint and keep each while it stays in the top ${R.keep}. On ${S.periods} three-month periods it returned <b>${signed(S.annNet, 0)}/yr</b> after costs vs ${signed(S.annMarket, 0)}/yr for the market, mostly from a few long-held winners — see “How the Edge score works” below.` : ''}`;
 }
 function bindTrade(v) {
   const ib = v.querySelector('#ideas-btn'); if (ib) ib.addEventListener('click', () => ideasSheet(data().forecasts));
@@ -731,7 +730,6 @@ function bindTrade(v) {
   const pi = v.querySelector('#pos-import'); if (pi) pi.addEventListener('click', posRestore);
   v.querySelectorAll('#sz-cap, #plan-cap').forEach((cap) => cap.addEventListener('change', () => { sizeCap = +String(cap.value).replace(/[^\d.]/g, '') || 0; saveSize(); render({ keepScroll: true }); }));
   v.querySelectorAll('[data-szn]').forEach((b) => b.addEventListener('click', () => { sizeN = +b.dataset.szn; saveSize(); render({ keepScroll: true }); }));
-  v.querySelectorAll('[data-szm]').forEach((b) => b.addEventListener('click', () => { sizeMode = b.dataset.szm; saveSize(); render({ keepScroll: true }); }));
   v.querySelectorAll('[data-buy]').forEach((b) => b.addEventListener('click', () => { const d = data(); posForm(d, { sym: b.dataset.buy, shares: +b.dataset.sh || '', price: priceNow(d, b.dataset.buy) ?? '' }); }));
   const rl = v.querySelector('#fc-reload'); if (rl) rl.addEventListener('click', () => { delete cache.forecasts?.at; refresh(false); });
   v.querySelectorAll('[data-tv]').forEach((b) => b.addEventListener('click', () => { tvSym = b.dataset.tv; render({ keepScroll: true }); }));
@@ -760,8 +758,7 @@ function stockSheet(sym) {
     ${third ? `<p class="fine">Ranks #${pos + 1} of ${rankList.length} by ${r.basis === 'm6' ? '6-month' : r.basis === 'm3' ? '3-month' : '52-week-high'} trend (${third}). Trend alone wasn’t a reliable signal in testing — see the Edge score.</p>` : ''}
     ${x.offHigh != null && x.offHigh < -35 ? '<p class="fine bad">⚠ More than 35% below its 52-week high — stocks like this kept lagging in our tests.</p>' : ''}
     ${!x.vol ? '<p class="fine">No shares traded on this day — the quoted price may be stale and hard to buy or sell at.</p>' : ''}
-    ${edgeBlock(d.forecasts, sym)}
-    ${edge2Block(d.forecasts, sym)}
+    ${edgeBlock(d.forecasts, sym, chanceLines(d.forecasts, sym))}
     ${oddsBlock(d.forecasts, sym)}
     ${signalsBlock(d.forecasts, sym)}
     ${bsBlock(d.forecasts, sym)}
@@ -774,17 +771,9 @@ function stockSheet(sym) {
 }
 
 // ---------- Timestral forecast: fan chart, target odds, speculation ----------
-function edgeBlock(F, sym) {
-  const e = F?.stocks?.[sym]?.edge; const E = F?.edgeInfo; if (!e || !E) return '';
-  const lab = HEALTH_LABEL(e.score); const sig = Object.entries(e.signals).sort((a, b) => b[1] - a[1]);
-  const good = sig.filter(([, v]) => v >= 70).slice(0, 4); const bad = sig.filter(([, v]) => v <= 30).slice(-3).reverse();
-  const t5 = E.top5?.oos;
-  return `<h4>Edge score · <b class="${lab[1]}">${e.score}/100</b> · #${e.rank} of ${e.of}</h4>
-    ${good.length ? `<p><b>Strengths:</b> ${good.map(([k, v]) => `${esc(E.labels[k] || k)} <small class="fine">(better than ${v}%)</small>`).join(' · ')}</p>` : ''}
-    ${bad.length ? `<p><b>Weak spots:</b> ${bad.map(([k, v]) => `${esc(E.labels[k] || k)} <small class="fine">(better than ${v}%)</small>`).join(' · ')}</p>` : ''}
-    ${F.stocks[sym].chanceUp != null ? `<p class="now">Chance it’s higher in 3 months (dividends included): <b>${F.stocks[sym].chanceUp}%</b> — a typical JSE stock: ${fmt(F.chanceInfo?.baseUp ?? 43, 0)}%.</p>` : ''}
-    ${chance20Line(F, sym)}
-    <p class="fine">${e.rank <= 5 ? 'In today’s top 5. ' : e.rank <= 10 ? 'In today’s top 10. ' : ''}Tested approach: hold the top 5–10 for about 3 months, then re-pick.${t5 ? ` On unseen data that returned ${signed(t5.annNet, 0)}/yr after costs (market ${signed(t5.annMarket, 0)}/yr); its worst quarter was ${signed(t5.worstPeriod, 1)}.` : ''}</p>`;
+function chanceLines(F, sym) {
+  const st = F.stocks[sym];
+  return `${st.chanceUp != null ? `<p class="now">Chance it’s higher in 3 months (dividends included): <b>${st.chanceUp}%</b> — a typical JSE stock: ${fmt(F.chanceInfo?.baseUp ?? 43, 0)}%.</p>` : ''}${chance20Line(F, sym)}`;
 }
 // ---------- upside vs downside: tested odds of a big win against a big loss, by Edge rank ----------
 const BAND_LABEL = { '1-5': 'ranked 1–5', '6-10': 'ranked 6–10', '11-20': 'ranked 11–20', '21-40': 'ranked 21–40', '41+': 'ranked 41 or lower' };
@@ -801,7 +790,7 @@ function oddsBlock(F, sym) {
     : tags.length && RS?.flagged ? `<p class="fine bad">⚠ This stock is ${tags.map((t) => TAG_LABEL[t]).join(' and ')}. Outside the top 20, stocks like that lost ${-A.loss}% or more ${fmt(RS.flagged.loss, 0)}% of the time (others: ${fmt(RS.clean.loss, 0)}%) and gained ${A.win}%+ only ${fmt(RS.flagged.win, 0)}% of the time.</p>` : '';
   return `<h4>Upside vs downside · next 6 months <span class="vchip ${cls}">${lab}</span></h4>
     <div class="odds">${oddsBar(`Gained ${A.win}% or more`, b.win, 'good', max)}${oddsBar(`Lost ${-A.loss}% or more`, b.loss, 'bad', max)}</div>
-    <p class="fine">What happened to stocks ${BAND_LABEL[o.band]} by Edge score, bought the next day and held 6 months (dividends in, costs out, ${b.n.toLocaleString('en-US')} cases since ${fd(A.from, false)}). Middle outcome ${signed(b.median, 1)}; nine times in ten the result fell between ${signed(b.p10, 0)} and ${signed(b.p90, 0)}. For any JSE stock: ${fmt(all.win, 0)}% big wins, ${fmt(all.loss, 0)}% big losses.${B.second ? ` In the later half of history, which the Edge hadn’t seen: ${fmt(B.second.win, 0)}% / ${fmt(B.second.loss, 0)}%.` : ''}</p>${tagNote}`;
+    <p class="fine">What happened to stocks ${BAND_LABEL[o.band]} by Edge score, bought the next day and held 6 months (dividends in, costs out, ${b.n.toLocaleString('en-US')} cases since ${fd(A.from, false)}). Middle outcome ${signed(b.median, 1)}; nine times in ten the result fell between ${signed(b.p10, 0)} and ${signed(b.p90, 0)}. For any JSE stock: ${fmt(all.win, 0)}% big wins, ${fmt(all.loss, 0)}% big losses.${B.second ? ` In the later half of the test: ${fmt(B.second.win, 0)}% / ${fmt(B.second.loss, 0)}%.` : ''}</p>${tagNote}`;
 }
 function asymCard(F) {
   const A = F?.ideas?.asymmetry; if (!A?.bands) return '';
@@ -815,7 +804,7 @@ function asymCard(F) {
       <div class="tblwrap"><table class="yt odt"><thead><tr><th>Edge rank</th><th>Gained ${A.win}%+</th><th>Lost ${-A.loss}%+</th><th>Middle</th></tr></thead><tbody>
         ${Object.entries(A.bands).map(([k, v]) => row(k.replace('-', '–'), v.all, k === '1-5')).join('')}${row('Any stock', all)}</tbody></table></div>
       <div>Today’s 1–5: ${names('1-5').join(', ') || '—'}<br>6–10: ${names('6-10').join(', ') || '—'}</div>
-      <div class="fine">Every stock was ranked by Edge score using only what was known that day, bought at the next close and held 6 months, dividends included, 1.5% costs each side (${fd(A.from, false)}–${fd(A.to, false)}). ${lop.length ? `Only the top ${lop.includes('6-10') ? '10' : '5'} had clearly more big wins than big losses${A.bands['1-5']?.second ? ` — in the later half the Edge hadn’t seen, the top 5 had ${fmt(A.bands['1-5'].second.win, 0)}% big wins vs ${fmt(A.bands['1-5'].second.loss, 0)}% big losses` : ''}. Even there the middle outcome is small: the edge comes from a few big winners and rare big losers, so spread money over several of them.` : 'No band currently shows clearly more big wins than big losses.'} ⚠ = volatile: expect about twice the chance of a big loss.</div></div>
+      <div class="fine">Every stock carried the Edge rank it had that day in the walk-forward test (the model was fit only on outcomes already known), was bought at the next close and held 6 months, dividends included, 1.5% costs each side (${fd(A.from, false)}–${fd(A.to, false)}). ${lop.length ? `Only the top ${lop.includes('6-10') ? '10' : '5'} had clearly more big wins than big losses${A.bands['1-5']?.second ? ` — in the later half of the test, the top 5 had ${fmt(A.bands['1-5'].second.win, 0)}% big wins vs ${fmt(A.bands['1-5'].second.loss, 0)}% big losses` : ''}. Even there the middle outcome is small: the edge comes from a few big winners and rare big losers, so spread money over several of them.` : 'No band currently shows clearly more big wins than big losses.'} ⚠ = volatile: expect about twice the chance of a big loss.</div></div>
     ${traps.length ? `<div class="sig"><div class="sig-h"><b>What looks lopsided but isn’t</b><span class="vchip bad">Avoid / negative</span></div>
       <div>${traps.map((k) => `${esc(G[k].label)}: <b>${fmt(G[k].all.win, 0)}%</b> big wins, <b class="bad">${fmt(G[k].all.loss, 0)}%</b> big losses`).join('<br>')}</div>
       <div class="fine">Volatile, cheap-looking and beaten-down stocks feel like the ones that could double. On the JSE they had no more big wins than the average stock (${fmt(all.win, 0)}%) and many more big losses (average ${fmt(all.loss, 0)}%). Adding these traits to the Edge rank did not improve the odds on unseen data, so the app doesn’t use them to pick — only to warn.</div></div>` : ''}
@@ -915,38 +904,33 @@ function regimeCard(F) {
   if (VA) out.push(`<div class="sig"><div class="sig-h"><b>How the JSE is priced</b><span class="vchip ok">${VA.growthIn >= 8 ? 'Priced for fast growth' : VA.growthIn >= 4 ? 'Priced for steady growth' : 'Priced for little growth'}</span></div>
     <div>The middle profitable company trades at <b>${fmt(VA.medianPe, 1)}×</b> a typical year’s profit (middle half ${fmt(VA.peLo, 0)}–${fmt(VA.peHi, 0)}×) and yields ${fmt(VA.medianDy, 1)}%. ${VA.belowFair} of ${VA.n} are below their fair value, ${VA.below20} by 20% or more; ${VA.above20} are 20% or more above it.</div>
     <div class="fine">To earn ${fmt(VA.reqReturn, 1)}% a year (T-bill + 6%) with no growth at all, a share would have to cost ${fmt(VA.noGrowthPe, 0)}× profit — only ${VA.belowFloor} stock${VA.belowFloor === 1 ? ' does' : 's do'}. At today’s prices the middle company needs profits to grow about ${fmt(VA.growthIn, 1)}% a year for ever. That is why “fair value” here compares each share with similar companies instead of with a no-growth sum, which made almost everything look overpriced.</div></div>`);
-  const SV = RT?.stocksVsTbills; const E10 = F.edgeInfo?.all;
+  const SV = RT?.stocksVsTbills; const E10 = F.edgeInfo?.compare?.ship; const R10 = edgeRule(F);
   if (SV) out.push(`<div class="sig"><div class="sig-h"><b>Stocks or T-bills?</b><span class="vchip ${E10 && E10.annNet > SV.alwaysTbills.ann ? 'good' : 'ok'}">${E10 && E10.annNet > SV.alwaysTbills.ann ? 'Selective stocks' : 'T-bills competitive'}</span></div>
-    <div>Over the test period T-bills earned ${ptsTxt(SV.alwaysTbills.ann, '%/yr')} with no losses; the whole JSE ${ptsTxt(SV.alwaysStocks.ann, '%/yr')} (worst fall ${fmt(SV.alwaysStocks.maxDD, 0)}%)${E10 ? `; the Edge top 10 ${ptsTxt(E10.annNet, '%/yr')} after costs` : ''}.</div>
+    <div>Over the test period T-bills earned ${ptsTxt(SV.alwaysTbills.ann, '%/yr')} with no losses; the whole JSE ${ptsTxt(SV.alwaysStocks.ann, '%/yr')} (worst fall ${fmt(SV.alwaysStocks.maxDD, 0)}%)${E10 ? `; the Edge top ${R10.top} rule ${ptsTxt(E10.annNet, '%/yr')} after costs (${fd(E10.from, false)}–${fd(E10.to, false)})` : ''}.</div>
     <div class="fine">Owning “the market” hasn’t paid on the JSE lately — only a selective, tested approach beat risk-free T-bills. Keep money you need within a year in T-bills or a money-market fund.</div></div>`);
   if (R_.sectors) out.push(`<div class="sig"><div class="sig-h"><b>Sector indices, last 3 months</b></div><div>${Object.entries(R_.sectors).map(([k, v]) => `${esc(k)} <b class="${v >= 0 ? 'good' : 'bad'}">${ptsTxt(v, '%')}</b>`).join(' · ')}</div></div>`);
   return out.length ? `<h2 class="sec">Market conditions <small>with what testing showed</small></h2><div class="sigs">${out.join('')}</div>` : '';
 }
-function sizingVerdict(S) {
-  const names = { equal: 'equal-weight top 10', scoreWeighted: 'top 10 weighted by Edge', top5equal: 'top 5', equalKeepTop20: 'top 10, keeping a holding while it stays in the top 20', inverseVol: 'top 10 weighted toward steadier stocks' };
-  const best = Object.keys(names).filter((k) => S[k]).sort((a, b) => (S[b].returnPerRisk ?? -9) - (S[a].returnPerRisk ?? -9))[0];
-  return `Tested (3-month holds, 1.5% costs charged only on what changes): ${Object.keys(names).filter((k) => S[k]).map((k) => `${names[k]} ${ptsTxt(S[k].annReturn, '%/yr')}`).join(' · ')}; market ${ptsTxt(S.market?.annReturn, '%/yr')}. Best return for the risk: <b>${names[best]}</b> (worst drop ${fmt(S[best].maxDrawdown, 1)}%, ahead of the market ${S[best].beatMarketPct}% of quarters).`;
-}
-const SIZE_KEY = 'ep_size_v1';
-let { sizeCap, sizeN, sizeMode } = (() => { try { return { sizeCap: 1000000, sizeN: 10, sizeMode: 'edge', ...(JSON.parse(localStorage.getItem(SIZE_KEY)) || {}) }; } catch (_) { return { sizeCap: 1000000, sizeN: 10, sizeMode: 'edge' }; } })();
-const saveSize = () => { try { localStorage.setItem(SIZE_KEY, JSON.stringify({ sizeCap, sizeN, sizeMode })); } catch (_) { /* full */ } };
+// sizeN: null = the tested rule's number of stocks (edgeInfo.rule.top)
+let { sizeCap, sizeN } = (() => { try { return { sizeCap: 1000000, sizeN: null, ...(JSON.parse(localStorage.getItem('ep_size_v2')) || {}) }; } catch (_) { return { sizeCap: 1000000, sizeN: null }; } })();
+const saveSize = () => { try { localStorage.setItem('ep_size_v2', JSON.stringify({ sizeCap, sizeN })); } catch (_) { /* full */ } };
+const holdN = (F) => sizeN || edgeRule(F)?.top || 5;
 function sizingCard(F) {
   if (!F?.stocks) return '';
-  const S = g2(F, 'ideas', 'position_sizing');
-  const ranked = Object.entries(F.stocks).filter(([, v]) => v.edge && !v.pref).sort((a, b) => a[1].edge.rank - b[1].edge.rank).slice(0, sizeN);
+  const n = holdN(F); const R = edgeRule(F); const S = F.edgeInfo?.compare?.ship;
+  const ranked = Object.entries(F.stocks).filter(([, v]) => v.edge?.rank && !v.pref).sort((a, b) => a[1].edge.rank - b[1].edge.rank).slice(0, n);
   if (!ranked.length) return '';
-  const w = ranked.map(([, v]) => (sizeMode === 'edge' ? Math.max(0.5, v.edge.score - 50) : 1)); const ws = w.reduce((a, b) => a + b, 0);
+  const w = ranked.map(() => 1); const ws = w.length;
   const rows = ranked.map(([sym, v], i) => {
     const amt = (sizeCap * w[i]) / ws; const px = v.close; const sh = Math.floor(amt / px);
     const adv = v.signals?.liquidity?.adv20 || 0; const days = adv > 0 ? amt / (adv * 0.2) : Infinity;
     return `<tr><td><b>${esc(sym)}</b></td><td>${fmt((w[i] / ws) * 100, 0)}%</td><td>J$${Math.round(amt).toLocaleString('en-US')}</td><td>${sh.toLocaleString('en-US')}</td><td class="${days > 10 ? 'bad' : days > 3 ? 'warn' : 'good'}">${days === Infinity ? 'no trades' : days < 1 ? '<1' : fmt(days, 0)}</td></tr>`;
   }).join('');
-  return `<h2 class="sec">Position sizing <small>Edge top ${sizeN}</small></h2>
+  return `<h2 class="sec">Position sizing <small>Edge top ${n}, equal amounts</small></h2>
     <section class="calc"><label>Money to invest (J$)<input id="sz-cap" inputmode="numeric" value="${sizeCap}"></label>
-      <div class="sorts"><button data-szn="5" class="${sizeN === 5 ? 'on' : ''}">Top 5</button><button data-szn="10" class="${sizeN === 10 ? 'on' : ''}">Top 10</button>
-      <button data-szm="edge" class="${sizeMode === 'edge' ? 'on' : ''}">Weight by Edge</button><button data-szm="equal" class="${sizeMode === 'equal' ? 'on' : ''}">Equal</button></div></section>
+      <div class="sorts"><button data-szn="5" class="${n === 5 ? 'on' : ''}">Top 5</button><button data-szn="10" class="${n === 10 ? 'on' : ''}">Top 10</button></div></section>
     <div class="tblwrap"><table class="yt"><thead><tr><th>Stock</th><th>Weight</th><th>Amount</th><th>Shares</th><th>Days to buy*</th></tr></thead><tbody>${rows}</tbody></table></div>
-    <p class="fine">*Days to build the position without being more than 20% of the stock’s normal daily trading — more than ~3 days means use limit orders over several days. ${S ? sizingVerdict(S) : ''}</p>`;
+    <p class="fine">*Days to build the position without being more than 20% of the stock’s normal daily trading — more than ~3 days means leave the limit order over several days. ${S && R ? `Tested with equal amounts in the top ${R.top}: ${ptsTxt(S.annNet, '%/yr')} after costs, ahead of the market in ${S.beatPct}% of periods, worst period ${fmt(S.worstPeriod, 1)}%.${n !== R.top ? ` Holding ${n} instead of ${R.top} was tested too: ${n === 10 && F.edgeInfo?.compare?.top10 ? ptsTxt(F.edgeInfo.compare.top10.annNet, '%/yr') + ' without the keep rule' : 'see How the Edge score works'}.` : ''}` : ''}</p>`;
 }
 // ---------- My positions: what I actually bought, tracked against the tested rules ----------
 const POS_KEY = 'ep_positions_v1';
@@ -998,14 +982,14 @@ function posStats(p, d) {
 // tested rules applied to an open position
 function posFlags(p, F) {
   const s = F?.stocks?.[p.sym]; const out = [];
-  const W = g2(F, 'ideas', 'post_earnings_drift', 'weakResults63'); const K = g2(F, 'ideas', 'position_sizing', 'equalKeepTop20');
-  if (s?.signals?.results?.kind === 'weak') out.push(['bad', 'Weak results', `Profit fell ${Math.abs(s.signals.results.yoy)}% on the year. After weak results, stocks trailed the market by ${ptsTxt(W?.avgExcess)} over 3 months (after costs). The strongest sell signal we found.`]);
-  if (s?.edge && s.edge.rank > 20) out.push(['warn', `Edge rank #${s.edge.rank}`, `Out of the Edge top 20${p.entry?.rank ? ` (was #${p.entry.rank} when you bought)` : ''}. The tested rule keeps a holding only while it stays in the top 20, checked every 3 months${K ? ` — that rule returned ${ptsTxt(K.annReturn, '%/yr')} after costs` : ''}.`]);
-  else if (s?.edge) out.push(['good', `Edge rank #${s.edge.rank}`, `Still in the Edge top 20${p.entry?.rank ? ` (was #${p.entry.rank})` : ''} — the tested rule says keep it at the next review.`]);
-  if (s?.edge2?.rank) out.push([s.edge2.rank <= 20 ? 'good' : 'warn', `Edge v2 #${s.edge2.rank}`, `Edge v2 ranks it #${s.edge2.rank} of ${s.edge2.of} after trading costs: expected ${signed(s.edge2.exp, 1)} vs the market over 3 months, minus ${fmt(s.edge2.cost, 1)}% cost = ${signed(s.edge2.net, 1)}.`]);
+  const W = g2(F, 'ideas', 'post_earnings_drift', 'weakResults63'); const R = edgeRule(F); const keep = R?.keep ?? 20;
+  if (s?.signals?.results?.kind === 'weak') out.push(['bad', 'Weak results', `Profit fell ${Math.abs(s.signals.results.yoy)}% on the year. After weak results, stocks trailed the market by ${ptsTxt(W?.avgExcess)} over 3 months (after costs). The Edge score already counts this; its rank decides keep or sell.`]);
+  if (s?.edge?.rank > keep) out.push(['warn', `Edge rank #${s.edge.rank}`, `Out of the Edge top ${keep}${p.entry?.rank ? ` (was #${p.entry.rank} when you bought)` : ''}. The tested rule keeps a holding only while it stays in the top ${keep}, checked every 3 months.`]);
+  else if (s?.edge?.rank) out.push(['good', `Edge rank #${s.edge.rank}`, `Still in the Edge top ${keep}${p.entry?.rank ? ` (was #${p.entry.rank})` : ''} — the tested rule says keep it at the next review. Expected ${signed(s.edge.exp, 1)} vs the market over 3 months, minus ${fmt(s.edge.cost, 1)}% cost = ${signed(s.edge.net, 1)}.`]);
+  else if (s?.edge) out.push(['warn', 'Not ranked', 'It trades on fewer than half of days, so the Edge buy list skips it. The tested rule sells it at the review.']);
   if (s?.hype?.score >= 55) out.push(['warn', '⚡ Speculative trading', 'Trading pattern looks speculative — big swings both ways. Size it small.']);
   const due = daysBetween(isoToday(), addDays(p.reviewed || p.date, 91));
-  out.push([due <= 0 ? 'warn' : 'ok', due <= 0 ? '3-month review due' : `Review in ${due} days`, 'Every test held for 3 months, then re-picked. At the review: keep if still in the Edge top 20 and no weak results; otherwise sell. Selling in the last 3 trading days of a month has caught the month-end lift.']);
+  out.push([due <= 0 ? 'warn' : 'ok', due <= 0 ? '3-month review due' : `Review in ${due} days`, 'Every test held for 3 months, then re-picked. At the review: keep if still in the Edge top ${keep}; otherwise sell with a limit order at the quote midpoint. Selling in the last 3 trading days of a month has caught the month-end lift.']);
   return out;
 }
 function positionsCard(d) {
@@ -1126,49 +1110,47 @@ function posRestore() {
 }
 // ---------- Today's plan: the tested rules applied to today's ranks, your positions and your money ----------
 // No AI here: every line comes from a rule that was back-tested (Edge top N held ~3 months, keep while in the top 20,
-// sell on weak results, month-end timing, high-yield dividend capture).
+// limit orders at the quote midpoint, month-end timing, high-yield dividend capture).
 function planItems(d) {
   const F = d.forecasts; const S = F.stocks; const today = isoToday(); const I = F.ideas;
   const susp = new Set((F.events || []).filter((e) => e.kind === 'suspend').map((e) => e.sym));
-  const ranked = Object.entries(S).filter(([, v]) => v.edge && !v.pref).sort((a, b) => a[1].edge.rank - b[1].edge.rank);
-  const target = ranked.filter(([k]) => !susp.has(k)).slice(0, sizeN);
-  const w = target.map(([, v]) => (sizeMode === 'edge' ? Math.max(0.5, v.edge.score - 50) : 1)); const ws = w.reduce((a, b) => a + b, 0) || 1;
+  const R = edgeRule(F); const keep = R?.keep ?? 20;
+  const ranked = Object.entries(S).filter(([, v]) => v.edge?.rank && !v.pref).sort((a, b) => a[1].edge.rank - b[1].edge.rank);
+  const target = ranked.filter(([k]) => !susp.has(k)).slice(0, holdN(F));
+  const w = target.map(() => 1); const ws = w.length || 1;
   const open = positions.filter((p) => !p.exit);
   const heldVal = (sym) => open.filter((p) => p.sym === sym).reduce((a, p) => a + p.shares * (priceNow(d, sym) ?? p.price), 0);
   const me = F.regime?.monthEnd; const meT = g2(I, 'calendar', 'monthEnd');
-  const W = g2(I, 'post_earnings_drift', 'weakResults63');
   const sell = []; const hold = []; const buy = [];
   for (const p of open) {
     const st = posStats(p, d); const s = S[p.sym]; const rank = s?.edge?.rank; const due = daysBetween(today, st.review) <= 0;
     const base = { sym: p.sym, id: p.id, pl: st.plPct };
     if (susp.has(p.sym)) hold.push({ ...base, cls: 'warn', act: 'Can’t trade', why: 'Trading is suspended — nothing to do until it lifts.' });
-    else if (s?.signals?.results?.kind === 'weak') sell.push({ ...base, cls: 'bad', act: 'Sell', why: `Weak results (profit down ${Math.abs(s.signals.results.yoy)}% on the year). Tested: stocks trailed the market by ${ptsTxt(Math.abs(W?.avgExcess ?? 0))} over the next 3 months.` });
-    else if (rank > 20 && due) sell.push({ ...base, cls: 'bad', act: 'Sell', why: `3-month review is due and it’s now Edge #${rank}, outside the top 20. Tested rule: sell and move the money to the buy list.` });
-    else if (rank > 20) hold.push({ ...base, cls: 'warn', act: 'Sell at review', why: `Now Edge #${rank}, outside the top 20. Tested rule: don’t sell early — sell at the 3-month review on ${fd(st.review)} unless it climbs back.` });
-    else if (rank && due) hold.push({ ...base, cls: 'good', act: 'Keep', why: `Review is due: still Edge #${rank} (top 20), so the tested rule keeps it another 3 months. Open it and tap “Reviewed — keep”.` });
+    else if ((rank || 999) > keep && due) sell.push({ ...base, cls: 'bad', act: 'Sell', why: `3-month review is due and it’s ${rank ? `now Edge #${rank}, outside the top ${keep}` : 'no longer ranked'}. Tested rule: sell with a limit order at the quote midpoint (J$${fmt(s?.edge?.limit ?? priceNow(d, p.sym), 2)}) and move the money to the buy list.` });
+    else if (rank > keep) hold.push({ ...base, cls: 'warn', act: 'Sell at review', why: `Now Edge #${rank}, outside the top ${keep}. Tested rule: don’t sell early — sell at the 3-month review on ${fd(st.review)} unless it climbs back.` });
+    else if (rank && due) hold.push({ ...base, cls: 'good', act: 'Keep', why: `Review is due: still Edge #${rank} (top ${keep}), so the tested rule keeps it another 3 months. Open it and tap “Reviewed — keep”.` });
     else if (rank) hold.push({ ...base, cls: 'good', act: 'Hold', why: `Edge #${rank}. Next review ${fd(st.review)}.` });
     else hold.push({ ...base, cls: 'ok', act: 'Hold', why: `No Edge score for this stock, so the tested rules don’t cover it. Next review ${fd(st.review)}.` });
   }
   target.forEach(([sym, v], i) => {
-    const amt = (sizeCap * w[i]) / ws; const held = heldVal(sym); const need = amt - held; const px = priceNow(d, sym) ?? v.close;
+    const amt = (sizeCap * w[i]) / ws; const held = heldVal(sym); const need = amt - held; const px = v.edge.limit ?? priceNow(d, sym) ?? v.close;
     if (held >= amt * 0.8 || need < px) return;
     const sh = Math.floor(need / px); const adv = v.signals?.liquidity?.adv20 || 0; const days = adv > 0 ? need / (adv * 0.2) : Infinity;
     let cls = 'good'; let act = held > 0 ? 'Add' : 'Buy'; const notes = [];
-    if (v.signals?.results?.kind === 'weak') { cls = 'warn'; act = 'Skip for now'; notes.push('just reported weak results (a tested warning)'); }
-    else if (v.signals?.spread?.chase) { cls = 'warn'; act = 'Wait a few days'; notes.push('spread snapped tight on an up day — tested as a bad moment to chase'); }
+    if (v.signals?.spread?.chase) { cls = 'warn'; act = 'Wait a few days'; notes.push('spread snapped tight on an up day — tested as a bad moment to chase'); }
     else if (me?.inWindow) { cls = 'warn'; act = 'Wait for next month'; }
     if (days === Infinity) notes.push('hasn’t traded lately — may be hard to buy');
     else if (days > 3) notes.push(`spread the order over about ${fmt(days, 0)} days`);
     if (v.hype?.score >= 55) notes.push('⚡ speculative trading pattern');
-    buy.push({ sym, cls, act, rank: v.edge.rank, up: v.chanceUp, amt: need, sh, px, held, notes });
+    buy.push({ sym, cls, act, rank: v.edge.rank, up: v.chanceUp, amt: need, sh, px, held, notes, limit: v.edge.limit });
   });
   const ev = (F.events || []).filter((e) => e.tested?.action === 'consider' && !susp.has(e.sym) && !(e.daysToEx != null && e.daysToEx < 1));
-  return { sell, hold, buy, ev, me, meT, target, open };
+  return { sell, hold, buy, ev, me, meT, target, open, R };
 }
 function planCard(d) {
   const F = d.forecasts; if (!F?.edgeInfo || !F.stocks) return '';
-  const P_ = planItems(d); const { sell, hold, buy, ev, me, meT } = P_;
-  const PS = F.ideas?.position_sizing; const T_ = PS && (sizeN === 5 ? PS.top5equal : sizeMode === 'edge' ? PS.scoreWeighted : PS.equal);
+  const P_ = planItems(d); const { sell, hold, buy, ev, me, meT, R } = P_;
+  const n = holdN(F); const T_ = F.edgeInfo?.compare?.ship;
   const tb = F.regime?.rates?.tbill3m;
   const chip = (c, t) => `<span class="vchip ${c}">${esc(t)}</span>`;
   const count = [buy.filter((b) => b.cls === 'good').length && `${buy.filter((b) => b.cls === 'good').length} to buy`, sell.length && `${sell.length} to sell`, hold.length && `${hold.length} to hold`, buy.filter((b) => b.cls !== 'good').length && `${buy.filter((b) => b.cls !== 'good').length} to wait on`, ev.length && `${ev.length} event trade${ev.length > 1 ? 's' : ''}`].filter(Boolean).join(' · ');
@@ -1179,24 +1161,23 @@ function planCard(d) {
   const holdRows = hold.map((x) => `<div class="sig pl" data-pos="${esc(x.id)}"><div class="sig-h"><span><b>${esc(x.sym)}</b>${x.pl != null ? ` <span class="${x.pl >= 0 ? 'good' : 'bad'}">${signed(x.pl, 1)}</span>` : ''}</span>${chip(x.cls, x.act)}</div><div class="fine">${esc(x.why)}</div></div>`).join('');
   const buyRows = buy.map((x) => `<div class="sig pl"><div class="sig-h"><span><b class="symlink" data-sym="${esc(x.sym)}">${esc(x.sym)}</b> <span class="fine">Edge #${x.rank}${x.up != null ? ` · ${x.up}% chance up` : ''}</span></span>${chip(x.cls, x.act)}</div>
       <div>${jmd(x.amt)} ≈ <b>${x.sh.toLocaleString('en-US')} shares</b> at about J$${fmt(x.px, 2)}${x.held > 0 ? ` <span class="fine">(you hold ${jmd(x.held)})</span>` : ''}</div>
-      <div class="fine">Limit order at or below J$${fmt(x.px, 2)}${x.notes.length ? ` · ${esc(x.notes.join(' · '))}` : ''}. <button class="linkish" data-buy="${esc(x.sym)}" data-sh="${x.sh}">I bought this</button></div></div>`).join('');
+      <div class="fine">${limitText({ limit: x.limit }, R).replace(/^./, (c) => c.toUpperCase())}${x.notes.length ? ` · ${esc(x.notes.join(' · '))}` : ''}. <button class="linkish" data-buy="${esc(x.sym)}" data-sh="${x.sh}">I bought this</button></div></div>`).join('');
   const evRows = ev.map((e) => `<div class="sig pl"><div class="sig-h"><span><b class="symlink" data-sym="${esc(e.sym)}">${esc(e.sym)}</b> <span class="fine">${EV_KIND[e.kind] || e.kind}</span></span>${chip('good', 'Consider')}</div>
       <div>${esc(evNums(e))}${e.buyBy ? ` · <b>buy by ${fd(e.buyBy)}</b>, sell on ${fd(e.ex)}` : ''}</div><div class="fine">Short trade outside the 3-month plan; the test had few cases, so keep it small — up to about ${jmd(sizeCap * 0.05)} (5% of your money). ${esc(e.tested?.why || '')}</div></div>`).join('');
   const empty_ = !sell.length && !hold.length && !buy.length;
   return `<h2 class="sec">Today’s plan <small>${F.asof ? `from ${fd(F.asof)}’s close` : ''}</small></h2>
     <section class="calc plan-cap"><label>Money for JSE stocks (J$)<input id="plan-cap" inputmode="numeric" value="${sizeCap}"></label>
-      <div class="sorts"><button data-szn="5" class="${sizeN === 5 ? 'on' : ''}">Hold 5 stocks</button><button data-szn="10" class="${sizeN === 10 ? 'on' : ''}">Hold 10</button></div></section>
+      <div class="sorts"><button data-szn="5" class="${n === 5 ? 'on' : ''}">Hold 5 stocks</button><button data-szn="10" class="${n === 10 ? 'on' : ''}">Hold 10</button></div></section>
     ${count ? `<p class="lede-s"><b>${count}</b></p>` : ''}
     ${timing}
     ${sell.length ? `<h4>Sell</h4><div class="sigs">${sellRows}</div>` : ''}
-    ${buy.length ? `<h4>Buy <small class="fine">Edge top ${sizeN} you don’t fully hold</small></h4><div class="sigs">${buyRows}</div>` : empty_ ? '' : `<p class="fine">Nothing to buy: you already hold today’s Edge top ${sizeN} at about the right size.</p>`}
+    ${buy.length ? `<h4>Buy <small class="fine">Edge top ${n} you don’t fully hold</small></h4><div class="sigs">${buyRows}</div>` : empty_ ? '' : `<p class="fine">Nothing to buy: you already hold today’s Edge top ${n} at about the right size.</p>`}
     ${ev.length ? `<h4>Event trade</h4><div class="sigs">${evRows}</div>` : ''}
     ${hold.length ? `<h4>Hold</h4><div class="sigs">${holdRows}</div>` : ''}
-    <p class="fine"><b>The rule behind this</b> (the one that was tested): buy the Edge top ${sizeN}, hold about 3 months, then keep what’s still in the top 20 and replace the rest — sell early only on weak results. ${T_ ? `In testing this returned ${ptsTxt(T_.annReturn, '%/yr')} after costs (the average JSE stock: ${ptsTxt(PS.market?.annReturn, '%/yr')}), was ahead of the market in ${T_.beatMarketPct}% of quarters, and its worst quarter was ${fmt(T_.worstQuarter, 1)}%.` : ''} The list changes a little every night; you don’t need to chase it — once you’ve bought, only the 3-month review matters.${tb ? ` Money you’ll need within a year belongs in T-bills (about ${fmt(tb, 1)}% now), not here.` : ''} Not advice — the back-test can’t promise the future; see “Is it working?” below.</p>`;
+    <p class="fine"><b>The rule behind this</b> (the one that was tested): buy the Edge top ${R?.top ?? n} with limit orders at the quote midpoint, hold about 3 months, then keep what’s still in the top ${R?.keep ?? 20} and replace the rest. ${T_ ? `In testing this returned ${ptsTxt(T_.annNet, '%/yr')} after costs (the average JSE stock: ${ptsTxt(T_.annMarket, '%/yr')}), was ahead of the market in ${T_.beatPct}% of periods, and its worst period was ${fmt(T_.worstPeriod, 1)}%. Most of that came from a few stocks held a long time, so results will be lumpy.` : ''}${n !== (R?.top ?? n) ? ` You chose ${n} stocks; the tested rule holds ${R.top}.` : ''} The list changes a little every night; you don’t need to chase it — once you’ve bought, only the 3-month review matters.${tb ? ` Money you’ll need within a year belongs in T-bills (about ${fmt(tb, 1)}% now), not here.` : ''} Not advice — the back-test can’t promise the future; see “Is it working?” below.</p>`;
 }
 function trackCard(F) {
-  const T = F?.track; const E = F?.edgeInfo; if (!T && !E?.byYear) return '';
-  const by = E?.byYear ? Object.entries(E.byYear) : [];
+  const T = F?.track; if (!T) return '';
   const c = (T?.cohorts || []).filter((r) => r.top5 != null);
   const sf = T?.soFar; const cp = T?.completed;
   const verdict = cp ? (cp.avgNetExcessTop5 > 0 ? ['good', 'Ahead so far'] : ['bad', 'Behind so far']) : ['ok', 'Too early to judge'];
@@ -1205,8 +1186,6 @@ function trackCard(F) {
       <div>${cp ? `${cp.n} completed 3-month result${cp.n > 1 ? 's' : ''}: Edge top 5 ${ptsTxt(cp.avgNetExcessTop5)} vs the market after costs, ahead ${cp.aheadPct}% of the time.` : `No 3-month result is complete yet — the first one lands around <b>${T.firstFullResult ? fd(T.firstFullResult) : 'February'}</b>.`}${sf ? ` In progress (${sf.n} nights of picks, about ${sf.avgDays} trading days each): top 5 ${ptsTxt(sf.avgTop5, '%')} vs market ${ptsTxt(sf.avgMarket, '%')}, before costs.` : ''}</div>
       ${c.length ? `<ul class="trk">${c.map((r) => `<li><b>${fd(r.date)}</b> picks (${esc(r.picks.join(', '))}): <b class="${r.top5 >= r.market ? 'good' : 'bad'}">${signed(r.top5, 1)}</b> vs market ${signed(r.market, 1)} after ${r.days} trading day${r.days === 1 ? '' : 's'}${r.done ? ' (complete)' : ' — still running'}</li>`).join('')}</ul>` : ''}
       <div class="fine">${esc(T.explain)} ${T.daysLogged} nights logged. A few days or weeks prove nothing either way — judge it after several completed 3-month results.</div></div>` : ''}
-    ${by.length ? `<div class="sig"><div class="sig-h"><b>Back-test, year by year</b><span class="vchip good">Every year ahead</span></div><div>${by.map(([y, v]) => `${y}: <b class="${v >= 0 ? 'good' : 'bad'}">${ptsTxt(v)}</b>`).join(' · ')}</div>
-      <div class="fine">Average points per 3-month period that the Edge top 10 beat the market by, after costs. A back-test is built with hindsight about which signals to use, so expect the live record to be weaker than this.</div></div>` : ''}
   </div>`;
 }
 // ---------- JSE announcements + on-device Gemini Nano ----------
@@ -1258,7 +1237,7 @@ function stockFacts(d, sym) {
   const F = d.forecasts; const s = F?.stocks?.[sym] || {}; const q = (rankStocks(d.jsequotes, jseHist).all || []).find((z) => z.sym === sym);
   const I = F?.ideas; const L = [];
   L.push(`Stock: ${sym}. Price J$${fmt(q?.close ?? s.close, 2)}${q?.offHigh != null ? `, ${fmt(q.offHigh, 0)}% vs 52-week high` : ''}${q?.m12 != null ? `, 12-month price change ${signed(q.m12, 0)}` : ''}.`);
-  if (s.edge) L.push(`Edge score ${s.edge.score}/100, rank ${s.edge.rank} of ${s.edge.of} (tested: top 5 by Edge beat the market after costs; outside the top 20 the tested rule sells). Strongest parts: ${Object.entries(s.edge.signals || {}).sort((a, b) => b[1] - a[1]).slice(0, 3).map(([k]) => F.edgeInfo?.labels?.[k] || k).join(', ')}.`);
+  if (s.edge) { const R = edgeRule(F); L.push(`Edge score ${s.edge.score}/100${s.edge.rank ? `, rank ${s.edge.rank} of ${s.edge.of}` : ' (not ranked: trades on fewer than half of days)'}; expected ${signed(s.edge.exp, 1)} vs the market over 3 months minus ${fmt(s.edge.cost, 1)}% trading cost = ${signed(s.edge.net, 1)} (tested rule: buy the top ${R?.top ?? 5}, keep while in the top ${R?.keep ?? 20}). Strongest themes: ${Object.entries(s.edge.themes || {}).sort((a, b) => b[1] - a[1]).slice(0, 3).map(([k]) => F.edgeInfo?.themes?.[k]?.label || k).join(', ')}.`); }
   if (s.chanceUp != null) L.push(`Chance the price is higher in 3 months: ${s.chanceUp}% (typical JSE stock ${fmt(F.chanceInfo?.baseUp, 0)}%).`);
   if (s.chance20 != null) L.push(`Chance the price is 20% or more higher in 3 months: ${fmt(s.chance20, 0)}% (typical JSE stock ${fmt(F.chance20Info?.baseRate, 0)}%; the tested odds were ${F.chance20Info?.skill < 0.02 ? 'only slightly ' : ''}better than that typical rate).`);
   const fc = fcChange(F, sym); if (fc != null) L.push(`Timestral 3-month median forecast change: ${signed(fc, 1)} (wide uncertainty).`);
@@ -1324,8 +1303,8 @@ function eventsFacts(d) {
   const F = d.forecasts; const L = []; const today = new Date().toISOString().slice(0, 10);
   L.push(`Today ${today}. Market regime: 3-month T-bill ${F.regime?.rates?.tbill3m}% (${F.regime?.rates?.regime}); US$/J$ ${F.regime?.fx?.regime}; ${F.regime?.monthEnd?.tradingDaysLeft} trading days left this month (tested: prices tend to rise in the last 3 trading days of a month and give back early next month).`);
   const top = Object.entries(F.stocks || {}).filter(([, v]) => v.edge?.rank <= 10).sort((a, b) => a[1].edge.rank - b[1].edge.rank);
-  const P_ = F.ideas?.position_sizing?.scoreWeighted;
-  L.push(`Edge top 10 (Tested: holding the Edge top 5–10 for 3 months then re-picking beat the market after costs${P_ ? `, ${P_.annReturn}%/yr score-weighted` : ''}): ${top.map(([k, v]) => `#${v.edge.rank} ${k}${v.chanceUp != null ? ` (chance up ${v.chanceUp}%)` : ''}${v.signals?.results?.kind === 'weak' ? ' [weak results — tested warning]' : ''}${v.signals?.spread?.chase ? ' [don’t chase today]' : ''}`).join(', ')}.`);
+  const R = edgeRule(F); const P_ = F.edgeInfo?.compare?.ship;
+  L.push(`Edge top 10 (tested rule: buy the top ${R?.top ?? 5} with limit orders at the quote midpoint, keep each while it stays in the top ${R?.keep ?? 20}${P_ ? `; ${P_.annNet}%/yr after costs in testing, mostly from a few long-held winners` : ''}): ${top.map(([k, v]) => `#${v.edge.rank} ${k}${v.chanceUp != null ? ` (chance up ${v.chanceUp}%)` : ''}${v.signals?.results?.kind === 'weak' ? ' [just reported weak results, already in the score]' : ''}${v.signals?.spread?.chase ? ' [don’t chase today]' : ''}`).join(', ')}.`);
   const share = !willUseCloud() || cloud.get().sharePositions;
   const open = positions.filter((p) => !p.exit);
   if (open.length) L.push(share ? `Investor holds: ${open.map((p) => { const st = posStats(p, d); const fl = posFlags(p, F).filter((f) => f[0] !== 'ok').map((f) => f[1]).join('; '); return `${p.sym} (bought ${p.date}, P/L ${signed(st.plPct ?? 0, 1)}, review ${st.review}${fl ? `; flags: ${fl}` : ''})`; }).join(', ')}.` : `Investor holds: ${open.map((p) => p.sym).join(', ')}.`);
