@@ -115,6 +115,26 @@ def _auc(y, p):
     return float((r[y == 1].sum() - n1 * (n1 + 1) / 2) / (n1 * n0)) if n1 and n0 else None
 
 
+def _keep_band():
+    import edge_v2 as E
+    return E.RULES[E.SHIP].get('keep', E.TOP)
+
+
+def _rank_lookup(idx):
+    """rank(sym, day index) -> the walk-forward Edge rank on the latest grid day at or before it (0 = not ranked or no history)."""
+    import bisect
+    try:
+        hist = json.load(open('data/edge_hist.json', encoding='utf-8'))['days']
+    except Exception:
+        hist = {}
+    days = sorted(hist)
+
+    def rank(s, t):
+        i = bisect.bisect_right(days, str(idx[t].date())) - 1
+        return (hist[days[i]].get(s) or [0, 0])[1] if i >= 0 else 0
+    return rank
+
+
 def study(fs, summarize):
     C = _frames(fs)
     P, TRI, idx, N = fs.P, fs.TRI, fs.idx, fs.N
@@ -151,6 +171,15 @@ def study(fs, summarize):
     for k in ('none', 'results_up', 'results_down', 'insider_buy'):
         g = after[after.drivers.apply(lambda x: k in x)]
         out['after'][f'{k}63'] = summarize(list(g.after63 - g.mkt63), [idx[int(t) + H] for t in g.t], 0.015)
+    # for someone already holding: keep through the next 3 months or sell into the jump? Split by the walk-forward Edge
+    # rank when the jump ended, at the keep band of the shipped rule; no costs, since holding costs nothing
+    rank = _rank_lookup(idx)
+    band = _keep_band()
+    rk = after.apply(lambda r: rank(r.sym, int(r.t) + H), axis=1)
+    for name, m in (('insideKeepHeld63', rk.between(1, band)), ('outsideKeepHeld63', rk > band)):
+        g = after[m]
+        out['after'][name] = summarize(list(g.after63 - g.mkt63), [idx[int(t) + H] for t in g.t], 0.0)
+    out['after']['keepBand'] = band
     # 3) pop odds: fit on the first half, judge on the second, then refit on everything for the live odds
     rows = []
     for t in range(300, N - H, STEP):

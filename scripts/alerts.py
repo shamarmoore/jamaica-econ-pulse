@@ -1,8 +1,10 @@
 """Nightly alerts file for the phone's background check (data/alerts.json). Contains no personal data: the phone
 matches it against the positions saved on the device and decides what to notify.
-Every buy and sell alert comes from the one Edge score (scripts/edge_v2.py) and the rule it was back-tested with: buy the
-top `top`, keep a holding while it ranks within the top `keep`, decide at the 3-month review. Weak results, dividends and
-announcements are context; they never say buy or sell on their own.
+Every buy and sell alert comes from the one Edge score (scripts/edge_v2.py) and the rule it was back-tested with: hold the
+top `top`, keep a holding while it ranks within the top `keep`, decide at the 3-month review. The phone only passes on buys
+while the user holds fewer than `top` kept stocks. One tested exception (pops.py): a holding outside the keep band that
+just jumped is sold into the rise (popSell). Weak results, dividends and announcements are context; they never say buy or
+sell on their own.
   build(out) -> dict (also written to data/alerts.json)"""
 import json
 from datetime import datetime, timedelta, timezone
@@ -57,6 +59,18 @@ def build(out):
                        'body': f"Profit down {abs(r.get('yoy'))}% on the year." + (f" In testing, stocks trailed the market by {abs(W)} pts over the 3 months after weak results." if W is not None else '')
                                + f" The Edge score already counts this: {now}. Keep or sell by its rank at your review."}
     buys = _buys(stocks, ranks, top, keep, limit_days, today, asof)
+    # a holding outside the keep band that just jumped: the tested rule is to sell into the rise, not wait for the review
+    T = (((I.get('pops') or {}).get('after') or {}).get('outsideKeepHeld63')) or {}
+    pop_sell = {}
+    if T.get('verdict') == 'negative edge (avoid)':
+        for s, st in stocks.items():
+            R = (st.get('pop') or {}).get('recent')
+            if R and ranks.get(s, 0) > keep:
+                e = st.get('edge') or {}
+                how = f"with a limit order at J${e['limit']:,.2f} (the quote midpoint)" if e.get('limit') else 'at the bid'
+                pop_sell[s] = {'id': f"popsell-{s}-{R['since']}", 'title': f"{s} jumped {R['gain']:.0f}%: consider selling",
+                               'body': f"It is Edge #{ranks[s]}, outside the top {keep}. Tested: holdings outside the top {keep} that jumped like this did "
+                                       f"{T['avgExcess']:+.1f} pts vs the market over the next 3 months ({T['n']} cases). Sell into the rise {how} instead of waiting for the review."}
     events, susp = [], []
     for e in out.get('events') or []:
         if e['kind'] == 'suspend':
@@ -73,6 +87,6 @@ def build(out):
     KIND = {'results': 'Results', 'dividend': 'Dividend', 'insider': 'Insider trade', 'meeting': 'Meeting', 'board': 'Board', 'capital': 'Capital', 'notice': 'Notice'}
     news = [{'id': f"news-{p['id']}", 'sym': p['s'], 'kind': KIND.get(p.get('k'), 'Notice'), 'title': p.get('t', '')[:140]} for p in feed if p.get('s') and p['d'][:10] >= since][:80]
     A = {'asof': asof, 'made': datetime.now(timezone.utc).isoformat(timespec='seconds'), 'top': top, 'keep': keep, 'ranks': ranks, 'weak': weak,
-         'suspended': sorted(set(susp)), 'events': events, 'buys': buys, 'news': news}
+         'suspended': sorted(set(susp)), 'events': events, 'buys': buys, 'popSell': pop_sell, 'news': news}
     json.dump(A, open('data/alerts.json', 'w'), separators=(',', ':'))
     return A
