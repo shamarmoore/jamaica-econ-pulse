@@ -17,9 +17,8 @@ from concurrent.futures import ThreadPoolExecutor
 MAX = int(next((a for a in sys.argv[1:] if a.isdigit()), 300))
 DRY = '--dry-run' in sys.argv
 CACHE = next((a[8:] for a in sys.argv[1:] if a.startswith('--cache=')), None)
-sys.argv = sys.argv[:1]   # read_reports reads its own arguments when imported
 sys.path.insert(0, 'scripts')
-import read_reports as RR
+RR = None   # read_reports, loaded by main() only: the analysis functions below need no network or model
 
 OUT = 'data/shareholders.json'
 IDX = 'data/reports_index.json'
@@ -123,6 +122,9 @@ def read(p):
 
 
 def main():
+    global RR
+    sys.argv = sys.argv[:1]   # read_reports reads its own arguments when imported
+    import read_reports as RR
     if not RR.KEY and not DRY:
         print('SHAREHOLDERS skipped: no GEMINI_API_KEY'); return
     store = _load(OUT, {'reports': {}})

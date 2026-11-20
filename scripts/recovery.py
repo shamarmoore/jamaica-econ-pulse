@@ -96,6 +96,21 @@ def _notices():
     return _cache['notices']
 
 
+def docs(n=3, days=400):
+    """{sym: [[date, title, link, summary]], newest first}: the latest documents the notice reader summarised for each company."""
+    from datetime import date, timedelta
+    since = str(date.today() - timedelta(days=days))
+    try:
+        N = json.load(open('data/notices.json', encoding='utf-8')).get('notices', {})
+    except Exception:
+        N = {}
+    read, out = _notices(), {}
+    for link, v in sorted(N.items(), key=lambda kv: kv[1].get('date', ''), reverse=True):
+        if link in read and v.get('sym') and v.get('date', '') >= since and len(out.setdefault(v['sym'], [])) < n:
+            out[v['sym']].append([v['date'], v.get('title', ''), link, read[link]])
+    return {k: v for k, v in out.items() if v}
+
+
 def dossiers(out, fs):
     t = fs.N - 1
     F = _frames(fs)
