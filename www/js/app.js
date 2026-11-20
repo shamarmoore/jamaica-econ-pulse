@@ -868,8 +868,10 @@ function aiBacktestLine(F) {
   const A = F?.aiBacktest; if (!A?.cases) return '';
   const g = (k) => A[k]; const part = (k, lab) => (g(k) ? `${lab} ${signed(g(k).avgExcess, 1)} (${g(k).n})` : null);
   const parts = [part('avoid126', '“Avoid”'), part('watch126', '“Watch”'), part('speculative126', '“Speculative”')].filter(Boolean);
-  const sp = g('speculative126'); const av = g('avoid126');
-  const skill = sp && av && sp.n >= 15 && av.n >= 15 ? (sp.avgExcess - av.avgExcess >= 3 ? 'Its “Speculative” calls did better than its “Avoid” calls.' : 'Its verdicts did not separate the winners from the losers.') : 'Too few calls of each kind to judge yet.';
+  const sp = g('speculative126'); const av = g('avoid126'); const wa = g('watch126');
+  const skill = sp?.n >= 15 && av?.n >= 15 ? (sp.avgExcess - av.avgExcess >= 3 ? 'Its “Speculative” calls did better than its “Avoid” calls.' : 'Its “Speculative” calls did no better than its “Avoid” calls.')
+    : wa?.n >= 15 && av?.n >= 15 ? `${wa.avgExcess - av.avgExcess >= 3 && wa.bigLoss < av.bigLoss ? 'Its “Avoid” calls were the worst group, so it helps spot traps.' : `Its “Avoid” calls fell 15%+ more often (${av.bigLoss}% vs ${wa.bigLoss}%), but the ${fmt(Math.abs(wa.avgExcess - av.avgExcess), 1)}-point gap in average return could be luck.`} It almost never said “Speculative”, and its “Watch” calls still trailed the market. Use it to read the documents and list what to wait for, not to pick.`
+      : 'Too few calls of each kind to judge yet.';
   return `<p class="fine"><b>Blind test of this AI</b> on ${A.cases} past big fallers, names and years hidden (${fd(A.from, false)}–${fd(A.to, false)}, ${esc(A.model || 'Gemini')}): 6 months later vs the market, ${parts.join(' · ')}. ${skill}</p>`;
 }
 function popBlock(d, sym) {
