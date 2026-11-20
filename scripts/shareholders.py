@@ -134,12 +134,18 @@ def main():
     if DRY and CACHE:
         todo = [p for p in todo if os.path.exists(os.path.join(CACHE, f"{p['id']}.pdf"))]
     todo = sorted(todo, key=lambda p: p['date'], reverse=True)[:MAX]
-    done = [0]
+    done, stop = [0], []
 
     def one(p):
+        if stop:
+            return
         try:
             r = read(p)
+        except RuntimeError as e:   # the model's quota or key: every later call fails the same way after minutes of retries
+            stop.append(f'SHAREHOLDERS stopped: {str(e)[:200]}'); return
         except Exception as e:
+            if any(c in str(e) for c in ('403', '429')):
+                stop.append('SHAREHOLDERS stopped: the JSE site asked us to slow down'); return
             print('report failed:', p['sym'], p['date'][:10], repr(e)[:160]); return
         with _lock:
             store['reports'][str(p['id'])] = r; done[0] += 1
@@ -150,11 +156,13 @@ def main():
         list(ex.map(one, todo))
     if not DRY:
         json.dump(store, open(OUT, 'w', encoding='utf-8'), separators=(',', ':'), ensure_ascii=False)
+    if stop:
+        print(stop[0])
     R = store['reports'].values()
     print(f"SHAREHOLDERS read {done[0]} of {len(todo)}; stored {len(store['reports'])}, checked {sum(1 for r in R if r.get('holders') and check(r['holders'], r.get('issued')))}, "
           f"skipped {sum(1 for r in R if r.get('skip'))}; tokens {RR.tokens}")
     with open(os.environ.get('MORE_FLAG', os.path.join(tempfile.gettempdir(), 'shareholders_more')), 'w') as f:
-        f.write('yes' if len(todo) == MAX else 'no')
+        f.write('yes' if len(todo) == MAX and not stop else 'no')
     if DRY:
         for p in todo[:40]:
             print(' ', json.dumps(store['reports'].get(str(p['id'])), ensure_ascii=False)[:200])

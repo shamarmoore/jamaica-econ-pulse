@@ -126,7 +126,11 @@ def main():
     for link, sym, date, title in todo:
         try:
             store['notices'][link] = read(link, sym, date, title); done += 1
+        except RuntimeError as e:   # the model's quota or key: every later call fails the same way after minutes of retries
+            print('NOTICES stopped:', str(e)[:200]); break
         except Exception as e:
+            if any(c in str(e) for c in ('403', '429')):
+                print('NOTICES stopped: the JSE site asked us to slow down'); break
             print('notice failed:', sym, title[:60], repr(e)[:160])
         if not DRY:
             json.dump(store, open(OUT, 'w', encoding='utf-8'), separators=(',', ':'), ensure_ascii=False)
