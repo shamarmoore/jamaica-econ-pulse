@@ -2,13 +2,13 @@
 // dates of your positions, which alert kinds are on). The check itself is native (AlertsWorker) so it runs with the
 // app closed. Position sizes and prices never leave the WebView's storage.
 const KEY = 'ep_alerts_v1';
-const defaults = { enabled: false, sell: true, review: true, dividend: true, setup: true, news: true };
+const defaults = { enabled: false, sell: true, review: true, buy: true, dividend: true, news: true };
 export const ALERT_KINDS = [
-  ['sell', 'Sell signals', 'Weak results on a stock you hold, a holding slipping out of the Edge top 20, a suspension'],
-  ['review', '3-month reviews', 'On the day a position’s review is due, with the keep-or-sell answer from the tested rule'],
-  ['dividend', 'Dividend buy-by dates', 'High-yield dividends with a tested edge: when first announced and on the last day to buy'],
-  ['setup', 'Strong numbers, quiet price', 'An Edge top-15 stock with strong fundamentals whose price hasn’t moved yet'],
-  ['news', 'Announcements', 'New JSE notices on stocks you hold or that are quiet setups'],
+  ['buy', 'New on the buy list', 'A stock you don’t hold joins the Edge buy list, with the limit price to use'],
+  ['sell', 'Sell signals', 'A holding slips out of the Edge keep band (top 20), or its trading is suspended'],
+  ['review', '3-month reviews', 'On the day a position’s review is due, with the keep-or-sell answer from its Edge rank'],
+  ['dividend', 'Dividend buy-by dates', 'Tested high-yield dividends on stocks the Edge score also ranks in its top 20'],
+  ['news', 'Announcements', 'New JSE notices and weak results on stocks you hold or that are on the buy list'],
 ];
 export const alertPrefs = {
   get() { try { return { ...defaults, ...(JSON.parse(localStorage.getItem(KEY)) || {}) }; } catch (_) { return { ...defaults }; } },
