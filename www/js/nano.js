@@ -163,6 +163,22 @@ FACTS:
 ${facts}`;
 }
 
+export function recoveryPrompt(facts) {
+  return `You help a careful private investor on the Jamaica Stock Exchange judge whether a stock that has fallen a long way can come back. The facts come from a research app. The "History" lines are back-tests of JSE stocks in the same situation over the next 6 months.
+${RULES}
+Start from the history: most JSE stocks this far down kept falling. Your job is to find concrete facts that make this case different, or to say there are none. A low price alone is not a reason.
+Write exactly these 7 lines, each starting with "• ":
+• Why it fell: the cause, using only the facts (quote announcement titles, dates or results). If the facts don't show it, write "Not clear from the data" and name the announcement to read.
+• Kind of problem: one of one-off / cyclical / still unfolding / structural / governance or accounting / unclear, and why.
+• Signs of repair: what in the latest results or announcements shows the problem easing, with dates, or "None yet".
+• Wait for: 1 to 3 specific, checkable events that would make a recovery likely (for example two profitable quarters in a row, a review's findings published with no restatement, dividends restarting).
+• What would prove it wrong: 1 or 2 events.
+• History check: quote the History lines that fit this stock, with their numbers.
+• Verdict: exactly one of "Avoid for now", "Watch: wait for <the trigger>", or "Speculative: small position only". Choose Speculative only if the cause is one-off or already fixed AND the latest results show it; then add that it is untested and should be at most 5% of the money.
+FACTS:
+${facts}`;
+}
+
 export function digestPrompt(posts) {
   return `Here are recent Jamaica Stock Exchange announcements for stocks an investor holds or is watching.
 ${RULES}

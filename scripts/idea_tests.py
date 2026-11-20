@@ -679,6 +679,48 @@ def quiet_setups():
     return out
 
 
+# ---------------------------------------------------------------- recovery watch: stocks 40%+ below their 2-year high
+def recovery_tests():
+    """The next 6 months for stocks 40%+ below their 2-year high, by situation (scripts/recovery.py). Episodes every 21
+    trading days at three offsets; Edge-rank situations only on the days the walk-forward Edge history covers. Excess is
+    after 1.5% costs each way; big win (+25%) and big loss (-15%) are on the stock's own return after costs."""
+    import recovery
+    try:
+        hist = json.load(open('data/edge_hist.json'))['days']
+    except Exception:
+        hist = {}
+    G = {}
+    for off in (0, 7, 14):
+        for t in range(277 + off, N - recovery.H - 2, 21):
+            day = hist.get(str(idx[t].date()), {})
+            for s in syms:
+                if not TRI[s].iloc[t + 1] > 0 or not recovery.in_watch(fs, t, s):
+                    continue
+                e = fwd_excess(s, t, recovery.H)
+                if e is None:
+                    continue
+                r = float(np.clip(TRI[s].iloc[t + 1 + recovery.H] / TRI[s].iloc[t + 1], 0.05, 4) * (1 - COST) ** 2 - 1)
+                rank = day[s][1] if s in day else None
+                for k in recovery.groups(fs, t, s, rank):
+                    G.setdefault(k, ([], [], [], set()))
+                    G[k][0].append(e); G[k][1].append(idx[t]); G[k][2].append(r); G[k][3].add(s)
+    every = [d for ex, dates, r, names in G.values() for d in dates]
+    out = {'from': str(min(every).date()), 'to': str(max(every).date())} if every else {}
+    for k, (ex, dates, r, names) in G.items():
+        out[k] = summarize(ex, dates, COST)
+        if len(r) >= 15:
+            r = np.array(r)
+            out[k].update(bigWin=round(float((r >= 0.25).mean()) * 100), bigLoss=round(float((r <= -0.15).mean()) * 100),
+                          medianReturn=round(float(np.median(r)) * 100, 1), stocks=len(names))
+    out['explain'] = ('Every 21 trading days, every stock 40% or more below its highest close of the last 2 years (and trading on 20%+ of days) '
+                      'was bought at the next close and held 6 months, dividends in, 1.5% costs each way, against the average JSE stock. '
+                      'Big win = up 25% or more after costs; big loss = down 15% or more. Edge-rank groups use the rank the stock had that day in the walk-forward test.')
+    return out
+
+
+RESULTS['recovery'] = recovery_tests()
+
+
 def chart_indicators():
     d = P.diff()
     up = d.clip(lower=0).rolling(14).mean(); dn = (-d.clip(upper=0)).rolling(14).mean()
