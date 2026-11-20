@@ -821,7 +821,7 @@ def shareholder_tests():
             add('largestBigUp63', 63)
         if c is not None and c <= -0.25:
             add('largestDown63', 63)
-        if r['top10Change'] >= 1.0:
+        if (r['top10Change'] or 0) >= 1.0:
             add('top10Up63', 63)
         if r['newBig'] >= 2.0:
             add('newBigHolder63', 63)
