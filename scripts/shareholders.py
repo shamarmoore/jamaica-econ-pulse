@@ -9,14 +9,16 @@ read; check() decides which lists the tests and the app use, so a stricter or lo
   data/shareholders.json : {'reports': {post_id: {sym, date, asOf, issued, holders: [[name, units, pct]], src}}}
   changes()              -> one row per pair of consecutive checked lists for a company (idea_tests.py, forecast.py)
   latest(sym)            -> the newest checked list with each holder's change since the list before it
-Usage: GEMINI_API_KEY=... python scripts/shareholders.py [max=300] [--cache=DIR] [--dry-run]
---cache reads PDFs saved as DIR/<post id>.pdf instead of downloading them."""
+Usage: GEMINI_API_KEY=... python scripts/shareholders.py [max=300] [--cache=DIR] [--retry] [--dry-run]
+--cache reads PDFs saved as DIR/<post id>.pdf instead of downloading them. --retry reads again the scanned reports where
+no list was found (after the page choice changes)."""
 import base64, io, json, os, re, sys, tempfile, threading, time
 from concurrent.futures import ThreadPoolExecutor
 
 MAX = int(next((a for a in sys.argv[1:] if a.isdigit()), 300))
 DRY = '--dry-run' in sys.argv
 CACHE = next((a[8:] for a in sys.argv[1:] if a.startswith('--cache=')), None)
+RETRY = '--retry' in sys.argv
 sys.path.insert(0, 'scripts')
 RR = None   # read_reports, loaded by main() only: the analysis functions below need no network or model
 
@@ -67,7 +69,8 @@ def pages_to_send(path, pdf):
         return None, None, 'no shareholder list in the text'
     from pypdf import PdfReader, PdfWriter
     r = PdfReader(io.BytesIO(pdf))
-    pick = blank[-4:] if len(blank) < len(r.pages) else list(range(max(0, len(r.pages) - 6), len(r.pages)))
+    n = len(r.pages)
+    pick = blank[-10:] if len(blank) < n else list(range(n)) if n <= 40 else list(range(n - 12, n))   # fully scanned: the whole report if short
     w = PdfWriter()
     for i in pick:
         if i < len(r.pages):
@@ -126,7 +129,8 @@ def main():
     if not RR.KEY and not DRY:
         print('SHAREHOLDERS skipped: no GEMINI_API_KEY'); return
     store = _load(OUT, {'reports': {}})
-    todo = [p for p in _load(IDX, {'posts': []})['posts'] if p.get('sym') and p.get('links') and str(p['id']) not in store['reports']]
+    again = lambda r: RETRY and r.get('src') == 'image' and r.get('skip') == 'no shareholder list found'
+    todo = [p for p in _load(IDX, {'posts': []})['posts'] if p.get('sym') and p.get('links') and (str(p['id']) not in store['reports'] or again(store['reports'][str(p['id'])]))]
     if DRY and CACHE:
         todo = [p for p in todo if os.path.exists(os.path.join(CACHE, f"{p['id']}.pdf"))]
     todo = sorted(todo, key=lambda p: p['date'], reverse=True)[:MAX]
