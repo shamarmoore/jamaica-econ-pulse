@@ -9,7 +9,7 @@ import { quotesOn, rankStocks, TV_SYMBOLS, tvUrl, GLOBAL_TAGS, targetOdds, fcAt,
 import { fmt, signed, last, changeOver, yoySeries, esc, fd } from './util.js';
 import { edgeCard, edgeBlock, edgeRule, limitText } from './edge.js';
 import { alerts, alertPrefs, ALERT_KINDS, alertsSync, alertsStatus, alertsPermission, alertsCheckNow, alertsTest } from './alerts.js';
-import { nano, nanoCheck, nanoDownload, nanoAsk, nanoCached, nanoForget, nanoLabel, nanoUsed, nanoSetMode, MODEL_NAME, aiReady, aiLabel, cloud, PROVIDERS, cloudTest, willUseCloud, explainPrompt, newsPrompt, digestPrompt, planPrompt } from './nano.js';
+import { nano, nanoCheck, nanoDownload, nanoAsk, nanoCached, nanoForget, nanoLabel, nanoUsed, nanoSetMode, MODEL_NAME, aiReady, aiLabel, cloud, PROVIDERS, cloudTest, willUseCloud, explainPrompt, newsPrompt, digestPrompt, planPrompt, recoveryPrompt } from './nano.js';
 
 const KEY = 'ep_cache_v1';
 const PREV = 'ep_prev_gauges_v1';
@@ -706,6 +706,7 @@ function viewTrade(d) {
     ${asymCard(F)}
     ${trackCard(F)}
     ${edgeCard(F)}
+    ${recoveryCard(F)}
     ${regimeCard(F)}
     ${sizingCard(F)}
     ${F?.ideas ? '<button class="more" id="ideas-btn">Every idea we tested — results & explanations ›</button>' : ''}
@@ -760,6 +761,7 @@ function stockSheet(sym) {
     ${!x.vol ? '<p class="fine">No shares traded on this day — the quoted price may be stale and hard to buy or sell at.</p>' : ''}
     ${edgeBlock(d.forecasts, sym, chanceLines(d.forecasts, sym))}
     ${oddsBlock(d.forecasts, sym)}
+    ${recoveryBlock(d, sym)}
     ${signalsBlock(d.forecasts, sym)}
     ${bsBlock(d.forecasts, sym)}
     ${forecastBlock(d.forecasts, sym)}
@@ -767,7 +769,7 @@ function stockSheet(sym) {
     <h4>How to read this</h4><p class="fine">The trend figures compare today’s close with closes saved on your phone from 3, 6 and 12 months ago (prices exclude dividends). The 52-week bar shows where today’s price sits between the year’s low and high. This is a research shortlist, not a recommendation — check company results and news before buying.</p>
     ${positions.some((p) => p.sym === sym && !p.exit) ? `<p class="fine">You hold this stock — see My positions on the Trade page.</p>` : ''}
     <div class="btnrow"><button class="btn pri" id="buy-this">I bought this</button><a class="btn" href="https://www.jamstockex.com/trading/trade-quotes/?market=50&date=${L.date}" target="_blank" rel="noopener">JSE quotes ↗</a><button class="btn" data-close>Close</button></div>`,
-  (root) => { bindForecast(root, d.forecasts, sym); bindNews(root, d, sym); root.querySelector('#buy-this').addEventListener('click', () => posForm(d, { sym })); });
+  (root) => { bindForecast(root, d.forecasts, sym); bindNews(root, d, sym); bindRecovery(root, d, sym); root.querySelector('#buy-this').addEventListener('click', () => posForm(d, { sym })); });
 }
 
 // ---------- Timestral forecast: fan chart, target odds, speculation ----------
@@ -791,6 +793,71 @@ function oddsBlock(F, sym) {
   return `<h4>Upside vs downside · next 6 months <span class="vchip ${cls}">${lab}</span></h4>
     <div class="odds">${oddsBar(`Gained ${A.win}% or more`, b.win, 'good', max)}${oddsBar(`Lost ${-A.loss}% or more`, b.loss, 'bad', max)}</div>
     <p class="fine">What happened to stocks ${BAND_LABEL[o.band]} by Edge score, bought the next day and held 6 months (dividends in, costs out, ${b.n.toLocaleString('en-US')} cases since ${fd(A.from, false)}). Middle outcome ${signed(b.median, 1)}; nine times in ten the result fell between ${signed(b.p10, 0)} and ${signed(b.p90, 0)}. For any JSE stock: ${fmt(all.win, 0)}% big wins, ${fmt(all.loss, 0)}% big losses.${B.second ? ` In the later half of the test: ${fmt(B.second.win, 0)}% / ${fmt(B.second.loss, 0)}%.` : ''}</p>${tagNote}`;
+}
+// ---------- recovery watch: stocks 40%+ below their 2-year high (scripts/recovery.py), outside the Edge rule ----------
+const REC_GROUPS = [
+  ['all126', 'Any JSE stock this far down'], ['lossMaking126', 'Loss-making'], ['profitable126', 'Still profitable'],
+  ['lossesShrinking126', 'Loss-making, losses shrinking 2 quarters running'], ['insiderBuying126', 'Insiders buying'], ['noDividend126', 'No dividend in the last year'],
+  ['edgeTop20_126', 'Edge ranks it in the top 20'], ['edge21to40_126', 'Edge rank 21–40'], ['edge41plus126', 'Edge rank 41 or lower'], ['edgeUnranked126', 'Too thinly traded for an Edge rank'],
+];
+const recLabel = (k) => REC_GROUPS.find(([g]) => g === k)?.[1] || k;
+const AI_CALLS = 'ep_aicalls_v1';
+const aiCalls = { get() { try { return JSON.parse(localStorage.getItem(AI_CALLS)) || []; } catch (_) { return []; } },
+  add(c) { const v = aiCalls.get().filter((x) => !(x.sym === c.sym && x.date === c.date)); v.push(c); try { localStorage.setItem(AI_CALLS, JSON.stringify(v.slice(-200))); } catch (_) { /* full */ } } };
+const quarterLine = (fund) => (fund?.lastQuarters || []).map(([q, v]) => `${q} ${v < 0 ? '−' : '+'}J$${fmt(Math.abs(v) / 1e6, 0)}M`).join(', ');
+function recoveryBlock(d, sym) {
+  const F = d.forecasts; const st = F?.stocks?.[sym]; const R = st?.recovery; const H = F?.ideas?.recovery; if (!R || !H) return '';
+  const rows = R.groups.map((k) => [k, H[k]]).filter(([, h]) => h?.bigWin != null);
+  const top = R.groups.includes('edgeTop20_126'); const call = aiCalls.get().filter((c) => c.sym === sym).slice(-1)[0];
+  const losses = (st.fund?.lastQuarters || []).filter(([, v]) => v < 0).length;
+  const key = `ai-r-${sym}-${F.asof || ''}`;
+  return `<h4>Down ${fmt(Math.abs(R.drop), 0)}% from its 2-year high · can it come back? <span class="vchip ${top ? 'ok' : 'bad'}">${top ? 'Edge still ranks it well' : 'History: most kept falling'}</span></h4>
+    <p>Peak J$${fmt(R.peak[1], 2)} on ${fd(R.peak[0])}, ${R.months} months ago.${st.fund?.lastQuarters?.length ? ` Losses in ${losses} of the last ${st.fund.lastQuarters.length} quarters.` : ''} ${R.lastDividend ? `Last dividend ${fd(R.lastDividend)}.` : 'No dividends on record.'} Insiders since the peak: ${R.insiders.buys} buy${R.insiders.buys === 1 ? '' : 's'}${R.insiders.boughtShares ? ` (${R.insiders.boughtShares.toLocaleString('en-US')} shares)` : ''}, ${R.insiders.sells} sell${R.insiders.sells === 1 ? '' : 's'}.</p>
+    ${rows.length ? `<div class="tblwrap"><table class="yt"><thead><tr><th>Next 6 months for stocks like this</th><th>Cases</th><th>Up 25%+</th><th>Down 15%+</th><th>vs market</th></tr></thead><tbody>
+      ${rows.map(([k, h]) => `<tr><td>${esc(recLabel(k))}</td><td>${h.n.toLocaleString('en-US')}</td><td>${h.bigWin}%</td><td><b class="${h.bigLoss >= 30 ? 'bad' : ''}">${h.bigLoss}%</b></td><td>${pctCell2(h.avgExcess)}</td></tr>`).join('')}
+    </tbody></table></div>` : ''}
+    <p class="fine">Back-tested on JSE stocks 40%+ below their 2-year high from ${fd(H.from, false)} to ${fd(H.to, false)}, dividends in, 1.5% costs each way. Shrinking losses and insider buying did not pick out the recoveries. Only stocks Edge still ranked in its top 20 did better (${H.edgeTop20_126?.n ?? 'few'} cases, too few to prove). Recovery picks sit outside the Edge rule: research only, small amounts.</p>
+    ${R.news?.length ? `<p><b>Read first</b> <small class="fine">announcements since the peak; the reasons are usually in the PDF</small></p><ul class="trk">${R.news.map(([dt, t, u]) => `<li>${fd(dt)} · ${u ? `<a href="${esc(u)}" target="_blank" rel="noopener">${esc(t)} ↗</a>` : esc(t)}</li>`).join('')}</ul>` : ''}
+    ${aiButton('ai-recover', 'Why did it fall? Can it come back?', key)}${aiOut('ai-recover-out', key)}
+    ${call ? `<p class="fine">Your last AI verdict (${fd(call.date)} at J$${fmt(call.px, 2)}): <b>${esc(call.verdict)}</b>.</p>` : ''}`;
+}
+const pctCell2 = (v) => (v == null ? '—' : `<b class="${v >= 0 ? 'good' : 'bad'}">${signed(v, 1)}</b>`);
+function recoveryFacts(d, sym) {
+  const F = d.forecasts; const st = F.stocks[sym]; const R = st.recovery; const H = F.ideas?.recovery || {}; const L = [];
+  L.push(`Stock: ${sym} (${st.fund?.name || sym}). Price J$${fmt(priceNow(d, sym) ?? st.close, 2)}, ${fmt(Math.abs(R.drop), 0)}% below its 2-year high of J$${fmt(R.peak[1], 2)} on ${R.peak[0]} (${R.months} months ago).`);
+  if (st.fund?.lastQuarters?.length) L.push(`Quarterly profit, oldest to newest: ${quarterLine(st.fund)}.`);
+  L.push(R.lastDividend ? `Last dividend paid (ex-date) ${R.lastDividend}.` : 'No dividends on record.');
+  L.push(`Insider trades since the peak: ${R.insiders.buys} buy notices (${R.insiders.boughtShares.toLocaleString('en-US')} shares), ${R.insiders.sells} sell notices (${R.insiders.soldShares.toLocaleString('en-US')} shares).`);
+  const recent = (d.jsenews?.posts || []).filter((p) => p.s === sym).slice(0, 4);
+  if (R.news?.length) L.push(`Announcements since the peak (newest first): ${R.news.slice(0, 8).map(([dt, t]) => `[${dt}] ${t}`).join('; ')}.`);
+  if (recent.length) L.push(`Text of the latest announcements: ${recent.map((p) => `[${p.d.slice(0, 10)}] ${p.x.slice(0, 220)}`).join(' | ')}`);
+  if (st.edge) L.push(`Edge score ${st.edge.score}/100${st.edge.rank ? `, rank ${st.edge.rank} of ${st.edge.of}` : ' (not ranked: trades on fewer than half of days)'}; strongest themes ${Object.entries(st.edge.themes || {}).sort((a, b) => b[1] - a[1]).slice(0, 2).map(([k]) => F.edgeInfo?.themes?.[k]?.label || k).join(', ')}; weakest ${Object.entries(st.edge.themes || {}).sort((a, b) => a[1] - b[1]).slice(0, 2).map(([k]) => F.edgeInfo?.themes?.[k]?.label || k).join(', ')}.`);
+  for (const k of R.groups) { const h = H[k]; if (h?.bigWin != null) L.push(`History, ${recLabel(k).toLowerCase()} (${h.n} cases): ${h.bigWin}% rose 25%+ and ${h.bigLoss}% fell 15%+ over 6 months; ${signed(h.avgExcess, 1)} vs the market on average.`); }
+  if (st.signals?.liquidity) L.push(`Trades on ${st.signals.liquidity.tradedPct}% of days, about J$${fmt(st.signals.liquidity.adv20 / 1e6, 1)}M a day.`);
+  return L.join('\n');
+}
+function bindRecovery(root, d, sym) {
+  const b = root.querySelector('#ai-recover'); if (!b) return;
+  b.addEventListener('click', async () => {
+    const key = b.dataset.aikey;
+    await runAi(b, root.querySelector('#ai-recover-out'), key, recoveryPrompt(recoveryFacts(d, sym)), { maxTokens: 520 });
+    const v = /Verdict:\s*\**\s*(Avoid for now|Watch[^\n]*|Speculative[^\n]*)/i.exec(nanoCached(key) || '')?.[1];
+    if (v) aiCalls.add({ sym, date: d.forecasts.asof, px: priceNow(d, sym) ?? d.forecasts.stocks[sym].close, verdict: v.replace(/\*+/g, '').trim().slice(0, 120) });
+  });
+}
+function recoveryCard(F) {
+  const H = F?.ideas?.recovery?.all126; if (!H || !F.stocks) return '';
+  const list = Object.entries(F.stocks).filter(([, v]) => v.recovery && !v.pref).sort((a, b) => (a[1].edge?.rank || 999) - (b[1].edge?.rank || 999));
+  const calls = aiCalls.get(); const last = (s) => calls.filter((c) => c.sym === s).slice(-1)[0];
+  if (!list.length && !calls.length) return '';
+  const callRows = calls.slice(-8).reverse().map((c) => { const now = F.stocks[c.sym]?.close; const ch = now && c.px ? (now / c.px - 1) * 100 : null;
+    return `<li><b class="symlink" data-sym="${esc(c.sym)}">${esc(c.sym)}</b> · ${fd(c.date)} · ${esc(c.verdict.split(':')[0])} at J$${fmt(c.px, 2)}${ch != null ? ` · now ${pctCell2(ch)}` : ''}</li>`; }).join('');
+  return `<h2 class="sec">Recovery watch <small>big fallers, outside the Edge rule</small></h2>
+    <p class="fine">Stocks 40% or more below their 2-year high. History is against them: of ${H.n.toLocaleString('en-US')} past cases, ${H.bigWin}% rose 25%+ over the next 6 months and ${H.bigLoss}% fell 15%+. Tap one to see why it fell, the record for its exact situation, and to ask the AI whether this one is different.</p>
+    <div class="tblwrap"><table class="yt pick"><thead><tr><th>Stock</th><th>Down</th><th>Edge #</th><th>Losses</th><th>AI verdict</th></tr></thead><tbody>
+      ${list.map(([s, v]) => { const c = last(s); return `<tr data-sym="${esc(s)}"><td><b>${esc(s)}</b></td><td>${fmt(v.recovery.drop, 0)}%</td><td>${v.edge?.rank ?? '—'}</td><td>${v.recovery.groups.includes('lossMaking126') ? '<span class="bad">yes</span>' : 'no'}</td><td>${c ? esc(c.verdict.split(':')[0]) : '—'}</td></tr>`; }).join('')}
+    </tbody></table></div>
+    ${callRows ? `<p><b>Your AI recovery calls</b> <small class="fine">price then vs now, before costs; judge the AI on these after 6 months</small></p><ul class="trk">${callRows}</ul>` : ''}`;
 }
 function asymCard(F) {
   const A = F?.ideas?.asymmetry; if (!A?.bands) return '';

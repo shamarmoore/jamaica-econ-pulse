@@ -60,6 +60,9 @@ The back-test counts a limit order as filled only on a day the stock traded stri
 - `data/alerts.json` is what the phone's background check reads. It holds the buy list (with limit prices), the keep band, ranks, weak results, dividends and announcements. Only the Edge rank says buy or sell.
 - `data/picks_log_v2.json` logs each night's top 10 and scores it as it plays out. `data/picks_log.json` is the old score's log, which stopped on 2026-11-19.
 
+### Recovery watch
+`scripts/recovery.py` lists the stocks trading 40% or more below their 2-year high. For each one it saves the drop, the profit path, dividends, insider trades since the peak and the announcements to read. `idea_tests.py` back-tests the next 6 months for stocks in each situation: loss-making, losses shrinking, insiders buying, no dividend, and each Edge-rank band. The app shows the matching history on the stock's page. Its "Why did it fall? Can it come back?" AI button has to explain the cause, name what to wait for, quote that history, and pick one of three verdicts: avoid, watch, or a small speculative position. The phone logs each verdict with the price, so the AI's calls can be judged after 6 months. On the JSE most of these stocks kept falling, so none of this touches the Edge score or the buy list.
+
 `scripts/test_registry.py` keeps every test ever run, including every trading rule, in `data/test_registry.json`. It judges each one by a stricter bar: overlap-adjusted |t| of at least 3, the same sign in both halves, and at least 30 cases.
 
 ## Building

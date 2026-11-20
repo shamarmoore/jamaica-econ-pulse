@@ -130,6 +130,12 @@ try:
     print('EVENTS', len(out['events']), [(e['sym'], e['kind'], e['tested']['action']) for e in out['events'][:8]])
 except Exception as e:
     print('events skipped:', repr(e)[:200])
+# ---- recovery watch: stocks 40%+ below their 2-year high, with the facts to judge the fall (scripts/recovery.py) ----
+try:
+    import factor_study as fs6, recovery as rec
+    print('RECOVERY', rec.dossiers(out, fs6), 'stocks', sorted(k for k, v in out['stocks'].items() if v.get('recovery'))[:20])
+except Exception as e:
+    print('recovery skipped:', repr(e)[:200])
 # ---- alerts for the phone's background check (Edge buy list and keep band; matched against positions on the device) ----
 try:
     import alerts as al
