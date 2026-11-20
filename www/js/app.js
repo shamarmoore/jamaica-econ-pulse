@@ -943,8 +943,8 @@ function popCard(F) {
 }
 function aiCallsCard(F) {
   const calls = aiCalls.get(); if (!calls.length) return '';
-  const rows = calls.slice(-10).reverse().map((c) => { const now = F?.stocks?.[c.sym]?.close; const ch = now && c.px ? (now / c.px - 1) * 100 : null;
-    return `<li><b class="symlink" data-sym="${esc(c.sym)}">${esc(c.sym)}</b> · ${(c.kind || 'recovery') === 'pop' ? 'pop' : 'recovery'} · ${fd(c.date)} · ${esc(c.verdict.split(':')[0])} at J$${fmt(c.px, 2)}${ch != null ? ` · now ${pctCell2(ch)}` : ''}</li>`; }).join('');
+  const rows = calls.slice(-10).reverse().map((c) => { const now = F?.stocks?.[c.sym]?.close; const ch = now && c.px ? (now / c.px - 1) * 100 : null; const m = marketSince(c.date);
+    return `<li><b class="symlink" data-sym="${esc(c.sym)}">${esc(c.sym)}</b> · ${(c.kind || 'recovery') === 'pop' ? 'pop' : 'recovery'} · ${fd(c.date)} · ${esc(c.verdict.split(':')[0])} at J$${fmt(c.px, 2)}${ch != null ? ` · now ${pctCell2(ch)}${m != null ? ` vs the market ${signed(m, 1)}` : ''}` : ''}</li>`; }).join('');
   return `<h2 class="sec">Your AI speculative calls <small>price then vs now, before costs</small></h2><ul class="trk">${rows}</ul>
     <p class="fine">Every verdict the AI gave you on a big faller or a pop, saved on this phone. Judge it on these after 6 months; until then they prove nothing.</p>`;
 }
