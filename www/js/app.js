@@ -727,7 +727,7 @@ function tradeLesson(F) {
 function bindTrade(v) {
   const ib = v.querySelector('#ideas-btn'); if (ib) ib.addEventListener('click', () => ideasSheet(data().forecasts));
   const pl = v.querySelector('#ai-plan'); if (pl) pl.addEventListener('click', () => runAi(pl, v.querySelector('#ai-plan-out'), pl.dataset.aikey, planPrompt(eventsFacts(data())), { maxTokens: 700 }));
-  const dg = v.querySelector('#ai-digest'); if (dg) dg.addEventListener('click', () => runAi(dg, v.querySelector('#ai-digest-out'), dg.dataset.aikey, digestPrompt(relevantNews(data()).slice(0, 25)), { maxTokens: 450 }));
+  const dg = v.querySelector('#ai-digest'); if (dg) dg.addEventListener('click', () => runAi(dg, v.querySelector('#ai-digest-out'), dg.dataset.aikey, digestPrompt(withSums(data(), relevantNews(data()).slice(0, 25))), { maxTokens: 450 }));
   const pa = v.querySelector('#pos-add'); if (pa) pa.addEventListener('click', () => posForm(data()));
   const pe = v.querySelector('#pos-export'); if (pe) pe.addEventListener('click', posBackup);
   const pi = v.querySelector('#pos-import'); if (pi) pi.addEventListener('click', posRestore);
@@ -1503,7 +1503,7 @@ function eventsCard(d) {
 function newsCard(d) {
   if (!d.jsenews) return '';
   const R = relevantNews(d); if (!R.length) return '';
-  const shown = R.slice(0, 10); const key = `ai-dig-${R.slice(0, 25).map((p) => p.id).join('.')}`;
+  const shown = withSums(d, R.slice(0, 10)); const key = `ai-dig-${R.slice(0, 25).map((p) => p.id).join('.')}`;
   return `<h2 class="sec">Announcements <small>your stocks, Edge top 20, insider trades</small></h2>
     <div class="news">${shown.map((p) => newsItem(p, true)).join('')}</div>
     ${aiButton('ai-digest', 'Digest the latest news', key)}${aiOut('ai-digest-out', key)}

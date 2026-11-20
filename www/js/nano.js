@@ -201,5 +201,5 @@ export function digestPrompt(posts) {
 ${RULES}
 Write at most 8 bullet points starting with "• ", most important first: name the stock symbol, what happened and the key number. Put insider buying or selling, weak or strong results and dividend changes first. Skip routine meeting notices unless nothing else happened.
 ANNOUNCEMENTS:
-${posts.map((p) => `[${p.d.slice(0, 10)}] ${p.s || '?'}: ${p.t}${p.x ? ` — ${p.x.slice(0, 220)}` : ''}`).join('\n')}`;
+${posts.map((p) => `[${p.d.slice(0, 10)}] ${p.s || '?'}: ${p.t}${p.sum ? ` — the document says: ${p.sum.slice(0, 320)}` : p.x ? ` — ${p.x.slice(0, 220)}` : ''}`).join('\n')}`;
 }
