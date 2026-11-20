@@ -1,9 +1,11 @@
 """'Chance up': probability a stock is higher 3 months after you buy (next day's close, dividends included).
 'Chance +20%' (plus20): probability it is 20% or more higher over the same 3 months, built the same way.
-Both are fitted on past back-test cases from two inputs that were tested: the Edge-score percentile and Timestral's
-middle forecast. Each fits on the first half, reports how it did on the second half, then refits on everything.
-The app shows per-stock +20% odds only if they beat the plain base rate on the second half (lower Brier score).
-Needs data/forecast_backtest_rows.csv (made by backtest_ts.py). Writes data/chance_model.json."""
+Both are fitted on past cases from two inputs: the walk-forward Edge score (data/edge_hist.json, made by edge_v2.py)
+and Timestral's middle 3-month forecast on the same day (data/ts_hist.json, aligned the way edge_v2 aligns it).
+Each fits on the first half, reports how it did on the second half, then refits on everything.
+The app shows per-stock +20% odds only if, on the second half, they beat the plain base rate (lower Brier score) and
+rank stocks better than chance (AUC above 0.5).
+Writes data/chance_model.json."""
 import json, sys
 import numpy as np
 import pandas as pd
@@ -30,22 +32,18 @@ def auc(y, p):
     return float((r[y == 1].sum() - n1 * (n1 + 1) / 2) / (n1 * n0))
 
 
-study = json.load(open('data/factor_study.json')); chosen = study['h63']['chosen']
-bt = pd.read_csv('data/forecast_backtest_rows.csv'); bt['date'] = pd.to_datetime(bt.date)
+import edge_v2
+FC = edge_v2.Data(fs).FC
+hist = json.load(open('data/edge_hist.json'))['days']
 rows = []
-for d, g in bt.groupby('date'):
-    if d not in fs.idx:
+for day, sc in sorted(hist.items()):
+    t = fs.idx.get_loc(pd.Timestamp(day))
+    if t + 64 >= fs.N:
         continue
-    t = fs.idx.get_loc(d)
-    if t + 64 >= fs.N or t < 260:
-        continue
-    f = fs.features(t)
-    edge = sum(fs.z(f[k]) * v for k, v in chosen.items()).rank(pct=True)
-    ok = [s for s in g.sym if s in fs.syms and pd.notna(fs.P[s].iloc[t])]
+    ok = [s for s in sc if pd.notna(FC.iloc[t].get(s)) and fs.P[s].iloc[t] > 0 and fs.TRI[s].iloc[t + 1] > 0]
     fwd = fs.TRI[ok].iloc[t + 64] / fs.TRI[ok].iloc[t + 1] - 1
-    med = g.set_index('sym')['p1_63']
     for s in ok:
-        rows.append({'date': d, 'edge': edge[s], 'med': float(np.clip(med[s], -0.5, 0.5)), 'up': float(fwd[s] > 0), 'fwd': float(fwd[s])})
+        rows.append({'date': pd.Timestamp(day), 'edge': sc[s][0] / 100, 'med': float(np.clip(FC.iloc[t][s], -0.5, 0.5)), 'up': float(fwd[s] > 0), 'fwd': float(fwd[s])})
 df = pd.DataFrame(rows).dropna()
 df['big'] = (df.fwd >= 0.20).astype(float)
 dates = sorted(df.date.unique()); half = dates[len(dates) // 2]
@@ -69,7 +67,7 @@ def top10(t):
 
 w, te_up = fit('up')
 top = top10(te_up)
-out = {'w': [round(float(x), 4) for x in w], 'inputs': ['edge percentile (0–1)', 'Timestral middle forecast (fraction)'],
+out = {'w': [round(float(x), 4) for x in w], 'inputs': ['Edge score (0–1, walk-forward)', 'Timestral middle forecast (fraction)'],
        'cases': len(df), 'from': str(df.date.min().date()), 'to': str(df.date.max().date()), 'split': str(pd.Timestamp(half).date()),
        'baseUp': round(float(df.up.mean()) * 100, 1), 'testAUC': round(auc(te_up.up.values, te_up.p.values), 3),
        'testCalib': calib(te_up, 'up'),
@@ -78,11 +76,12 @@ out = {'w': [round(float(x), 4) for x in w], 'inputs': ['edge percentile (0–1)
 w20, te20 = fit('big')
 brier = float(((te20.p - te20.big) ** 2).mean())
 brier_base = float(((tr.big.mean() - te20.big) ** 2).mean())   # the first half's base rate, the best guess without the model
+test_auc = auc(te20.big.values, te20.p.values)
 out['plus20'] = {'w': [round(float(x), 4) for x in w20], 'inputs': out['inputs'], 'threshold': 20,
                  'cases': len(df), 'from': out['from'], 'to': out['to'], 'split': out['split'],
-                 'baseRate': round(float(df.big.mean()) * 100, 1), 'testAUC': round(auc(te20.big.values, te20.p.values), 3),
+                 'baseRate': round(float(df.big.mean()) * 100, 1), 'testAUC': round(test_auc, 3),
                  'testBrier': round(brier, 4), 'testBrierBase': round(brier_base, 4), 'skill': round(1 - brier / brier_base, 3),
-                 'show': bool(brier < brier_base), 'testCalib': calib(te20, 'big'),
+                 'show': bool(brier < brier_base and test_auc > 0.5), 'testCalib': calib(te20, 'big'),
                  'top10Rate': round(float(top10(te20).big.mean()) * 100, 1), 'allRate': round(float(te20.big.mean()) * 100, 1)}
 json.dump(out, open('data/chance_model.json', 'w'), indent=1)
 print('CHANCE', json.dumps(out))

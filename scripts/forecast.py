@@ -67,19 +67,13 @@ for i, s in enumerate(syms):
         'pref': is_pref(s),
         'fund': fund_summary(FUND.get(s)),
     }
-# ---- Edge score: the tested multi-signal ranking (see scripts/factor_study.py) ----
+# ---- Edge: the one stock score (scripts/edge_v2.py); also logs tonight's buy list for the live track record ----
 try:
     import factor_study as fs
-    study = json.load(open('data/factor_study.json'))
-    chosen = study['h63']['chosen']
-    edge = fs.edge_today(chosen)
-    for s_, e in edge.items():
-        if s_ in out['stocks']:
-            out['stocks'][s_]['edge'] = e
-    b = study['h63']['blends']['edge']
-    out['edgeInfo'] = {'labels': {k: fs.FEATURE_LABELS.get(k, k) for k in chosen}, 'signs': chosen, 'period': study['period'], 'split': study['h63']['split'],
-                       'oos': b['portfolio_oos_cost1pct'], 'all': b['portfolio_all_cost1pct'], 'oosIC': b['oosIC'], 'top5': study.get('top5'), 'byYear': study.get('byYear')}
-    print('EDGE', sorted(((v['score'], k) for k, v in edge.items()), reverse=True)[:8])
+    import edge_v2
+    edge_v2.today(out, fs)
+    print('EDGE', [k for _, k in sorted((v['edge']['rank'], k) for k, v in out['stocks'].items() if (v.get('edge') or {}).get('rank'))[:10]])
+    print('TRACK', json.dumps({k: out['track'][k] for k in ('since', 'daysLogged', 'soFar', 'completed', 'firstFullResult')}))
     # Chance up: probability of being higher in 3 months (dividends included), from the tested chance model
     cm = json.load(open('data/chance_model.json'))
     w = cm['w']
@@ -96,7 +90,7 @@ try:
     print('CHANCE UP', sorted(((st['chanceUp'], k) for k, st in out['stocks'].items() if 'chanceUp' in st), reverse=True)[:8])
     print('CHANCE +20%', sorted(((st['chance20'], k) for k, st in out['stocks'].items() if 'chance20' in st), reverse=True)[:8])
 except Exception as e:
-    print('edge score skipped:', e)
+    print('edge score skipped:', repr(e)[:200])
 # ---- per-stock signals, market regime and tested verdicts for each idea ----
 try:
     import signals as sg
@@ -117,25 +111,11 @@ try:
     _traps = asy.traps_today(fs4)
     if _A:
         for s_, st in out['stocks'].items():
-            if st.get('edge'):
-                st['odds'] = {'band': asy.band_of(st['edge']['rank']), 'tags': _traps.get(s_, [])}
+            if st.get('edge'):   # stocks too thinly traded to rank get no band, only the warning tags
+                st['odds'] = {'band': asy.band_of(st['edge']['rank']) if st['edge']['rank'] else None, 'tags': _traps.get(s_, [])}
         print('ODDS', {k: (v['all'] or {}).get('win') for k, v in _A['bands'].items()}, 'tagged', sum(1 for st in out['stocks'].values() if (st.get('odds') or {}).get('tags')))
 except Exception as e:
     print('odds skipped:', repr(e)[:200])
-# ---- live track record: log tonight's picks and score every earlier night's picks ----
-try:
-    import factor_study as fs2, track_record as tr
-    out['track'] = tr.update(out, fs2)
-    print('TRACK', json.dumps({k: out['track'][k] for k in ('since', 'daysLogged', 'soFar', 'completed', 'firstFullResult')}))
-except Exception as e:
-    print('track record skipped:', repr(e)[:200])
-# ---- Edge v2: walk-forward, theme-weighted, cost-aware ranking next to the original Edge (scripts/edge_v2.py) ----
-try:
-    import factor_study as fs5, edge_v2
-    edge_v2.today(out, fs5)
-    print('EDGE V2', [k for _, k in sorted((v['edge2']['rank'], k) for k, v in out['stocks'].items() if (v.get('edge2') or {}).get('rank'))[:10]])
-except Exception as e:
-    print('edge v2 skipped:', repr(e)[:200])
 # ---- actionable corporate events (dividends, splits, take-overs, rights issues, suspensions) ----
 try:
     import events as evm
@@ -150,12 +130,11 @@ try:
     print('EVENTS', len(out['events']), [(e['sym'], e['kind'], e['tested']['action']) for e in out['events'][:8]])
 except Exception as e:
     print('events skipped:', repr(e)[:200])
-# ---- alerts for the phone's background check (tested rules only; matched against positions on the device) ----
+# ---- alerts for the phone's background check (Edge buy list and keep band; matched against positions on the device) ----
 try:
-    import factor_study as fs3, alerts as al
-    _A = al.build(out, fs3)
-    out['setups'] = _A['setups']
-    print('ALERTS', {'weak': list(_A['weak']), 'events': [e['id'] for e in _A['events']], 'setups': [x['sym'] for x in _A['setups']], 'news': len(_A['news'])})
+    import alerts as al
+    _A = al.build(out)
+    print('ALERTS', {'weak': list(_A['weak']), 'events': [e['id'] for e in _A['events']], 'buys': [x['sym'] for x in _A['buys']], 'news': len(_A['news'])})
 except Exception as e:
     print('alerts skipped:', repr(e)[:200])
 json.dump(out, open('data/forecasts.json', 'w'), separators=(',', ':'))

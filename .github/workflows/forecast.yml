@@ -45,15 +45,19 @@ jobs:
           pip install -q numpy pandas scipy huggingface_hub "git+https://github.com/mistralai/timestral"
       - name: Back-test (first Monday of each month, or on request)
         run: |
-          if [ "${{ inputs.backtest }}" = "yes" ] || { [ "$(date -u +%d)" -le 07 ] && [ "$(date -u +%u)" = 1 ]; }; then python scripts/backtest_ts.py 21 120 && python scripts/factor_study.py > /dev/null && python scripts/chance_model.py; else echo "not this run"; fi
+          if [ "${{ inputs.backtest }}" = "yes" ] || { [ "$(date -u +%d)" -le 07 ] && [ "$(date -u +%u)" = 1 ]; }; then python scripts/backtest_ts.py 21 120 && python scripts/factor_study.py > /dev/null; else echo "not this run"; fi
       - name: Signal study + Edge score inputs (fast)
         run: python scripts/factor_study.py > /dev/null && echo "study ok"
-      - name: Idea tests (macro, sectors, spreads, events)
+      - name: Company announcement feed
+        run: python scripts/insiders.py || echo "announcement feed skipped"
+      - name: Edge study (walk-forward, trading rules, realistic fills) + chance model
         run: |
-          python scripts/insiders.py || echo "announcement feed skipped"
+          python scripts/edge_v2.py > /dev/null && echo "edge ok" || echo "edge study skipped"
+          python scripts/chance_model.py > /dev/null && echo "chance ok" || echo "chance model skipped"
+      - name: Idea tests (macro, sectors, spreads, events, odds by Edge rank) + test registry
+        run: |
           python scripts/idea_tests.py > /dev/null && echo "ideas ok" || echo "idea tests skipped"
-      - name: Edge v2 study (walk-forward, realistic fills) + test registry
-        run: python scripts/edge_v2.py > /dev/null && echo "edge v2 ok" || echo "edge v2 study skipped"
+          python scripts/test_registry.py > /dev/null && echo "registry ok" || echo "registry skipped"
       - name: Forecast every stock
         run: if [ -f scripts/forecast.py ]; then python scripts/forecast.py; fi
       - name: Save

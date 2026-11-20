@@ -41,15 +41,26 @@ A loan-rates outlook for the next 3–6 months (inflation vs target, real policy
 ## How the readings work
 `www/js/analysis.js` holds about 25 transparent rules plus the borrowing outlook. Each one takes a live number, decides whether it signals **pressure**, **watch**, **relief** or **steady**, and states the transmission channel into Jamaica (for example: oil → import bill → current account → JMD → electricity and transport costs → CPI). The signals add up into four gauges: inflation pressure, growth momentum, external pressure and shock risk. To change a threshold, edit that file and push.
 
-## Stock picks: Edge and Edge v2
-The Trade section ranks JSE stocks two ways. Both are made nightly by `.github/workflows/forecast.yml` and saved in `data/forecasts.json`.
+## Stock picks: the Edge score
+The Trade section ranks JSE stocks with one score, **Edge**. It drives the buy list, the 3-month keep-or-sell review, the odds bands, "chance up" and the phone alerts. `.github/workflows/forecast.yml` makes it nightly and saves it in `data/forecasts.json`.
 
-- **Edge** (`scripts/factor_study.py`) adds up the signals that ranked stocks well in the first half of the price history, with equal weights.
-- **Edge v2** (`scripts/edge_v2.py`) runs next to Edge and does not replace it. It groups signals into themes, refits their signs and weights every quarter from data whose outcome was already known, measures pullbacks on the bid/ask midpoint, adds the Timestral forecast and company announcements, and ranks by expected 3-month excess return minus the stock's quoted spread and fees.
+`scripts/edge_v2.py` builds the score. It groups the tested signals into themes and refits their signs and weights every quarter from data whose outcome was already known. It measures pullbacks on the bid/ask midpoint and adds the Timestral forecast and company announcements. Each stock is then ranked by its expected 3-month excess return minus its quoted spread and fees. Only stocks that trade on at least half of days get a rank. The original equal-weight score in `scripts/factor_study.py` is kept only as a baseline in the back-tests.
 
-Both are back-tested with realistic fills: buy at the closing ask, sell at the closing bid, 0.5% fees each way, dividends included. `data/edge_v2.json` holds the v2 model, the v1 vs v2 comparison and one back-test per upgrade switched off. Each night's top 10 is logged (`data/picks_log.json`, `data/picks_log_v2.json`) and scored as it plays out.
+### The trading rule
+`RULES` in `scripts/edge_v2.py` lists every way of trading the ranking that was tried. `SHIP` names the one the app tells you to follow:
 
-`scripts/test_registry.py` keeps every test ever run in `data/test_registry.json` and judges each by a stricter bar: overlap-adjusted |t| of at least 3, the same sign in both halves, and at least 30 cases.
+1. Buy the Edge top 5 in equal amounts.
+2. Place each buy as a limit order at the quote midpoint, good for 5 trading days. If it hasn't filled by then, buy at the ask.
+3. Every 3 months, keep each holding that still ranks in the top 20. Sell the rest with a limit at the midpoint, and buy whatever is new in the top 5.
+
+The back-test counts a limit order as filled only on a day the stock traded strictly through the limit, using the JSE's daily high and low. Waiting in a queue at the limit price never counts. The rule was picked on buys made before 2026, and 2026 is reported on its own. `data/edge_v2.json` holds the model, every rule's back-test and the shipped rule's checks: the same rule without its three biggest winners, and the old score traded the same way. Most of the rule's gain comes from a few stocks held a long time, so expect lumpy results.
+
+### Files
+- `data/edge_hist.json` holds the walk-forward score and rank for each 21-day test date. `scripts/chance_model.py` and `scripts/asymmetry.py` use it, so "chance up" and the odds bands describe this score.
+- `data/alerts.json` is what the phone's background check reads. It holds the buy list (with limit prices), the keep band, ranks, weak results, dividends and announcements. Only the Edge rank says buy or sell.
+- `data/picks_log_v2.json` logs each night's top 10 and scores it as it plays out. `data/picks_log.json` is the old score's log, which stopped on 2026-11-19.
+
+`scripts/test_registry.py` keeps every test ever run, including every trading rule, in `data/test_registry.json`. It judges each one by a stricter bar: overlap-adjusted |t| of at least 3, the same sign in both halves, and at least 30 cases.
 
 ## Building
 Every push to `main` runs `.github/workflows/build.yml`:

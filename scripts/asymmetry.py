@@ -1,11 +1,10 @@
 """Upside vs downside: which stocks have historically given lopsided results in your favour?
 
-For every month-end-ish date, every stock is ranked by the Edge score using only what was known that day, bought at the
-next day's close and held 6 months (dividends included, 1.5% costs each side). We then count how often stocks in each
-Edge-rank band ended +25% or better ("big win") against −15% or worse ("big loss"), and the same for groups people
-usually expect to be lopsided (volatile, lottery-like, beaten-down, small). The Edge signals were chosen on the first
-half of history only, so the second half is the honest check. Used by idea_tests.py (→ data/idea_tests.json) and
-forecast.py (per-stock odds)."""
+Every 21 trading days, every stock carries the Edge rank it had that day in the walk-forward test (data/edge_hist.json:
+the model was fit only on outcomes already known), is bought at the next day's close and held 6 months (dividends
+included, 1.5% costs each side). We then count how often stocks in each Edge-rank band ended +25% or better ("big win")
+against −15% or worse ("big loss"), and the same for groups people usually expect to be lopsided (volatile,
+lottery-like, beaten-down, small). Used by idea_tests.py (→ data/idea_tests.json) and forecast.py (per-stock odds)."""
 import json
 import numpy as np
 import pandas as pd
@@ -32,31 +31,31 @@ def _stat(g):
             'p10': round(float(r.quantile(0.1)) * 100), 'p90': round(float(r.quantile(0.9)) * 100)}
 
 
-def rows(fs, chosen):
-    P, TRI, V, idx, N, syms = fs.P, fs.TRI, fs.V, fs.idx, fs.N, fs.syms
+def rows(fs, hist):
+    P, TRI, idx, N = fs.P, fs.TRI, fs.idx, fs.N
     out = []
-    for off in (0, 7, 14):
-        for t in range(260 + off, N - H - 2, 21):
-            live = [s for s in syms if fs.first[s] is not None and idx.get_loc(fs.first[s]) <= t - 130 and P[s].iloc[t] > 0
-                    and (V[s].iloc[t - 59:t + 1] > 0).mean() >= 0.2 and TRI[s].iloc[t + 1] > 0]
-            if len(live) < 30:
-                continue
-            f = fs.features(t).loc[live]
-            edge = sum(fs.z(f[k]) * v for k, v in chosen.items())
-            fwd = ((TRI.iloc[t + 1 + H][live] / TRI.iloc[t + 1][live]).clip(0.05, 4) * (1 - COST) ** 2 - 1)
-            d = pd.DataFrame({'t': t, 'fwd': fwd, 'rank': edge.rank(ascending=False), 'vol': -f['lowvol'], 'lottery': -f['lottery'], 'hi52': f['hi52'], 'small': f['small'],
-                              'mom126': f['mom126'], 'dy': f['dy']}).dropna(subset=['fwd'])
-            for c in ('vol', 'lottery', 'hi52', 'small', 'mom126', 'dy'):
-                d['q_' + c] = d[c].rank(pct=True)
-            out.append(d)
+    for day, sc in sorted(hist.items()):
+        t = idx.get_loc(pd.Timestamp(day))
+        if t + 1 + H >= N:
+            continue
+        live = [s for s in sc if P[s].iloc[t] > 0 and TRI[s].iloc[t + 1] > 0]
+        if len(live) < 30:
+            continue
+        f = fs.features(t).loc[live]
+        edge_rank = pd.Series({s: sc[s][1] or np.nan for s in live})
+        fwd = ((TRI.iloc[t + 1 + H][live] / TRI.iloc[t + 1][live]).clip(0.05, 4) * (1 - COST) ** 2 - 1)
+        d = pd.DataFrame({'t': t, 'fwd': fwd, 'rank': edge_rank, 'vol': -f['lowvol'], 'lottery': -f['lottery'], 'hi52': f['hi52'], 'small': f['small'],
+                          'mom126': f['mom126'], 'dy': f['dy']}).dropna(subset=['fwd'])
+        for c in ('vol', 'lottery', 'hi52', 'small', 'mom126', 'dy'):
+            d['q_' + c] = d[c].rank(pct=True)
+        out.append(d)
     df = pd.concat(out).rename_axis('sym').reset_index()
     df['flag'] = (df.q_vol >= 2 / 3) | (df.q_lottery >= 2 / 3) | (df.q_hi52 <= 1 / 3)      # the same tags traps_today() gives
     return df
 
 
-def build(fs, chosen=None):
-    chosen = chosen or json.load(open('data/factor_study.json'))['h63']['chosen']
-    df = rows(fs, chosen)
+def build(fs, hist=None):
+    df = rows(fs, hist or json.load(open('data/edge_hist.json'))['days'])
     ts = sorted(df.t.unique()); half = ts[len(ts) // 2]
     first, second = df[df.t < half], df[df.t >= half]
     res = {'horizonDays': H, 'win': int(WIN * 100), 'loss': int(LOSS * 100), 'cost': COST, 'from': str(fs.idx[ts[0]].date()), 'to': str(fs.idx[ts[-1]].date()),
@@ -76,7 +75,7 @@ def build(fs, chosen=None):
     res['top20'] = {'volatile': _stat(t20(df)[t20(df).q_vol >= 2 / 3]), 'notVolatile': _stat(t20(df)[t20(df).q_vol < 2 / 3]),
                     'flagged': _stat(t20(df)[t20(df).flag]), 'clean': _stat(t20(df)[~t20(df).flag]),
                     'flaggedSecond': _stat(t20(second)[t20(second).flag]), 'cleanSecond': _stat(t20(second)[~t20(second).flag])}
-    rest = df[df['rank'] > 20]
+    rest = df[~(df['rank'] <= 20)]   # includes stocks too thinly traded to be ranked
     res['rest'] = {'flagged': _stat(rest[rest.flag]), 'clean': _stat(rest[~rest.flag])}
     return res
 

@@ -324,21 +324,6 @@ FEATURE_LABELS = {
     'bs_bp': 'Cheap relative to book value', 'bs_roe': 'High return on shareholders’ funds', 'bs_lowdebt': 'Little debt', 'bs_netcash': 'Net cash on the balance sheet', 'bs_cashq': 'Profit backed by cash', 'bs_ocfy': 'Operating cash yield', 'bs_fcfy': 'Free cash flow yield', 'bs_margin': 'High profit margin', 'bs_eq_assets': 'Funded mostly by shareholders'}
 
 
-def edge_today(chosen):
-    """Edge score (0–100 percentile) for every live stock on the latest day, plus each signal's percentile."""
-    t = N - 1
-    live = [s for s in syms if first[s] is not None and idx.get_loc(first[s]) <= t - 130 and P[s].iloc[t] > 0 and (V[s].iloc[t - 59:t + 1] > 0).mean() >= 0.2]
-    f = features(t).loc[live]
-    pct = pd.DataFrame({k: (f[k] * sgn).rank(pct=True) for k, sgn in chosen.items()})
-    blend = sum(z(f[k]) * sgn for k, sgn in chosen.items())
-    score = blend.rank(pct=True) * 100
-    out = {}
-    for s in live:
-        sig = {k: round(float(pct.at[s, k]) * 100) for k in chosen if pd.notna(f.at[s, k])}
-        out[s] = {'score': round(float(score[s])), 'rank': int((score > score[s]).sum()) + 1, 'of': len(live), 'signals': sig}
-    return out
-
-
 if __name__ == '__main__':
     report = {'period': [str(idx[260].date()), str(idx[-1].date())], 'basis': 'next-day entry, dividends included, prefs excluded, traded ≥20% of days'}
     for HOLD in (21, 63):

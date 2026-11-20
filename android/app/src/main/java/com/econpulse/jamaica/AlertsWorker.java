@@ -33,8 +33,9 @@ import java.util.Set;
 
 /**
  * Background check (about every 6 hours, when online): reads the nightly alerts file from the user's private GitHub repo
- * and compares it with the positions saved on this phone. Posts a notification for sell signals, 3-month reviews that are
- * due, dividend buy-by dates, new "strong numbers, quiet price" setups and announcements on stocks the user holds.
+ * and compares it with the positions saved on this phone. Buy and sell alerts come from the one Edge score: a stock new on
+ * the buy list, a holding slipping out of the keep band, and the keep-or-sell answer when a 3-month review is due. It also
+ * passes on dividend buy-by dates, suspensions, weak results and announcements for stocks the user holds or could buy.
  * Every rule comes from the back-tests; nothing here is written by an AI. Each alert is shown once.
  */
 public class AlertsWorker extends Worker {
@@ -79,7 +80,7 @@ public class AlertsWorker extends Worker {
     static void ensureChannel(Context ctx) {
         if (Build.VERSION.SDK_INT >= 26) {
             NotificationChannel ch = new NotificationChannel(CHANNEL, "JSE alerts", NotificationManager.IMPORTANCE_DEFAULT);
-            ch.setDescription("Sell signals, review dates, dividend buy-by dates and new setups");
+            ch.setDescription("Buy list, sell signals, review dates, dividend buy-by dates and announcements");
             NotificationManager nm = ctx.getSystemService(NotificationManager.class);
             if (nm != null) nm.createNotificationChannel(ch);
         }
@@ -111,7 +112,7 @@ public class AlertsWorker extends Worker {
         JSONArray pos = cfg.optJSONArray("positions");
         if (pos == null) pos = new JSONArray();
         boolean kSell = cfg.optBoolean("sell", true), kReview = cfg.optBoolean("review", true), kDiv = cfg.optBoolean("dividend", true),
-            kSetup = cfg.optBoolean("setup", true), kNews = cfg.optBoolean("news", true);
+            kBuy = cfg.optBoolean("buy", true), kNews = cfg.optBoolean("news", true);
         JSONArray seenArr = new JSONArray(sp.getString("seen", "[]"));
         Set<String> seen = new HashSet<>();
         for (int i = 0; i < seenArr.length(); i++) seen.add(seenArr.optString(i));
@@ -125,6 +126,7 @@ public class AlertsWorker extends Worker {
             try { A = fetch(cfg.optString("repo", ""), token); } catch (Exception e) { err = String.valueOf(e.getMessage()); }
         }
         JSONObject ranks = A == null ? null : A.optJSONObject("ranks");
+        int keepBand = A == null ? 20 : A.optInt("keep", 20);
         JSONObject weak = A == null ? null : A.optJSONObject("weak");
         Set<String> suspended = new HashSet<>();
         JSONArray su = A == null ? null : A.optJSONArray("suspended");
@@ -139,21 +141,21 @@ public class AlertsWorker extends Worker {
             held.add(sym);
             int rank = ranks == null ? 0 : ranks.optInt(sym, 0);
             boolean due = !review.isEmpty() && review.compareTo(today) <= 0;
+            JSONObject w = weak == null ? null : weak.optJSONObject(sym);
+            if (kNews && w != null) out.add(new String[]{w.optString("id"), w.optString("title"), w.optString("body")});
             if (kSell && A != null) {
-                JSONObject w = weak == null ? null : weak.optJSONObject(sym);
-                if (w != null) out.add(new String[]{w.optString("id"), w.optString("title"), w.optString("body")});
                 if (suspended.contains(sym)) out.add(new String[]{"susp-" + sym + "-" + today.substring(0, 7), sym + ": trading suspended", "You can’t buy or sell it until the suspension lifts. Check the notice in the app."});
-                if (rank > 20 && !due) out.add(new String[]{"drop-" + pid + "-" + review, sym + " slipped to Edge #" + rank,
-                    "It’s outside the top 20. The tested rule is not to sell early: decide at the 3-month review on " + review + "."});
+                if (rank > keepBand && !due) out.add(new String[]{"drop-" + pid + "-" + review, sym + " slipped to Edge #" + rank,
+                    "It’s outside the top " + keepBand + ". The tested rule is not to sell early: decide at the 3-month review on " + review + "."});
             }
             if (kReview && due) {
                 String body = rank == 0 ? "Open the app to see its Edge rank, then keep or sell."
-                    : rank <= 20 ? "Still Edge #" + rank + " (top 20). Tested rule: keep it another 3 months, then tap “Reviewed — keep”."
-                    : "Now Edge #" + rank + ", outside the top 20. Tested rule: sell and move the money to the buy list.";
+                    : rank <= keepBand ? "Still Edge #" + rank + " (top " + keepBand + "). Tested rule: keep it another 3 months, then tap “Reviewed — keep”."
+                    : "Now Edge #" + rank + ", outside the top " + keepBand + ". Tested rule: sell with a limit order at the quote midpoint and move the money to the buy list.";
                 out.add(new String[]{"review-" + pid + "-" + review, "3-month review due: " + sym, body});
             }
         }
-        Set<String> setupSyms = new HashSet<>();
+        Set<String> buySyms = new HashSet<>();
         if (A != null) {
             JSONArray ev = A.optJSONArray("events");
             if (kDiv && ev != null) for (int i = 0; i < ev.length(); i++) {
@@ -164,21 +166,21 @@ public class AlertsWorker extends Worker {
                 out.add(new String[]{e.optString("id"), e.optString("title"), e.optString("body")});
                 if (buyBy.equals(today)) out.add(new String[]{e.optString("id") + "-last", "Last day — " + e.optString("title"), e.optString("body")});
             }
-            JSONArray st = A.optJSONArray("setups");
-            if (st != null) {
+            JSONArray bl = A.optJSONArray("buys");
+            if (bl != null) {
                 List<JSONObject> fresh = new ArrayList<>();
-                for (int i = 0; i < st.length(); i++) {
-                    JSONObject s = st.optJSONObject(i);
-                    if (s == null) continue;
-                    setupSyms.add(s.optString("sym"));
-                    if (!seen.contains(s.optString("id"))) fresh.add(s);
+                for (int i = 0; i < bl.length(); i++) {
+                    JSONObject b = bl.optJSONObject(i);
+                    if (b == null) continue;
+                    buySyms.add(b.optString("sym"));
+                    if (!seen.contains(b.optString("id")) && !held.contains(b.optString("sym"))) fresh.add(b);
                 }
-                if (kSetup && fresh.size() == 1) out.add(new String[]{fresh.get(0).optString("id"), fresh.get(0).optString("title"), fresh.get(0).optString("body")});
-                else if (kSetup && fresh.size() > 1) {
+                if (kBuy && fresh.size() == 1) out.add(new String[]{fresh.get(0).optString("id"), fresh.get(0).optString("title"), fresh.get(0).optString("body")});
+                else if (kBuy && fresh.size() > 1) {
                     StringBuilder names = new StringBuilder();
-                    for (JSONObject s : fresh) { if (names.length() > 0) names.append(", "); names.append(s.optString("sym")); seen.add(s.optString("id")); }
-                    out.add(new String[]{"setups-" + names, "Strong numbers, quiet price: " + names,
-                        "Edge-ranked stocks with strong fundamentals whose price hasn’t moved yet. In testing these beat the market over 3 months about as often as ones already rising. Open the app for each one’s numbers."});
+                    for (JSONObject b : fresh) { if (names.length() > 0) names.append(", "); names.append(b.optString("sym")); seen.add(b.optString("id")); }
+                    out.add(new String[]{"buys-" + names, "New on the Edge buy list: " + names,
+                        "Tested rule: buy each with a limit order at its quote midpoint, good for 5 trading days, then keep it while it stays in the Edge top " + keepBand + ". Open the app for each one’s limit price."});
                 }
             }
             JSONArray news = A.optJSONArray("news");
@@ -186,8 +188,8 @@ public class AlertsWorker extends Worker {
                 JSONObject n = news.optJSONObject(i);
                 if (n == null) continue;
                 String sym = n.optString("sym");
-                if (held.contains(sym) || setupSyms.contains(sym))
-                    out.add(new String[]{n.optString("id"), sym + " · " + n.optString("kind") + (held.contains(sym) ? " (you hold it)" : " (quiet setup)"), n.optString("title")});
+                if (held.contains(sym) || buySyms.contains(sym))
+                    out.add(new String[]{n.optString("id"), sym + " · " + n.optString("kind") + (held.contains(sym) ? " (you hold it)" : " (on the buy list)"), n.optString("title")});
             }
         }
         int posted = 0, waiting = 0;
@@ -197,7 +199,7 @@ public class AlertsWorker extends Worker {
             if (posted >= MAX_PER_RUN) { waiting++; continue; }
             if (post(ctx, n[0], n[1], n[2])) { seen.add(n[0]); seenArr.put(n[0]); posted++; } else { blocked = true; break; }
         }
-        // remember combined-setup ids too, and keep the list from growing without limit
+        // remember combined buy-list ids too, and keep the list from growing without limit
         JSONArray keep = new JSONArray();
         List<String> all = new ArrayList<>(seen);
         for (int i = Math.max(0, all.size() - 600); i < all.size(); i++) keep.put(all.get(i));
