@@ -25,6 +25,7 @@ def _raw_history(path='data/jse_history.json'):
 JUMP = 0.6            # a close below 60% of the one before is a bad print or a share split
 SETTLE = 5            # closes looked at after the jump to tell the two apart
 NOTICE_DAYS = 120     # a split announcement can come this many days before the split shows in the prices
+MAX_GAP = 10          # calendar days between two trades beyond which an unannounced drop is treated as a real fall
 _cleaned = {}
 
 
@@ -47,7 +48,8 @@ def _split_notices():
 
 def _clean(path='data/jse_history.json'):
     """Closes with one-off bad prints removed and share splits adjusted (earlier closes divided, volumes multiplied).
-    A close under JUMP x the one before is a bad print if the price is back within SETTLE closes, otherwise a split.
+    A close under JUMP x the one before is a bad print if the price is back within SETTLE closes, otherwise a split,
+    unless no split was announced and the two trades are more than MAX_GAP days apart: then it is a real fall and stays.
     A split's factor is the announced one when an announcement in the NOTICE_DAYS before it roughly matches the drop
     (the price can move on the day too: SEP's 5:1 split on 2026-11-16 closed 25% above 1/5 of the old price), else the
     drop itself, which assumes no move on the day. Returns (close, vol, splits [(sym, first post-split day, factor)])."""
@@ -71,7 +73,11 @@ def _clean(path='data/jse_history.json'):
                 continue
             day = c.index[i]
             seen = [k for d, k in notices.get(s, []) if day - pd.Timedelta(days=NOTICE_DAYS) <= d <= day]
-            k = next((k for k in reversed(seen) if 0.65 < (before / now) / k < 1.5), before / now)
+            match = next((k for k in reversed(seen) if 0.65 < (before / now) / k < 1.5), None)
+            if match is None and (day - c.index[i - 1]).days > MAX_GAP:
+                i += 1   # a fall across weeks without a trade, with no split notice, is a real fall: rescaling would erase it
+                continue
+            k = match or before / now
             close.loc[close.index < day, s] /= k
             vol.loc[vol.index < day, s] *= k
             c = close[s].dropna()

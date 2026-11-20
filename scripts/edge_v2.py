@@ -384,7 +384,8 @@ def simulate(D, df, ranks, top=TOP, lag=0, fee=FEE, fill='cross', keep=None, eve
         picks, held = [], []
         for t in seq:
             e = t + 1 + lag
-            ok = [s for s in ranks[t] if s in elig[t] and (fill == 'close' or D.ASK.iat[e, D.col[s]] > 0)] if e + every < N else []
+            # buyable = it had a seller's quote at the decision day's close (tomorrow's order book isn't known yet)
+            ok = [s for s in ranks[t] if s in elig[t] and (fill == 'close' or D.ASK.iat[t, D.col[s]] > 0)] if e + every < N else []
             if len(ok) < top:
                 picks.append(None); held = []
                 continue
