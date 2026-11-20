@@ -792,7 +792,52 @@ def balance_sheet_tests():
     return out
 
 
-for _k, _fn in (('setups', quiet_setups), ('chart', chart_indicators), ('strategies', strategy_tests), ('balance_sheet', balance_sheet_tests)):
+NOMINEE = r'client|nominee|trustee|a/c|account|custod'
+
+
+def shareholder_tests():
+    """Does the largest shareholder raising its stake (from the top-ten list in each report) predict the stock?"""
+    import re as _re
+    import shareholders as SH
+    rows = SH.changes()
+    cats = {k: ([], []) for k in ('largestUp63', 'largestUp126', 'largestBigUp63', 'largestOwnerUp63', 'largestDown63', 'top10Up63', 'newBigHolder63')}
+    for r in rows:
+        s = r['sym']
+        if s not in P.columns:
+            continue
+        t = int(idx.searchsorted(pd.Timestamp(r['date']), side='right')) - 1   # the list is public from its report's date
+        if t < 130 or t >= N - 2 or not UNIV[s].iloc[t]:
+            continue
+        def add(cat, h):
+            x = fwd_excess(s, t, h)
+            if x is not None:
+                cats[cat][0].append(x); cats[cat][1].append(idx[t])
+        c = r['largestChange']
+        if c is not None and c >= 0.25:
+            add('largestUp63', 63); add('largestUp126', 126)
+            if not _re.search(NOMINEE, r['holder'], _re.I):
+                add('largestOwnerUp63', 63)
+        if c is not None and c >= 1.0:
+            add('largestBigUp63', 63)
+        if c is not None and c <= -0.25:
+            add('largestDown63', 63)
+        if r['top10Change'] >= 1.0:
+            add('top10Up63', 63)
+        if r['newBig'] >= 2.0:
+            add('newBigHolder63', 63)
+    out = {k: summarize(v[0], v[1], COST) for k, v in cats.items()}
+    for k in ('largestUp63', 'largestDown63'):
+        out[k + '_holding'] = summarize(cats[k][0], cats[k][1], 0.0)
+    out['pairs'] = len(rows); out['companies'] = len({r['sym'] for r in rows})
+    out['from'] = min((r['date'] for r in rows), default=None); out['to'] = max((r['date'] for r in rows), default=None)
+    out['explain'] = ('Each report’s top-ten shareholder list is compared with the company’s previous one. Up = the largest holder’s share of the company rose by '
+                      '0.25 points or more (big = 1 point); owner = leaving out client, nominee and trustee accounts; top ten up = the ten together rose 1 point; '
+                      'new big holder = a name not on the last list now holds 2% or more. Bought at the close the day after the report, held 3 months '
+                      '(6 for the 126-day row), 1.5% costs each way, against the average JSE stock.')
+    return out
+
+
+for _k, _fn in (('setups', quiet_setups), ('chart', chart_indicators), ('strategies', strategy_tests), ('balance_sheet', balance_sheet_tests), ('shareholders', shareholder_tests)):
     try:
         RESULTS[_k] = _fn()
     except Exception as _e:
