@@ -127,7 +127,8 @@ function friendly(m) {
 }
 
 // ---------- prompts (short: the model has a ~4,000-token window) ----------
-const RULES = `Rules: use ONLY the facts given. Do not invent numbers, dates or news. Do not predict prices beyond the forecast given. Plain English, no hype, no "guaranteed". If facts conflict or are missing, say so.`;
+const RULES = `Rules: use ONLY the facts given. Do not invent numbers, dates or news. Do not predict prices beyond the forecast given. Plain English, no hype, no "guaranteed". If facts conflict or are missing, say so.
+The app has already read every company document it could; what they say is in the facts ("What the ... document says"). Never tell the investor to read a report, financial statements or an announcement. If something you need is missing, name the missing fact instead.`;
 
 export function explainPrompt(facts) {
   return `You help a careful private investor on the Jamaica Stock Exchange understand one stock from a research app's data. The app's signals were back-tested on JSE data; the "tested" notes say what each signal was worth.
@@ -137,7 +138,7 @@ Write exactly 5 short bullet points starting with "• ":
 • The strongest reason in favour
 • The biggest risk or warning
 • What the tested rules suggest doing (buy / hold / avoid / wait), quoting the rule
-• One thing to check before acting
+• One specific thing to watch next: a date, or a number in the next results that would change the view
 FACTS:
 ${facts}`;
 }
@@ -147,7 +148,7 @@ export function newsPrompt(sym, posts) {
 ${RULES}
 For each announcement write one line: "• [date] type — what happened, with the key numbers (dividend per share and dates, profit change, shares bought or sold and by whom)". Then one final line starting "Overall:" saying whether the news is mostly positive, negative or neutral for shareholders and why, in one sentence.
 ANNOUNCEMENTS:
-${posts.map((p) => `[${p.d.slice(0, 10)}] ${p.t}\n${p.x.slice(0, 500)}`).join('\n---\n')}`;
+${posts.map((p) => `[${p.d.slice(0, 10)}] ${p.t}\n${p.x.slice(0, 500)}${p.sum ? `\nWhat the document says: ${p.sum}` : ''}`).join('\n---\n')}`;
 }
 
 export function planPrompt(facts) {
@@ -168,7 +169,7 @@ export function recoveryPrompt(facts) {
 ${RULES}
 Start from the history: most JSE stocks this far down kept falling. Your job is to find concrete facts that make this case different, or to say there are none. A low price alone is not a reason.
 Write exactly these 7 lines, each starting with "• ":
-• Why it fell: the cause, using only the facts (quote announcement titles, dates or results). If the facts don't show it, write "Not clear from the data" and name the announcement to read.
+• Why it fell: the cause, using only the facts (quote announcement titles, dates or results). If the facts don't show it, write "Not clear from the data" and name the missing fact.
 • Kind of problem: one of one-off / cyclical / still unfolding / structural / governance or accounting / unclear, and why.
 • Signs of repair: what in the latest results or announcements shows the problem easing, with dates, or "None yet".
 • Wait for: 1 to 3 specific, checkable events that would make a recovery likely (for example two profitable quarters in a row, a review's findings published with no restatement, dividends restarting).
@@ -200,5 +201,5 @@ export function digestPrompt(posts) {
 ${RULES}
 Write at most 8 bullet points starting with "• ", most important first: name the stock symbol, what happened and the key number. Put insider buying or selling, weak or strong results and dividend changes first. Skip routine meeting notices unless nothing else happened.
 ANNOUNCEMENTS:
-${posts.map((p) => `[${p.d.slice(0, 10)}] ${p.s || '?'}: ${p.t}${p.x ? ` — ${p.x.slice(0, 220)}` : ''}`).join('\n')}`;
+${posts.map((p) => `[${p.d.slice(0, 10)}] ${p.s || '?'}: ${p.t}${p.sum ? ` — the document says: ${p.sum.slice(0, 320)}` : p.x ? ` — ${p.x.slice(0, 220)}` : ''}`).join('\n')}`;
 }

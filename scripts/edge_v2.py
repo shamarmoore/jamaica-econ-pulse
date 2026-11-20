@@ -53,7 +53,7 @@ THEME_LABELS = {'trend': 'Price trend', 'pullback': 'Recent pullback (quote midp
 EXTRA_LABELS = {'rev5m': 'Pulled back in the last week (midpoint)', 'rev21m': 'Pulled back in the last month (midpoint)',
                 'bbm': 'Below its 20-day average (midpoint)', 'div_chg': 'Dividend raised vs a year ago', 'div_notice': 'Board to consider a dividend',
                 'share_issue': 'Recent rights issue or new shares', 'insider_net': 'Insiders buying more than selling', 'fcast': 'Timestral 3-month forecast',
-                'iv_rel': 'Below the price similar JSE companies trade at'}
+                'iv_rel': 'Below the price similar JSE companies trade at', 'ey_avg8': 'Cheap vs normal profits (8-quarter average)'}
 
 # Each variant switches one upgrade off (or adds one). 'full' is the version that ships; the rest show what each part adds.
 VARIANTS = {
@@ -65,6 +65,7 @@ VARIANTS = {
     'equal_theme_weights': {'equal': True},
     'flat_v1_signals': {'flat': True},
     'with_relative_value': {'add': {'value': ['iv_rel']}},
+    'with_normalized_pe': {'add': {'value': ['ey_avg8']}},
 }
 
 # How the top of the ranking is bought, kept and sold. Every rule tried stays listed so the test registry counts it.
@@ -181,6 +182,7 @@ class Data:
             f[k] = F.iloc[t][live]
         f['fcast'] = (fcast.reindex(live) if fcast is not None else self.FC.iloc[t][live]).clip(-0.5, 0.5)
         f['iv_rel'] = self.fs.MOS_REL.iloc[t][live]
+        f['ey_avg8'] = (self.fs.NORM_E.iloc[t][live] * self.fs.fx[live] / self.fs.MCAP.iloc[t][live]).clip(-0.5, 0.5)
         f['spread'] = self.SPR20.iloc[t][live]
         return f
 
@@ -475,7 +477,7 @@ def study():
     import factor_study as fs
     D = Data(fs)
     df = build_rows(D)
-    feats = sorted({k for ks in THEMES.values() for k in ks} | set(fs.FEATURE_LABELS) | {'rev5', 'rev21', 'iv_rel'})
+    feats = sorted({k for ks in THEMES.values() for k in ks} | set(fs.FEATURE_LABELS) | {'rev5', 'rev21', 'iv_rel', 'ey_avg8'})
     Z = zcols(df, feats)
     idx = fs.idx
     v1 = json.load(open('data/factor_study.json', encoding='utf-8'))

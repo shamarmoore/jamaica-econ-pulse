@@ -136,6 +136,25 @@ try:
     print('RECOVERY', rec.dossiers(out, fs6), 'stocks', sorted(k for k, v in out['stocks'].items() if v.get('recovery'))[:20])
 except Exception as e:
     print('recovery skipped:', repr(e)[:200])
+# ---- what the AI read in each company's latest documents (scripts/read_notices.py), for every stock's AI explainer ----
+try:
+    import recovery as rec2
+    _docs = {s: v for s, v in rec2.docs().items() if s in out['stocks']}
+    for s, v in _docs.items():
+        out['stocks'][s]['docs'] = v
+    print('DOCS', len(_docs), 'stocks with summarised documents')
+except Exception as e:
+    print('docs skipped:', repr(e)[:200])
+# ---- largest shareholders from the latest checked top-ten list (scripts/shareholders.py) ----
+try:
+    import shareholders as sh
+    _held = {s: sh.latest(s) for s in out['stocks']}
+    for s, v in _held.items():
+        if v:
+            out['stocks'][s]['holders'] = v
+    print('HOLDERS', sum(1 for v in _held.values() if v), 'stocks with a checked shareholder list')
+except Exception as e:
+    print('holders skipped:', repr(e)[:200])
 # ---- pop watch: odds of a sudden big rise, and the stocks that just had one (scripts/pops.py) ----
 try:
     import factor_study as fs7, pops

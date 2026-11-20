@@ -1,7 +1,8 @@
 """Reads the PDFs behind key JSE announcements with a low-cost Gemini model, so the app's AI sees what a company actually
 disclosed. Many notices are only a link to a PDF, and some PDFs are scanned letters with no text layer.
 
-Which notices: the announcements listed in the last forecasts.json for stocks on the recovery watch or that just popped
+Which notices: every company's results reports from the announcement feed (data/news_feed.json, last 90 days), plus the
+announcements listed in the last forecasts.json for stocks on the recovery watch or that just popped
 (stocks[sym].recovery.news and stocks[sym].pop.recent.news): reviews, delays, take-overs and the like first, then results,
 newest first within each, at most MAX a run. Each PDF is found through
 the JSE's WordPress API; its text is sent when it has a text layer, the file itself when it is scanned. The summary is kept
@@ -27,7 +28,7 @@ Announcement: "{title}" ({date}).
 Return ONLY a JSON object with these keys:
  "what": one or two plain sentences on what the document says happened,
  "why": the cause or reason the document gives, or null if it gives none,
- "numbers": the key figures with units and dates (profit, revenue, dividend per share, amounts), as one short string, or null,
+ "numbers": the key figures with units and dates (revenue, profit and how each changed from the same period a year earlier, dividend per share, amounts), as one short string, or null,
  "one_off": "yes" if it describes a one-time event or charge, "no" if it describes an ongoing problem or trend, "unclear" otherwise,
  "next": what the company says happens next (actions, timelines, reviews), or null,
  "tone": "positive", "negative" or "neutral" for shareholders.
@@ -52,6 +53,9 @@ def wanted():
         F = _load('data/forecasts.json', {})
         lists = {sym: ((st.get('recovery') or {}).get('news') or []) + (((st.get('pop') or {}).get('recent') or {}).get('news') or [])
                  for sym, st in (F.get('stocks') or {}).items()}
+        for p in _load('data/news_feed.json', {}).get('posts', []):
+            if p.get('s') and p.get('u') and RESULTS.search(p.get('t', '')):
+                lists.setdefault(p['s'], []).append([p['d'][:10], p['t'], p['u']])
     seen, out = set(), []
     for sym, items in lists.items():
         for n in items:

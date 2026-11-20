@@ -727,7 +727,7 @@ function tradeLesson(F) {
 function bindTrade(v) {
   const ib = v.querySelector('#ideas-btn'); if (ib) ib.addEventListener('click', () => ideasSheet(data().forecasts));
   const pl = v.querySelector('#ai-plan'); if (pl) pl.addEventListener('click', () => runAi(pl, v.querySelector('#ai-plan-out'), pl.dataset.aikey, planPrompt(eventsFacts(data())), { maxTokens: 700 }));
-  const dg = v.querySelector('#ai-digest'); if (dg) dg.addEventListener('click', () => runAi(dg, v.querySelector('#ai-digest-out'), dg.dataset.aikey, digestPrompt(relevantNews(data()).slice(0, 25)), { maxTokens: 450 }));
+  const dg = v.querySelector('#ai-digest'); if (dg) dg.addEventListener('click', () => runAi(dg, v.querySelector('#ai-digest-out'), dg.dataset.aikey, digestPrompt(withSums(data(), relevantNews(data()).slice(0, 25))), { maxTokens: 450 }));
   const pa = v.querySelector('#pos-add'); if (pa) pa.addEventListener('click', () => posForm(data()));
   const pe = v.querySelector('#pos-export'); if (pe) pe.addEventListener('click', posBackup);
   const pi = v.querySelector('#pos-import'); if (pi) pi.addEventListener('click', posRestore);
@@ -767,6 +767,7 @@ function stockSheet(sym) {
     ${popBlock(d, sym)}
     ${signalsBlock(d.forecasts, sym)}
     ${bsBlock(d.forecasts, sym)}
+    ${holdersBlock(d.forecasts, sym)}
     ${forecastBlock(d.forecasts, sym)}
     ${newsBlock(d, sym)}
     <h4>How to read this</h4><p class="fine">The trend figures compare today’s close with closes saved on your phone from 3, 6 and 12 months ago (prices exclude dividends). The 52-week bar shows where today’s price sits between the year’s low and high. This is a research shortlist, not a recommendation — check company results and news before buying.</p>
@@ -837,6 +838,7 @@ function recoveryFacts(d, sym) {
   for (const [dt, t, , sum] of (R.news || []).filter((n) => n[3]).slice(0, 3)) L.push(`What the ${dt} document says (${t.slice(0, 80)}): ${sum}`);
   if (recent.length) L.push(`Text of the latest announcements: ${recent.map((p) => `[${p.d.slice(0, 10)}] ${p.x.slice(0, 220)}`).join(' | ')}`);
   if (st.edge) L.push(`Edge score ${st.edge.score}/100${st.edge.rank ? `, rank ${st.edge.rank} of ${st.edge.of}` : ' (not ranked: trades on fewer than half of days)'}; strongest themes ${Object.entries(st.edge.themes || {}).sort((a, b) => b[1] - a[1]).slice(0, 2).map(([k]) => F.edgeInfo?.themes?.[k]?.label || k).join(', ')}; weakest ${Object.entries(st.edge.themes || {}).sort((a, b) => a[1] - b[1]).slice(0, 2).map(([k]) => F.edgeInfo?.themes?.[k]?.label || k).join(', ')}.`);
+  L.push(...bsFacts(st), ...holderFacts(F, st));
   for (const k of R.groups) { const h = H[k]; if (h?.bigWin != null) L.push(`History, ${recLabel(k).toLowerCase()} (${h.n} cases): ${h.bigWin}% rose 25%+ and ${h.bigLoss}% fell 15%+ over 6 months; ${signed(h.avgExcess, 1)} vs the market on average.`); }
   if (st.signals?.liquidity) L.push(`Trades on ${st.signals.liquidity.tradedPct}% of days, about J$${fmt(st.signals.liquidity.adv20 / 1e6, 1)}M a day.`);
   return L.join('\n');
@@ -896,6 +898,7 @@ function popFacts(d, sym) {
   const recent = (d.jsenews?.posts || []).filter((x) => x.s === sym).slice(0, 3);
   if (recent.length) L.push(`Text of the latest announcements: ${recent.map((x) => `[${x.d.slice(0, 10)}] ${x.x.slice(0, 220)}`).join(' | ')}`);
   if (st.edge) L.push(`Edge score ${st.edge.score}/100${st.edge.rank ? `, rank ${st.edge.rank} of ${st.edge.of}` : ' (not ranked)'}.`);
+  L.push(...bsFacts(st), ...holderFacts(F, st));
   const line = (k, lab) => (A[k]?.n ? L.push(`History, ${lab} (${A[k].n} cases): ${signed(A[k].avgExcess, 1)} vs the market over the 3 months after the rise.`) : null);
   line('all63', 'all JSE pops'); for (const k of R.drivers) line(`${k}63`, `pops with ${DRIVER(I, k).toLowerCase()}`);
   if (st.signals?.liquidity) L.push(`Trades on ${st.signals.liquidity.tradedPct}% of days, about J$${fmt(st.signals.liquidity.adv20 / 1e6, 1)}M a day.`);
@@ -1347,7 +1350,7 @@ function insChip(p) {
 }
 function newsItem(p, showSym = false) {
   return `<details class="news-i"><summary><span class="fine">${fd(p.d.slice(0, 10))}${showSym && p.s ? ` · <b>${esc(p.s)}</b>` : ''} · ${KIND_LABEL[p.k] || 'Notice'}</span><br>${esc(p.t)}${insChip(p)}</summary>
-    ${p.x ? `<p class="fine">${esc(p.x)}${p.x.length >= 900 ? '…' : ''}</p>` : ''}${p.u ? `<a class="fine" href="${esc(p.u)}" target="_blank" rel="noopener">Open on jamstockex.com ↗</a>` : ''}</details>`;
+    ${p.x ? `<p class="fine">${esc(p.x)}${p.x.length >= 900 ? '…' : ''}</p>` : ''}${p.sum ? `<p class="fine">✦ AI read it: ${esc(p.sum)}</p>` : ''}${p.u ? `<a class="fine" href="${esc(p.u)}" target="_blank" rel="noopener">Open on jamstockex.com ↗</a>` : ''}</details>`;
 }
 function aiOut(id, key) {
   const t = nanoCached(key);
@@ -1406,10 +1409,32 @@ function stockFacts(d, sym) {
   const pos = (!willUseCloud() || cloud.get().sharePositions) && positions.find((p) => p.sym === sym && !p.exit); if (pos) { const ps = posStats(pos, d); L.push(`The investor holds ${pos.shares} shares bought at J$${pos.price} on ${pos.date}; P/L ${signed(ps.plPct ?? 0, 1)} after costs; 3-month review ${ps.review}.`); }
   const news = (d.jsenews?.posts || []).filter((p) => p.s === sym).slice(0, 4);
   if (news.length) L.push(`Recent announcements: ${news.map((p) => `[${p.d.slice(0, 10)}] ${p.t}`).join('; ')}.`);
+  L.push(...docFacts(s), ...bsFacts(s), ...holderFacts(F, s));
   return L.join('\n');
 }
+const docFacts = (st) => (st?.docs || []).map(([dt, t, , sum]) => `What the ${dt} document says (${t.slice(0, 90)}): ${sum}`);
+function bsFacts(st) {
+  const b = st?.signals?.bs; if (!b) return [];
+  const m = (v) => (v == null ? null : `${v < 0 ? '−' : ''}${b.cur === 'USD' ? 'US$' : b.cur === 'TTD' ? 'TT$' : 'J$'}${fmt(Math.abs(v) / 1e6, 0)}M`);
+  return [`Balance sheet at ${b.period} (from the report published ${b.pub}): shareholders' funds ${m(b.equity)} of ${m(b.assets)} assets; debt ${m(b.debt)}; cash ${m(b.cash)}${b.pb != null ? `; price ${fmt(b.pb, 2)}× book value` : ''}${b.roe != null ? `; return on equity ${fmt(b.roe, 1)}% a year` : ''}${b.margin != null ? `; profit margin ${fmt(b.margin, 1)}%` : ''}${b.cashPerProfit != null && !b.fin ? `; cash from operations ${b.cashPerProfit < 0 ? '−' : ''}J$${fmt(Math.abs(b.cashPerProfit), 2)} per J$1 of profit` : ''}.`];
+}
+function holderFacts(F, st) {
+  const H = st?.holders; if (!H?.top?.length) return [];
+  const T = F?.ideas?.shareholders?.largestAdded63;
+  return [`Largest shareholders at ${H.asOf}: ${H.top.map(([n, p, c]) => `${n} ${fmt(p, 2)}%${c != null && Math.abs(c) >= 0.01 ? ` (${signed(c, 2)} pts since ${H.prev})` : ''}`).join('; ')}.${T?.avgExcess != null ? ` Tested: after the largest holder added shares, stocks did ${signed(T.avgExcess, 1)} vs the market over 3 months after costs (${T.n} cases, ${T.verdict}).` : ''}`];
+}
+function holdersBlock(F, sym) {
+  const H = F?.stocks?.[sym]?.holders; if (!H?.top?.length) return '';
+  const I = F.ideas?.shareholders; const T = I?.largestAdded63; const D = I?.largestDown63;
+  return `<h4>Largest shareholders <small class="fine">as at ${fd(H.asOf)}</small></h4>
+    <table class="yt">${H.top.map(([n, p, c]) => `<tr><td>${esc(n)}</td><td>${p == null ? '—' : `${fmt(p, 2)}%`}</td><td>${c == null ? '<span class="fine">new</span>' : Math.abs(c) < 0.01 ? '<span class="fine">same</span>' : `<b class="${c > 0 ? 'good' : 'bad'}">${signed(c, 2)} pts</b>`}</td></tr>`).join('')}</table>
+    <p class="fine">Change in points of the company since the list published ${H.prev ? fd(H.prev) : 'before'}. Read from the company’s reports by an AI model and kept only when the holdings agree with the printed percentages.${T?.avgExcess != null ? ` Tested on ${T.n} cases: when the largest holder added shares, the stock did ${ptsTxt(T.avgExcess)} vs the market over the next 3 months after costs (${esc(T.verdict)})${D?.avgExcess != null ? `; when it cut its stake, ${ptsTxt(D.avgExcess)} (${D.n} cases)` : ''}.` : ' Whether a big holder adding shares predicts the price is not tested yet: too few past lists have been read. The result appears here as the older reports are read.'}</p>`;
+}
+const _docSums = new WeakMap();
+const docSums = (F) => { if (!F) return {}; if (!_docSums.has(F)) _docSums.set(F, Object.fromEntries(Object.values(F.stocks || {}).flatMap((v) => (v.docs || []).map((x) => [x[2], x[3]])))); return _docSums.get(F); };
+const withSums = (d, posts) => { const S = docSums(d.forecasts); return posts.map((p) => (S[p.u] ? { ...p, sum: S[p.u] } : p)); };
 function newsBlock(d, sym) {
-  const L = (d.jsenews?.posts || []).filter((p) => p.s === sym).slice(0, 8);
+  const L = withSums(d, (d.jsenews?.posts || []).filter((p) => p.s === sym).slice(0, 8));
   const ex = `ai-x-${sym}-${d.forecasts?.asof || ''}`; const nk = `ai-n-${sym}-${L.map((p) => p.id).join('.')}`;
   const evs = (d.forecasts?.events || []).filter((e) => e.sym === sym);
   return `${evs.length ? `<h4>From announcements</h4><div class="sigs">${evs.map(evRow).join('')}</div>` : ''}<h4>Ask the AI</h4>
@@ -1418,7 +1443,7 @@ function newsBlock(d, sym) {
     ${L.length ? `<div class="news">${L.map((p) => newsItem(p)).join('')}</div>${aiButton('ai-news', 'Summarise these announcements', nk)}${aiOut('ai-news-out', nk)}` : `<p class="fine">${d.jsenews ? 'No announcements matched to this stock in the last 90 days.' : 'Announcements load from your GitHub with the forecasts.'}</p>`}`;
 }
 function bindNews(root, d, sym) {
-  const L = (d.jsenews?.posts || []).filter((p) => p.s === sym).slice(0, 8);
+  const L = withSums(d, (d.jsenews?.posts || []).filter((p) => p.s === sym).slice(0, 8));
   const b1 = root.querySelector('#ai-explain'); if (b1) b1.addEventListener('click', () => runAi(b1, root.querySelector('#ai-explain-out'), b1.dataset.aikey, explainPrompt(stockFacts(d, sym)), { maxTokens: 380 }));
   const b2 = root.querySelector('#ai-news'); if (b2) b2.addEventListener('click', () => runAi(b2, root.querySelector('#ai-news-out'), b2.dataset.aikey, newsPrompt(sym, L.slice(0, 6)), { maxTokens: 450 }));
 }
@@ -1478,7 +1503,7 @@ function eventsCard(d) {
 function newsCard(d) {
   if (!d.jsenews) return '';
   const R = relevantNews(d); if (!R.length) return '';
-  const shown = R.slice(0, 10); const key = `ai-dig-${R.slice(0, 25).map((p) => p.id).join('.')}`;
+  const shown = withSums(d, R.slice(0, 10)); const key = `ai-dig-${R.slice(0, 25).map((p) => p.id).join('.')}`;
   return `<h2 class="sec">Announcements <small>your stocks, Edge top 20, insider trades</small></h2>
     <div class="news">${shown.map((p) => newsItem(p, true)).join('')}</div>
     ${aiButton('ai-digest', 'Digest the latest news', key)}${aiOut('ai-digest-out', key)}

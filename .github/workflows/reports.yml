@@ -4,13 +4,14 @@ on:
   workflow_dispatch:
     inputs:
       job:
-        description: 'reports: read financial statements · notices: summarise key announcements · ai_backtest: blind test of the recovery AI'
+        description: 'reports: read financial statements · notices: summarise key announcements · ai_backtest: blind test of the recovery AI · shareholders: read the top-ten shareholder lists'
         type: choice
-        options: [reports, notices, ai_backtest]
+        options: [reports, notices, ai_backtest, shareholders]
         default: reports
-      max: { description: 'Max reports / notices / AI test cases this run', default: '40' }
+      max: { description: 'Max reports / notices / AI test cases / shareholder lists this run', default: '40' }
       indexpages: { description: 'Max index pages to fetch (100 announcements each)', default: '6' }
       syms: { description: 'notices only: comma-separated symbols to read instead of the watch lists', default: '' }
+      retry: { description: 'shareholders only: read again the scanned reports where no list was found', type: boolean, default: false }
 
 concurrency: { group: reports, cancel-in-progress: false }
 
@@ -64,3 +65,22 @@ jobs:
           git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
           git add data/ai_backtest.json && { git diff --cached --quiet || git commit -q -m "data: recovery AI blind test $(date -u +%F) [skip ci]"; }
           for i in 1 2 3; do git pull --rebase -X theirs -q && git push -q && break; git rebase --abort 2>/dev/null; sleep 5; done
+      - name: Read the top-ten shareholder lists (saving after every batch)
+        if: github.event.inputs.job == 'shareholders'
+        env:
+          GEMINI_API_KEY: ${{ secrets.GEMINI_API_KEY }}
+          MORE_FLAG: /tmp/shareholders_more
+        run: |
+          pip install -q pypdf cryptography
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          left=${{ github.event.inputs.max }}
+          while [ "$left" -gt 0 ]; do
+            n=$(( left < 200 ? left : 200 ))
+            python scripts/shareholders.py "$n" ${{ github.event.inputs.retry == 'true' && '--retry' || '' }} || true
+            git add data/shareholders.json 2>/dev/null || true
+            git diff --cached --quiet || git commit -q -m "data: top-ten shareholder lists $(date -u +%F) [skip ci]"
+            for i in 1 2 3; do git pull --rebase -X theirs -q && git push -q && break; git rebase --abort 2>/dev/null; sleep 5; done
+            [ "$(cat /tmp/shareholders_more 2>/dev/null)" = "yes" ] || break
+            left=$(( left - n ))
+          done
