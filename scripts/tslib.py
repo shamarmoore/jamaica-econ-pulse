@@ -7,7 +7,7 @@ MODEL_ID = 'mistralai/Timestral-209M'
 LEVELS = np.array([0.01, 0.05, 0.1, 0.15, 0.2, 0.25, 0.3, 0.35, 0.4, 0.45, 0.5, 0.55, 0.6, 0.65, 0.7, 0.75, 0.8, 0.85, 0.9, 0.95, 0.99])
 
 
-def load_history(path='data/jse_history.json'):
+def _raw_history(path='data/jse_history.json'):
     H = json.load(open(path))
     dates = sorted(H['dates'])
     syms = sorted({s for d in dates for s in H['dates'][d]})
@@ -20,6 +20,74 @@ def load_history(path='data/jse_history.json'):
             close.at[t, s] = c
             vol.at[t, s] = v
     return close, vol
+
+
+JUMP = 0.6            # a close below 60% of the one before is a bad print or a share split
+SETTLE = 5            # closes looked at after the jump to tell the two apart
+NOTICE_DAYS = 120     # a split announcement can come this many days before the split shows in the prices
+_cleaned = {}
+
+
+def _split_notices():
+    """{sym: [(announcement date, factor)]} from JSE split announcements (events.parse_split)."""
+    import events as EV
+    out = {}
+    try:
+        for e in EV.archive_events():
+            if e['kind'] == 'split' and e.get('factor'):
+                out.setdefault(e['sym'], []).append((pd.Timestamp(e['date']), float(e['factor'])))
+        for p in json.load(open('data/news_feed.json', encoding='utf-8')).get('posts', []):
+            sp = EV.parse_split(f"{p.get('t', '')}. {p.get('x', '')}") if 'split' in (p.get('t', '') + p.get('x', '')).lower() else None
+            if p.get('s') and sp and sp.get('factor'):
+                out.setdefault(p['s'], []).append((pd.Timestamp(p['d'][:10]), float(sp['factor'])))
+    except Exception as e:
+        print('split notices skipped:', repr(e)[:120])
+    return out
+
+
+def _clean(path='data/jse_history.json'):
+    """Closes with one-off bad prints removed and share splits adjusted (earlier closes divided, volumes multiplied).
+    A close under JUMP x the one before is a bad print if the price is back within SETTLE closes, otherwise a split.
+    A split's factor is the announced one when an announcement in the NOTICE_DAYS before it roughly matches the drop
+    (the price can move on the day too: SEP's 5:1 split on 2026-11-16 closed 25% above 1/5 of the old price), else the
+    drop itself, which assumes no move on the day. Returns (close, vol, splits [(sym, first post-split day, factor)])."""
+    if path in _cleaned:
+        return _cleaned[path]
+    close, vol = _raw_history(path)
+    notices = _split_notices()
+    splits = []
+    for s in close.columns:
+        c = close[s].dropna()
+        i = 1
+        while i < len(c):
+            before, now = c.iloc[i - 1], c.iloc[i]
+            if not (before > 0 and now < JUMP * before):
+                i += 1
+                continue
+            back = [j for j in range(i + 1, min(i + 1 + SETTLE, len(c))) if c.iloc[j] >= JUMP * before]
+            if back:
+                close.loc[c.index[i:back[0]], s] = np.nan
+                c = c.drop(c.index[i:back[0]])
+                continue
+            day = c.index[i]
+            seen = [k for d, k in notices.get(s, []) if day - pd.Timedelta(days=NOTICE_DAYS) <= d <= day]
+            k = next((k for k in reversed(seen) if 0.65 < (before / now) / k < 1.5), before / now)
+            close.loc[close.index < day, s] /= k
+            vol.loc[vol.index < day, s] *= k
+            c = close[s].dropna()
+            splits.append((s, day, k))
+            i += 1
+    _cleaned[path] = (close, vol, splits)
+    return _cleaned[path]
+
+
+def splits(path='data/jse_history.json'):
+    return _clean(path)[2]
+
+
+def load_history(path='data/jse_history.json'):
+    close, vol, _ = _clean(path)
+    return close.copy(), vol.copy()
 
 
 _model = None
@@ -126,14 +194,24 @@ def load_fundamentals(path='data/jse_fundamentals.json'):
         return {}
     # month each company's financial year ends, learned from its own reports (scripts/balance.py); without it the
     # quarters are dated as if every year ended in December, which is late (never early) for other year-ends
-    if os.environ.get('FISCAL_OFF'):
-        return F
-    try:
-        for s, v in json.load(open('data/fiscal_years.json')).items():
-            if s in F and not (F[s].get('fye') or {}).get('month'):
-                F[s]['fye'] = {'month': int(v['month']), 'lag': None if os.environ.get('LAG_OFF') else v.get('lag')}
-    except Exception:
-        pass
+    if not os.environ.get('FISCAL_OFF'):
+        try:
+            for s, v in json.load(open('data/fiscal_years.json')).items():
+                if s in F and not (F[s].get('fye') or {}).get('month'):
+                    F[s]['fye'] = {'month': int(v['month']), 'lag': None if os.environ.get('LAG_OFF') else v.get('lag')}
+        except Exception:
+            pass
+    # per-share figures on the same footing as the split-adjusted prices: dividends paid before a split shrink by its
+    # factor, and a share count read before a split (its 'at' time) grows by it
+    for s, day, k in splits():
+        f = F.get(s)
+        if not f:
+            continue
+        for d in f.get('dividends', []):
+            if d.get('ex') and d.get('amt') and pd.Timestamp(d['ex']) < day:
+                d['amt'] = d['amt'] / k
+        if f.get('shares') and f.get('at') and pd.Timestamp(f['at'][:10]) < day:
+            f['shares'] = f['shares'] * k
     return F
 
 

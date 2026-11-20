@@ -88,8 +88,8 @@ RULES = {
     'top5_mid_keep25': {'top': 5, 'fill': 'mid', 'keep': 25},
     'top5_mid_keep30': {'top': 5, 'fill': 'mid', 'keep': 30},
 }
-# Picked on buys made before 2026; 2026 is reported on its own. Keep-20 was the app's rule before these tests, so the keep
-# bands 15, 25 and 30 are checks on it: all land within a few points of it, which says the band is not a lucky setting.
+# The best of RULES on buys made before 2026; 2026 is reported on its own. Keep bands 15 to 30 land within a few points
+# of it, so the band is not a lucky setting.
 SHIP = 'top5_mid_keep20'
 
 
@@ -112,6 +112,11 @@ class Data:
         self.ASK = pd.DataFrame(ask).reindex(index=idx, columns=syms)
         self.HI = pd.DataFrame(hi).reindex(index=idx, columns=syms)
         self.LO = pd.DataFrame(lo).reindex(index=idx, columns=syms)
+        import tslib
+        for s, day, k in tslib.splits():   # quotes before a split on the same footing as the split-adjusted closes
+            if s in self.col:
+                for F in (self.BID, self.ASK, self.HI, self.LO):
+                    F.loc[F.index < day, s] /= k
         mid = (self.BID + self.ASK) / 2
         self.SPR = (self.ASK - self.BID) / mid
         self.MID = mid.ffill(limit=5)
