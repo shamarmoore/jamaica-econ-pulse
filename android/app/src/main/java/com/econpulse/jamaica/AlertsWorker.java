@@ -34,8 +34,10 @@ import java.util.Set;
 /**
  * Background check (about every 6 hours, when online): reads the nightly alerts file from the user's private GitHub repo
  * and compares it with the positions saved on this phone. Buy and sell alerts come from the one Edge score: a stock new on
- * the buy list, a holding slipping out of the keep band, and the keep-or-sell answer when a 3-month review is due. It also
- * passes on dividend buy-by dates, suspensions, weak results and announcements for stocks the user holds or could buy.
+ * the buy list (only while the user holds fewer than the rule's `top` stocks it keeps), a holding slipping out of the keep
+ * band, a holding outside the keep band that just jumped (sell into the rise), and the keep-or-sell answer when a 3-month
+ * review is due. It also passes on dividend buy-by dates, suspensions, weak results and announcements for stocks the user
+ * holds or could buy.
  * Every rule comes from the back-tests; nothing here is written by an AI. Each alert is shown once.
  */
 public class AlertsWorker extends Worker {
@@ -127,13 +129,16 @@ public class AlertsWorker extends Worker {
         }
         JSONObject ranks = A == null ? null : A.optJSONObject("ranks");
         int keepBand = A == null ? 20 : A.optInt("keep", 20);
+        int top = A == null ? 5 : A.optInt("top", 5);
         JSONObject weak = A == null ? null : A.optJSONObject("weak");
+        JSONObject popSell = A == null ? null : A.optJSONObject("popSell");
         Set<String> suspended = new HashSet<>();
         JSONArray su = A == null ? null : A.optJSONArray("suspended");
         if (su != null) for (int i = 0; i < su.length(); i++) suspended.add(su.optString(i));
 
         List<String[]> out = new ArrayList<>();   // {id, title, body}
         Set<String> held = new HashSet<>();
+        Set<String> slots = new HashSet<>();   // holdings the tested rule keeps: ranked, and not due to be sold at review
         for (int i = 0; i < pos.length(); i++) {
             JSONObject p = pos.optJSONObject(i);
             if (p == null) continue;
@@ -141,6 +146,9 @@ public class AlertsWorker extends Worker {
             held.add(sym);
             int rank = ranks == null ? 0 : ranks.optInt(sym, 0);
             boolean due = !review.isEmpty() && review.compareTo(today) <= 0;
+            if (rank > 0 && !(rank > keepBand && due)) slots.add(sym);
+            JSONObject ps = popSell == null ? null : popSell.optJSONObject(sym);
+            if (kSell && ps != null) out.add(new String[]{ps.optString("id"), ps.optString("title"), ps.optString("body")});
             JSONObject w = weak == null ? null : weak.optJSONObject(sym);
             if (kNews && w != null) out.add(new String[]{w.optString("id"), w.optString("title"), w.optString("body")});
             if (kSell && A != null) {
@@ -168,12 +176,16 @@ public class AlertsWorker extends Worker {
             }
             JSONArray bl = A.optJSONArray("buys");
             if (bl != null) {
+                // the tested rule holds `top` stocks and only buys into free slots; the list comes best rank first
+                int free = Math.max(0, top - slots.size()), taken = 0;
                 List<JSONObject> fresh = new ArrayList<>();
                 for (int i = 0; i < bl.length(); i++) {
                     JSONObject b = bl.optJSONObject(i);
                     if (b == null) continue;
                     buySyms.add(b.optString("sym"));
-                    if (!seen.contains(b.optString("id")) && !held.contains(b.optString("sym"))) fresh.add(b);
+                    if (held.contains(b.optString("sym")) || taken >= free) continue;
+                    taken++;
+                    if (!seen.contains(b.optString("id"))) fresh.add(b);
                 }
                 if (kBuy && fresh.size() == 1) out.add(new String[]{fresh.get(0).optString("id"), fresh.get(0).optString("title"), fresh.get(0).optString("body")});
                 else if (kBuy && fresh.size() > 1) {

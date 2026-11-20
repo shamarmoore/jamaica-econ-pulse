@@ -913,6 +913,10 @@ function bindPop(root, d, sym) {
     if (v) aiCalls.add({ sym, kind: 'pop', date: d.forecasts.asof, px: priceNow(d, sym) ?? d.forecasts.stocks[sym].close, verdict: v.replace(/\*+/g, '').trim().slice(0, 120) });
   });
 }
+function popHeldLine(A) {
+  const a = A?.insideKeepHeld63; const b = A?.outsideKeepHeld63; if (b?.avgExcess == null) return '';
+  return ` If you hold one: ${a?.avgExcess != null ? `those still in the Edge top ${A.keepBand} did ${ptsTxt(a.avgExcess)} vs the market over the next 3 months (${a.n} cases); ` : ''}those outside it did ${ptsTxt(b.avgExcess)} (${b.n} cases)${b.verdict === 'negative edge (avoid)' ? ', so the plan says to sell those into the rise.' : ', which is not proven yet: too few of those cases fall in the earlier half of the history to check it holds up. Until it is, the plan keeps the review date.'}`;
+}
 function popCard(F) {
   const I = F?.popInfo; const M = I?.model; if (!I || !M || !F.stocks) return '';
   const S = Object.entries(F.stocks).filter(([, v]) => v.pop && !v.pref);
@@ -929,7 +933,7 @@ function popCard(F) {
         <div class="fine">News from 5 trading days before a rise to its end. Pops were no more likely around results, insider buying or dividend notices than an ordinary month, so the news rarely explains them.</div></div>
       ${recent.length ? `<div class="sig"><div class="sig-h"><b>Just popped</b><span class="vchip bad">${signed(I.after?.all63?.avgExcess, 1)} vs market after 3 months, historically</span></div>
         <div>${recent.map(([s, v]) => `<b class="symlink" data-sym="${esc(s)}">${esc(s)}</b> +${fmt(v.pop.recent.gain, 0)}% <small class="fine">(${v.pop.recent.drivers.map((k) => esc(DRIVER(I, k))).join(', ')})</small>`).join(' · ')}</div>
-        <div class="fine">Buying when a pop ended trailed the market by ${fmt(Math.abs(I.after?.all63?.avgExcess ?? 0), 1)} points over the next 3 months (${I.after?.all63?.n} cases, a proven trap). Tap one to see the news and ask the AI whether the jump rests on anything lasting.</div></div>` : ''}
+        <div class="fine">Buying when a pop ended trailed the market by ${fmt(Math.abs(I.after?.all63?.avgExcess ?? 0), 1)} points over the next 3 months (${I.after?.all63?.n} cases, a proven trap). Tap one to see the news and ask the AI whether the jump rests on anything lasting.${popHeldLine(I.after)}</div></div>` : ''}
       <div class="sig"><div class="sig-h"><b>Highest pop odds now</b><span class="vchip ok">Speculative</span></div>
         <div class="tblwrap"><table class="yt pick"><thead><tr><th>Stock</th><th>Pop odds</th><th>Why</th><th>Edge #</th></tr></thead><tbody>
           ${odds.map(([s, v]) => `<tr data-sym="${esc(s)}"><td><b>${esc(s)}</b></td><td>${fmt(v.pop.odds, 1)}%</td><td><small>${(v.pop.why || []).slice(0, 2).map(esc).join(', ')}</small></td><td>${v.edge?.rank ?? '—'}</td></tr>`).join('')}
@@ -1262,31 +1266,38 @@ function posRestore() {
 }
 // ---------- Today's plan: the tested rules applied to today's ranks, your positions and your money ----------
 // No AI here: every line comes from a rule that was back-tested (Edge top N held ~3 months, keep while in the top 20,
-// limit orders at the quote midpoint, month-end timing, high-yield dividend capture).
+// limit orders at the quote midpoint, month-end timing, high-yield dividend capture, selling a jump outside the keep band).
 function planItems(d) {
   const F = d.forecasts; const S = F.stocks; const today = isoToday(); const I = F.ideas;
   const susp = new Set((F.events || []).filter((e) => e.kind === 'suspend').map((e) => e.sym));
-  const R = edgeRule(F); const keep = R?.keep ?? 20;
+  const R = edgeRule(F); const keep = R?.keep ?? 20; const n = holdN(F); const slot = sizeCap / n;
   const ranked = Object.entries(S).filter(([, v]) => v.edge?.rank && !v.pref).sort((a, b) => a[1].edge.rank - b[1].edge.rank);
-  const target = ranked.filter(([k]) => !susp.has(k)).slice(0, holdN(F));
-  const w = target.map(() => 1); const ws = w.length || 1;
   const open = positions.filter((p) => !p.exit);
   const heldVal = (sym) => open.filter((p) => p.sym === sym).reduce((a, p) => a + p.shares * (priceNow(d, sym) ?? p.price), 0);
   const me = F.regime?.monthEnd; const meT = g2(I, 'calendar', 'monthEnd');
+  const PT = I?.pops?.after?.outsideKeepHeld63; const popRule = PT?.verdict === 'negative edge (avoid)';
   const sell = []; const hold = []; const buy = [];
   for (const p of open) {
     const st = posStats(p, d); const s = S[p.sym]; const rank = s?.edge?.rank; const due = daysBetween(today, st.review) <= 0;
     const base = { sym: p.sym, id: p.id, pl: st.plPct };
+    const jump = popRule && rank > keep ? s?.pop?.recent : null;
     if (susp.has(p.sym)) hold.push({ ...base, cls: 'warn', act: 'Can’t trade', why: 'Trading is suspended — nothing to do until it lifts.' });
+    else if (jump) sell.push({ ...base, cls: 'bad', act: 'Sell into the jump', why: `Up ${fmt(jump.gain, 0)}% since ${fd(jump.since)} and now Edge #${rank}, outside the top ${keep}. Tested: holdings outside the top ${keep} that jumped like this did ${ptsTxt(PT.avgExcess)} vs the market over the next 3 months (${PT.n} cases), so sell now with a limit order at the quote midpoint (J$${fmt(s?.edge?.limit ?? priceNow(d, p.sym), 2)}) rather than wait for the review.` });
     else if ((rank || 999) > keep && due) sell.push({ ...base, cls: 'bad', act: 'Sell', why: `3-month review is due and it’s ${rank ? `now Edge #${rank}, outside the top ${keep}` : 'no longer ranked'}. Tested rule: sell with a limit order at the quote midpoint (J$${fmt(s?.edge?.limit ?? priceNow(d, p.sym), 2)}) and move the money to the buy list.` });
     else if (rank > keep) hold.push({ ...base, cls: 'warn', act: 'Sell at review', why: `Now Edge #${rank}, outside the top ${keep}. Tested rule: don’t sell early — sell at the 3-month review on ${fd(st.review)} unless it climbs back.` });
     else if (rank && due) hold.push({ ...base, cls: 'good', act: 'Keep', why: `Review is due: still Edge #${rank} (top ${keep}), so the tested rule keeps it another 3 months. Open it and tap “Reviewed — keep”.` });
     else if (rank) hold.push({ ...base, cls: 'good', act: 'Hold', why: `Edge #${rank}. Next review ${fd(st.review)}.` });
     else hold.push({ ...base, cls: 'ok', act: 'Hold', why: `No Edge score for this stock, so the tested rules don’t cover it. Next review ${fd(st.review)}.` });
   }
-  target.forEach(([sym, v], i) => {
-    const amt = (sizeCap * w[i]) / ws; const held = heldVal(sym); const need = amt - held; const px = v.edge.limit ?? priceNow(d, sym) ?? v.close;
-    if (held >= amt * 0.8 || need < px) return;
+  // the tested rule holds n stocks: a ranked holding that isn't being sold keeps its slot, and only free slots get new buys
+  const selling = new Set(sell.map((x) => x.sym));
+  const kept = new Set(open.filter((p) => S[p.sym]?.edge?.rank && !selling.has(p.sym)).map((p) => p.sym));
+  const free = Math.max(0, n - kept.size);
+  const topUp = ranked.slice(0, n).filter(([k]) => kept.has(k) && !susp.has(k));   // held top-n names bought smaller than a slot
+  const fresh = ranked.filter(([k]) => !susp.has(k) && !kept.has(k) && !selling.has(k)).slice(0, free);
+  [...topUp, ...fresh].forEach(([sym, v]) => {
+    const held = heldVal(sym); const need = slot - held; const px = v.edge.limit ?? priceNow(d, sym) ?? v.close;
+    if (held >= slot * 0.8 || need < px) return;
     const sh = Math.floor(need / px); const adv = v.signals?.liquidity?.adv20 || 0; const days = adv > 0 ? need / (adv * 0.2) : Infinity;
     let cls = 'good'; let act = held > 0 ? 'Add' : 'Buy'; const notes = [];
     if (v.signals?.spread?.chase) { cls = 'warn'; act = 'Wait a few days'; notes.push('spread snapped tight on an up day — tested as a bad moment to chase'); }
@@ -1297,11 +1308,11 @@ function planItems(d) {
     buy.push({ sym, cls, act, rank: v.edge.rank, up: v.chanceUp, amt: need, sh, px, held, notes, limit: v.edge.limit });
   });
   const ev = (F.events || []).filter((e) => e.tested?.action === 'consider' && !susp.has(e.sym) && !(e.daysToEx != null && e.daysToEx < 1));
-  return { sell, hold, buy, ev, me, meT, target, open, R };
+  return { sell, hold, buy, ev, me, meT, open, R, free, kept: kept.size };
 }
 function planCard(d) {
   const F = d.forecasts; if (!F?.edgeInfo || !F.stocks) return '';
-  const P_ = planItems(d); const { sell, hold, buy, ev, me, meT, R } = P_;
+  const P_ = planItems(d); const { sell, hold, buy, ev, me, meT, R, free, kept } = P_;
   const n = holdN(F); const T_ = F.edgeInfo?.compare?.ship;
   const tb = F.regime?.rates?.tbill3m;
   const chip = (c, t) => `<span class="vchip ${c}">${esc(t)}</span>`;
@@ -1323,7 +1334,7 @@ function planCard(d) {
     ${count ? `<p class="lede-s"><b>${count}</b></p>` : ''}
     ${timing}
     ${sell.length ? `<h4>Sell</h4><div class="sigs">${sellRows}</div>` : ''}
-    ${buy.length ? `<h4>Buy <small class="fine">Edge top ${n} you don’t fully hold</small></h4><div class="sigs">${buyRows}</div>` : empty_ ? '' : `<p class="fine">Nothing to buy: you already hold today’s Edge top ${n} at about the right size.</p>`}
+    ${buy.length ? `<h4>Buy <small class="fine">${free} of ${n} slots free · best Edge ranks you don’t hold</small></h4><div class="sigs">${buyRows}</div>` : empty_ ? '' : `<p class="fine">${free ? 'Nothing to buy today.' : `Nothing to buy: all ${n} slots hold stocks the rule keeps (${kept} still ranked, none due to sell). The tested rule buys again when one is sold at its review.`}</p>`}
     ${ev.length ? `<h4>Event trade</h4><div class="sigs">${evRows}</div>` : ''}
     ${hold.length ? `<h4>Hold</h4><div class="sigs">${holdRows}</div>` : ''}
     <p class="fine"><b>The rule behind this</b> (the one that was tested): buy the Edge top ${R?.top ?? n} with limit orders at the quote midpoint, hold about 3 months, then keep what’s still in the top ${R?.keep ?? 20} and replace the rest. ${T_ ? `In testing this returned ${ptsTxt(T_.annNet, '%/yr')} after costs (the average JSE stock: ${ptsTxt(T_.annMarket, '%/yr')}), was ahead of the market in ${T_.beatPct}% of periods, and its worst period was ${fmt(T_.worstPeriod, 1)}%. Most of that came from a few stocks held a long time, so results will be lumpy.` : ''}${n !== (R?.top ?? n) ? ` You chose ${n} stocks; the tested rule holds ${R.top}.` : ''} The list changes a little every night; you don’t need to chase it — once you’ve bought, only the 3-month review matters.${tb ? ` Money you’ll need within a year belongs in T-bills (about ${fmt(tb, 1)}% now), not here.` : ''} Not advice — the back-test can’t promise the future; see “Is it working?” below.</p>`;
