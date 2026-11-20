@@ -49,9 +49,11 @@ The Trade section ranks JSE stocks with one score, **Edge**. It drives the buy l
 ### The trading rule
 `RULES` in `scripts/edge_v2.py` lists every way of trading the ranking that was tried. `SHIP` names the one the app tells you to follow:
 
-1. Buy the Edge top 5 in equal amounts.
+1. Hold 5 stocks in equal amounts, starting with the Edge top 5.
 2. Place each buy as a limit order at the quote midpoint, good for 5 trading days. If it hasn't filled by then, buy at the ask.
-3. Every 3 months, keep each holding that still ranks in the top 20. Sell the rest with a limit at the midpoint, and buy whatever is new in the top 5.
+3. Every 3 months, keep each holding that still ranks in the top 20. Sell the rest with a limit at the midpoint, and fill each freed slot with the best-ranked stock you don't hold.
+
+The plan and the phone alerts follow the same slots: a holding that still ranks and isn't due to be sold keeps its slot, and new buys are offered only for free slots.
 
 The back-test counts a limit order as filled only on a day the stock traded strictly through the limit, using the JSE's daily high and low. Waiting in a queue at the limit price never counts. The rule was picked on buys made before 2026, and 2026 is reported on its own. `data/edge_v2.json` holds the model, every rule's back-test and the shipped rule's checks: the same rule without its three biggest winners, and the old score traded the same way. Most of the rule's gain comes from a few stocks held a long time, so expect lumpy results.
 
@@ -70,6 +72,8 @@ The back-test counts a limit order as filled only on a day the stock traded stri
 - The stocks with the highest rise odds rose more often but also crashed more often, and lost money after their wide spreads.
 
 The Trade page shows all of this as lottery tickets, outside the Edge rule. A stock that just rose gets a "Why did it jump? Will it hold?" AI button.
+
+For holders, the study also splits what followed a rise by the walk-forward Edge rank (`ideas.pops.after.insideKeepHeld63` and `outsideKeepHeld63`). Holdings outside the keep band have done worse after a rise. Once that test passes the app's both-halves check, the plan and the alerts say to sell such a holding into the rise instead of waiting for its review. Until then the pop card shows the numbers as unproven.
 
 ### What the AI reads
 `scripts/read_notices.py` runs nightly. It summarises up to 40 PDFs a night: every company's results reports from the 90-day announcement feed, plus the key announcements (reviews, delays, take-overs) for stocks on the recovery and pop watches. It uses the same low-cost Gemini model as the report reader. Scanned letters go to it as files. Summaries are kept in `data/notices.json`. The latest three for each company go into `forecasts.json` as `stocks[sym].docs`. They appear under each announcement and in the facts every AI button gets. Each button also gets the balance sheet read from the latest report and the largest shareholders. The prompts tell the AI the documents are already read, so it names a missing fact instead of telling you to read a report.
