@@ -1416,7 +1416,7 @@ const docFacts = (st) => (st?.docs || []).map(([dt, t, , sum]) => `What the ${dt
 function bsFacts(st) {
   const b = st?.signals?.bs; if (!b) return [];
   const m = (v) => (v == null ? null : `${v < 0 ? '−' : ''}${b.cur === 'USD' ? 'US$' : b.cur === 'TTD' ? 'TT$' : 'J$'}${fmt(Math.abs(v) / 1e6, 0)}M`);
-  return [`Balance sheet at ${b.period} (from the report published ${b.pub}): shareholders' funds ${m(b.equity)} of ${m(b.assets)} assets; debt ${m(b.debt)}; cash ${m(b.cash)}${b.pb != null ? `; price ${fmt(b.pb, 2)}× book value` : ''}${b.roe != null ? `; return on equity ${fmt(b.roe, 1)}% a year` : ''}${b.margin != null ? `; profit margin ${fmt(b.margin, 1)}%` : ''}${b.cashPerProfit != null && !b.fin ? `; cash from operations J$${fmt(b.cashPerProfit, 2)} per J$1 of profit` : ''}.`];
+  return [`Balance sheet at ${b.period} (from the report published ${b.pub}): shareholders' funds ${m(b.equity)} of ${m(b.assets)} assets; debt ${m(b.debt)}; cash ${m(b.cash)}${b.pb != null ? `; price ${fmt(b.pb, 2)}× book value` : ''}${b.roe != null ? `; return on equity ${fmt(b.roe, 1)}% a year` : ''}${b.margin != null ? `; profit margin ${fmt(b.margin, 1)}%` : ''}${b.cashPerProfit != null && !b.fin ? `; cash from operations ${b.cashPerProfit < 0 ? '−' : ''}J$${fmt(Math.abs(b.cashPerProfit), 2)} per J$1 of profit` : ''}.`];
 }
 function holderFacts(F, st) {
   const H = st?.holders; if (!H?.top?.length) return [];
@@ -1427,7 +1427,7 @@ function holdersBlock(F, sym) {
   const H = F?.stocks?.[sym]?.holders; if (!H?.top?.length) return '';
   const I = F.ideas?.shareholders; const T = I?.largestAdded63; const D = I?.largestDown63;
   return `<h4>Largest shareholders <small class="fine">as at ${fd(H.asOf)}</small></h4>
-    <table class="yt">${H.top.map(([n, p, c]) => `<tr><td>${esc(n)}</td><td>${p == null ? '—' : `${fmt(p, 2)}%`}</td><td>${c == null ? '<span class="fine">new</span>' : Math.abs(c) < 0.01 ? '<span class="fine">same</span>' : pctCell2(c)}</td></tr>`).join('')}</table>
+    <table class="yt">${H.top.map(([n, p, c]) => `<tr><td>${esc(n)}</td><td>${p == null ? '—' : `${fmt(p, 2)}%`}</td><td>${c == null ? '<span class="fine">new</span>' : Math.abs(c) < 0.01 ? '<span class="fine">same</span>' : `<b class="${c > 0 ? 'good' : 'bad'}">${signed(c, 2)} pts</b>`}</td></tr>`).join('')}</table>
     <p class="fine">Change in points of the company since the list published ${H.prev ? fd(H.prev) : 'before'}. Read from the company’s reports by an AI model and kept only when the holdings agree with the printed percentages.${T?.n ? ` Tested on ${T.n} cases: when the largest holder added shares, the stock did ${ptsTxt(T.avgExcess)} vs the market over the next 3 months after costs (${esc(T.verdict)})${D?.n ? `; when it cut its stake, ${ptsTxt(D.avgExcess)} (${D.n} cases)` : ''}.` : ''}</p>`;
 }
 const _docSums = new WeakMap();

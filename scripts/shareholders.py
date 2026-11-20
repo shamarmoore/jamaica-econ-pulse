@@ -172,12 +172,25 @@ def _pct(h, issued):
     return 100 * h[1] / issued if issued else None
 
 
+def _merge(holders):
+    """One row per holder, largest first: some lists print the same name on two lines (two accounts)."""
+    m = {}
+    for n, u, p in holders:
+        k = _key(n)
+        if k in m:
+            m[k][1] += u
+            m[k][2] = m[k][2] + p if m[k][2] is not None and p is not None else None
+        else:
+            m[k] = [n, u, p]
+    return sorted(m.values(), key=lambda h: -h[1])
+
+
 def lists(sym=None):
     """{sym: [checked list, oldest first]}, one per publication date."""
     out = {}
     for r in _load(OUT, {'reports': {}})['reports'].values():
         if r.get('holders') and (sym is None or r['sym'] == sym) and check(r['holders'], r.get('issued')):
-            out.setdefault(r['sym'], {})[r['date']] = {**r, 'holders': sorted(r['holders'], key=lambda h: -h[1])}
+            out.setdefault(r['sym'], {})[r['date']] = {**r, 'holders': _merge(r['holders'])}
     return {s: [v[d] for d in sorted(v)] for s, v in out.items()}
 
 
