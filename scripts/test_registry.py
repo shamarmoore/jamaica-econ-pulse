@@ -8,7 +8,7 @@ Tests are never removed. One that a study stops producing stays as 'retired', so
 Holding periods are read from test names (21, 63, 126 days); a name without one is treated as 63 days, the cautious choice.
 
   update(edge_v2_output)   -> data/test_registry.json (called by edge_v2.py)
-  python scripts/test_registry.py   -> rebuilds from data/idea_tests.json, data/factor_study.json and data/edge_v2.json
+  python scripts/test_registry.py   -> rebuilds from data/idea_tests.json, data/factor_study.json, data/edge_v2.json and data/ai_backtest.json
 """
 import json, re
 import numpy as np
@@ -38,7 +38,7 @@ def _verdict(t, first, second, n):
     return 'edge' if t >= STRICT_T else 'avoid' if t <= -STRICT_T else 'not proven'
 
 
-def _ideas(it):
+def _ideas(it, prefix='idea'):
     out = []
 
     def walk(o, path):
@@ -46,7 +46,7 @@ def _ideas(it):
             if 'verdict' in o and o.get('t') is not None:
                 name = '/'.join(path); hold, assumed = _hold(name)
                 ta = o['t'] / np.sqrt(max(1, hold / 21))   # t uses monthly clusters; longer holds overlap months
-                out.append({'id': f'idea/{name}', 'family': path[0], 'n': o.get('n'), 't': o['t'], 'tAdj': round(float(ta), 2), 'hold': hold, 'holdAssumed': assumed,
+                out.append({'id': f'{prefix}/{name}', 'family': path[0], 'n': o.get('n'), 't': o['t'], 'tAdj': round(float(ta), 2), 'hold': hold, 'holdAssumed': assumed,
                             'effect': o.get('avgExcess'), 'first': o.get('firstHalf'), 'second': o.get('secondHalf'), 'studyVerdict': o['verdict']})
             for k, v in o.items():
                 walk(v, path + [k])
@@ -84,7 +84,8 @@ def _edge_v2(v2):
 def update(v2=None, today=None):
     v2 = v2 if v2 is not None else _load('data/edge_v2.json', {})
     today = today or (v2 or {}).get('made') or ''
-    rows = _ideas(_load('data/idea_tests.json', {})) + _factors(_load('data/factor_study.json', {})) + _edge_v2(v2)
+    rows = _ideas(_load('data/idea_tests.json', {})) + _factors(_load('data/factor_study.json', {})) + _edge_v2(v2) \
+        + _ideas({'recovery_verdicts': _load('data/ai_backtest.json', {}).get('summary', {})}, 'ai')
     old = {r['id']: r for r in _load(PATH, {}).get('tests', [])}
     tests = []
     for r in rows:

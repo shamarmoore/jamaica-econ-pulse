@@ -721,6 +721,11 @@ def recovery_tests():
 RESULTS['recovery'] = recovery_tests()
 
 
+# ---------------------------------------------------------------- pop watch: sudden big rises (scripts/pops.py)
+import pops
+RESULTS['pops'] = pops.study(fs, summarize)
+
+
 def chart_indicators():
     d = P.diff()
     up = d.clip(lower=0).rolling(14).mean(); dn = (-d.clip(upper=0)).rolling(14).mean()

@@ -43,6 +43,10 @@ jobs:
         run: |
           pip install -q torch --index-url https://download.pytorch.org/whl/cpu
           pip install -q numpy pandas scipy huggingface_hub "git+https://github.com/mistralai/timestral"
+      - name: Read key announcements (AI) for the recovery and pop watches
+        env:
+          GEMINI_API_KEY: ${{ secrets.GEMINI_API_KEY }}
+        run: python scripts/read_notices.py 15 || echo "notice reader skipped"
       - name: Back-test (first Monday of each month, or on request)
         run: |
           if [ "${{ inputs.backtest }}" = "yes" ] || { [ "$(date -u +%d)" -le 07 ] && [ "$(date -u +%u)" = 1 ]; }; then python scripts/backtest_ts.py 21 120 && python scripts/factor_study.py > /dev/null; else echo "not this run"; fi

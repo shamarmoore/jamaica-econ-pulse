@@ -136,6 +136,18 @@ try:
     print('RECOVERY', rec.dossiers(out, fs6), 'stocks', sorted(k for k, v in out['stocks'].items() if v.get('recovery'))[:20])
 except Exception as e:
     print('recovery skipped:', repr(e)[:200])
+# ---- pop watch: odds of a sudden big rise, and the stocks that just had one (scripts/pops.py) ----
+try:
+    import factor_study as fs7, pops
+    print('POPS', pops.today(out, fs7, out.get('ideas')), 'scored; recent', sorted(k for k, v in out['stocks'].items() if (v.get('pop') or {}).get('recent')))
+except Exception as e:
+    print('pops skipped:', repr(e)[:200])
+# ---- blind test of the recovery AI (scripts/ai_backtest.py, run on demand from the reports workflow) ----
+try:
+    _ab = json.load(open('data/ai_backtest.json', encoding='utf-8'))
+    out['aiBacktest'] = {**_ab['summary'], 'model': _ab.get('model')}
+except Exception:
+    pass
 # ---- alerts for the phone's background check (Edge buy list and keep band; matched against positions on the device) ----
 try:
     import alerts as al
