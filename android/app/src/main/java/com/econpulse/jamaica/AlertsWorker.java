@@ -126,7 +126,7 @@ public class AlertsWorker extends Worker {
             try { A = fetch(cfg.optString("repo", ""), token); } catch (Exception e) { err = String.valueOf(e.getMessage()); }
         }
         JSONObject ranks = A == null ? null : A.optJSONObject("ranks");
-        int keep = A == null ? 20 : A.optInt("keep", 20);
+        int keepBand = A == null ? 20 : A.optInt("keep", 20);
         JSONObject weak = A == null ? null : A.optJSONObject("weak");
         Set<String> suspended = new HashSet<>();
         JSONArray su = A == null ? null : A.optJSONArray("suspended");
@@ -145,13 +145,13 @@ public class AlertsWorker extends Worker {
             if (kNews && w != null) out.add(new String[]{w.optString("id"), w.optString("title"), w.optString("body")});
             if (kSell && A != null) {
                 if (suspended.contains(sym)) out.add(new String[]{"susp-" + sym + "-" + today.substring(0, 7), sym + ": trading suspended", "You can’t buy or sell it until the suspension lifts. Check the notice in the app."});
-                if (rank > keep && !due) out.add(new String[]{"drop-" + pid + "-" + review, sym + " slipped to Edge #" + rank,
-                    "It’s outside the top " + keep + ". The tested rule is not to sell early: decide at the 3-month review on " + review + "."});
+                if (rank > keepBand && !due) out.add(new String[]{"drop-" + pid + "-" + review, sym + " slipped to Edge #" + rank,
+                    "It’s outside the top " + keepBand + ". The tested rule is not to sell early: decide at the 3-month review on " + review + "."});
             }
             if (kReview && due) {
                 String body = rank == 0 ? "Open the app to see its Edge rank, then keep or sell."
-                    : rank <= keep ? "Still Edge #" + rank + " (top " + keep + "). Tested rule: keep it another 3 months, then tap “Reviewed — keep”."
-                    : "Now Edge #" + rank + ", outside the top " + keep + ". Tested rule: sell with a limit order at the quote midpoint and move the money to the buy list.";
+                    : rank <= keepBand ? "Still Edge #" + rank + " (top " + keepBand + "). Tested rule: keep it another 3 months, then tap “Reviewed — keep”."
+                    : "Now Edge #" + rank + ", outside the top " + keepBand + ". Tested rule: sell with a limit order at the quote midpoint and move the money to the buy list.";
                 out.add(new String[]{"review-" + pid + "-" + review, "3-month review due: " + sym, body});
             }
         }
@@ -180,7 +180,7 @@ public class AlertsWorker extends Worker {
                     StringBuilder names = new StringBuilder();
                     for (JSONObject b : fresh) { if (names.length() > 0) names.append(", "); names.append(b.optString("sym")); seen.add(b.optString("id")); }
                     out.add(new String[]{"buys-" + names, "New on the Edge buy list: " + names,
-                        "Tested rule: buy each with a limit order at its quote midpoint, good for 5 trading days, then keep it while it stays in the Edge top " + keep + ". Open the app for each one’s limit price."});
+                        "Tested rule: buy each with a limit order at its quote midpoint, good for 5 trading days, then keep it while it stays in the Edge top " + keepBand + ". Open the app for each one’s limit price."});
                 }
             }
             JSONArray news = A.optJSONArray("news");
