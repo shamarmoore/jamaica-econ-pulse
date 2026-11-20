@@ -1420,15 +1420,15 @@ function bsFacts(st) {
 }
 function holderFacts(F, st) {
   const H = st?.holders; if (!H?.top?.length) return [];
-  const T = F?.ideas?.shareholders?.largestUp63;
-  return [`Largest shareholders at ${H.asOf}: ${H.top.map(([n, p, c]) => `${n} ${fmt(p, 2)}%${c != null && Math.abs(c) >= 0.01 ? ` (${signed(c, 2)} pts since ${H.prev})` : ''}`).join('; ')}.${T?.n ? ` Tested: after the largest holder raised its stake, stocks did ${signed(T.avgExcess, 1)} vs the market over 3 months after costs (${T.n} cases, ${T.verdict}).` : ''}`];
+  const T = F?.ideas?.shareholders?.largestAdded63;
+  return [`Largest shareholders at ${H.asOf}: ${H.top.map(([n, p, c]) => `${n} ${fmt(p, 2)}%${c != null && Math.abs(c) >= 0.01 ? ` (${signed(c, 2)} pts since ${H.prev})` : ''}`).join('; ')}.${T?.n ? ` Tested: after the largest holder added shares, stocks did ${signed(T.avgExcess, 1)} vs the market over 3 months after costs (${T.n} cases, ${T.verdict}).` : ''}`];
 }
 function holdersBlock(F, sym) {
   const H = F?.stocks?.[sym]?.holders; if (!H?.top?.length) return '';
-  const I = F.ideas?.shareholders; const T = I?.largestUp63; const D = I?.largestDown63;
+  const I = F.ideas?.shareholders; const T = I?.largestAdded63; const D = I?.largestDown63;
   return `<h4>Largest shareholders <small class="fine">as at ${fd(H.asOf)}</small></h4>
     <table class="yt">${H.top.map(([n, p, c]) => `<tr><td>${esc(n)}</td><td>${p == null ? '—' : `${fmt(p, 2)}%`}</td><td>${c == null ? '<span class="fine">new</span>' : Math.abs(c) < 0.01 ? '<span class="fine">same</span>' : pctCell2(c)}</td></tr>`).join('')}</table>
-    <p class="fine">Change in points of the company since the list published ${H.prev ? fd(H.prev) : 'before'}. Read from the company’s reports by an AI model and kept only when the holdings agree with the printed percentages.${T?.n ? ` Tested on ${T.n} cases: when the largest holder raised its stake, the stock did ${ptsTxt(T.avgExcess)} vs the market over the next 3 months after costs (${esc(T.verdict)})${D?.n ? `; when it cut its stake, ${ptsTxt(D.avgExcess)} (${D.n} cases)` : ''}.` : ''}</p>`;
+    <p class="fine">Change in points of the company since the list published ${H.prev ? fd(H.prev) : 'before'}. Read from the company’s reports by an AI model and kept only when the holdings agree with the printed percentages.${T?.n ? ` Tested on ${T.n} cases: when the largest holder added shares, the stock did ${ptsTxt(T.avgExcess)} vs the market over the next 3 months after costs (${esc(T.verdict)})${D?.n ? `; when it cut its stake, ${ptsTxt(D.avgExcess)} (${D.n} cases)` : ''}.` : ''}</p>`;
 }
 const _docSums = new WeakMap();
 const docSums = (F) => { if (!F) return {}; if (!_docSums.has(F)) _docSums.set(F, Object.fromEntries(Object.values(F.stocks || {}).flatMap((v) => (v.docs || []).map((x) => [x[2], x[3]])))); return _docSums.get(F); };

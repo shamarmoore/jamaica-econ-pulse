@@ -194,6 +194,7 @@ def changes(max_gap=200):
             had = {_key(h[0]) for h in a['holders']}
             tot = lambda r: sum(p for p in (_pct(h, r.get('issued')) for h in r['holders']) if p is not None)
             rows.append({'sym': s, 'date': b['date'], 'prev': a['date'], 'holder': top[0], 'largestPct': pb, 'largestChange': (pb - pa) if pa is not None and pb is not None else None,
+                         'largestAdded': bool(same) and same[0][1] > top[1] * 1.001 and (pa is None or pb is None or pb >= pa),
                          'stillThere': bool(same), 'top10Change': tot(b) - tot(a) if len(a['holders']) == len(b['holders']) else None,
                          'newBig': max([p for h in b['holders'] if _key(h[0]) not in had for p in [_pct(h, b.get('issued'))] if p is not None] or [0])})
     return rows

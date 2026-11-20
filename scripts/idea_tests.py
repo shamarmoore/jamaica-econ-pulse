@@ -800,7 +800,7 @@ def shareholder_tests():
     import re as _re
     import shareholders as SH
     rows = SH.changes()
-    cats = {k: ([], []) for k in ('largestUp63', 'largestUp126', 'largestBigUp63', 'largestOwnerUp63', 'largestDown63', 'top10Up63', 'newBigHolder63')}
+    cats = {k: ([], []) for k in ('largestAdded63', 'largestUp63', 'largestUp126', 'largestBigUp63', 'largestOwnerUp63', 'largestDown63', 'top10Up63', 'newBigHolder63')}
     for r in rows:
         s = r['sym']
         if s not in P.columns:
@@ -813,6 +813,8 @@ def shareholder_tests():
             if x is not None:
                 cats[cat][0].append(x); cats[cat][1].append(idx[t])
         c = r['largestChange']
+        if r.get('largestAdded'):
+            add('largestAdded63', 63)
         if c is not None and c >= 0.25:
             add('largestUp63', 63); add('largestUp126', 126)
             if not _re.search(NOMINEE, r['holder'], _re.I):
@@ -826,11 +828,11 @@ def shareholder_tests():
         if r['newBig'] >= 2.0:
             add('newBigHolder63', 63)
     out = {k: summarize(v[0], v[1], COST) for k, v in cats.items()}
-    for k in ('largestUp63', 'largestDown63'):
+    for k in ('largestAdded63', 'largestUp63', 'largestDown63'):
         out[k + '_holding'] = summarize(cats[k][0], cats[k][1], 0.0)
     out['pairs'] = len(rows); out['companies'] = len({r['sym'] for r in rows})
     out['from'] = min((r['date'] for r in rows), default=None); out['to'] = max((r['date'] for r in rows), default=None)
-    out['explain'] = ('Each report’s top-ten shareholder list is compared with the company’s previous one. Up = the largest holder’s share of the company rose by '
+    out['explain'] = ('Each report’s top-ten shareholder list is compared with the company’s previous one. Added = the largest holder holds more shares than before; up = its share of the company rose by '
                       '0.25 points or more (big = 1 point); owner = leaving out client, nominee and trustee accounts; top ten up = the ten together rose 1 point; '
                       'new big holder = a name not on the last list now holds 2% or more. Bought at the close the day after the report, held 3 months '
                       '(6 for the 126-day row), 1.5% costs each way, against the average JSE stock.')
