@@ -71,7 +71,7 @@ jobs:
           GEMINI_API_KEY: ${{ secrets.GEMINI_API_KEY }}
           MORE_FLAG: /tmp/shareholders_more
         run: |
-          pip install -q pypdf
+          pip install -q pypdf cryptography
           git config user.name "github-actions[bot]"
           git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
           left=${{ github.event.inputs.max }}

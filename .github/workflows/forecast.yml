@@ -54,10 +54,10 @@ jobs:
         env:
           GEMINI_API_KEY: ${{ secrets.GEMINI_API_KEY }}
         run: python scripts/read_notices.py 40 || echo "notice reader skipped"
-      - name: Read new top-ten shareholder lists (AI)
+      - name: Read top-ten shareholder lists (AI), new reports first, then the back-catalogue
         env:
           GEMINI_API_KEY: ${{ secrets.GEMINI_API_KEY }}
-        run: pip install -q pypdf && python scripts/shareholders.py 40 || echo "shareholder reader skipped"
+        run: pip install -q pypdf cryptography && python scripts/shareholders.py 150 || echo "shareholder reader skipped"
       - name: Edge study (walk-forward, trading rules, realistic fills) + chance model
         run: |
           python scripts/edge_v2.py > /dev/null && echo "edge ok" || echo "edge study skipped"
