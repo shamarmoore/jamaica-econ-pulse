@@ -9,7 +9,7 @@ import { quotesOn, rankStocks, TV_SYMBOLS, tvUrl, GLOBAL_TAGS, targetOdds, fcAt,
 import { fmt, signed, last, changeOver, yoySeries, esc, fd } from './util.js';
 import { edgeCard, edgeBlock, edgeRule, limitText } from './edge.js';
 import { alerts, alertPrefs, ALERT_KINDS, alertsSync, alertsStatus, alertsPermission, alertsCheckNow, alertsTest } from './alerts.js';
-import { nano, nanoCheck, nanoDownload, nanoAsk, nanoCached, nanoForget, nanoLabel, nanoUsed, nanoSetMode, MODEL_NAME, aiReady, aiLabel, cloud, PROVIDERS, cloudTest, willUseCloud, explainPrompt, newsPrompt, digestPrompt, planPrompt, recoveryPrompt } from './nano.js';
+import { nano, nanoCheck, nanoDownload, nanoAsk, nanoCached, nanoForget, nanoLabel, nanoUsed, nanoSetMode, MODEL_NAME, aiReady, aiLabel, cloud, PROVIDERS, cloudTest, willUseCloud, explainPrompt, newsPrompt, digestPrompt, planPrompt, recoveryPrompt, popPrompt } from './nano.js';
 
 const KEY = 'ep_cache_v1';
 const PREV = 'ep_prev_gauges_v1';
@@ -707,6 +707,8 @@ function viewTrade(d) {
     ${trackCard(F)}
     ${edgeCard(F)}
     ${recoveryCard(F)}
+    ${popCard(F)}
+    ${aiCallsCard(F)}
     ${regimeCard(F)}
     ${sizingCard(F)}
     ${F?.ideas ? '<button class="more" id="ideas-btn">Every idea we tested — results & explanations ›</button>' : ''}
@@ -762,6 +764,7 @@ function stockSheet(sym) {
     ${edgeBlock(d.forecasts, sym, chanceLines(d.forecasts, sym))}
     ${oddsBlock(d.forecasts, sym)}
     ${recoveryBlock(d, sym)}
+    ${popBlock(d, sym)}
     ${signalsBlock(d.forecasts, sym)}
     ${bsBlock(d.forecasts, sym)}
     ${forecastBlock(d.forecasts, sym)}
@@ -769,7 +772,7 @@ function stockSheet(sym) {
     <h4>How to read this</h4><p class="fine">The trend figures compare today’s close with closes saved on your phone from 3, 6 and 12 months ago (prices exclude dividends). The 52-week bar shows where today’s price sits between the year’s low and high. This is a research shortlist, not a recommendation — check company results and news before buying.</p>
     ${positions.some((p) => p.sym === sym && !p.exit) ? `<p class="fine">You hold this stock — see My positions on the Trade page.</p>` : ''}
     <div class="btnrow"><button class="btn pri" id="buy-this">I bought this</button><a class="btn" href="https://www.jamstockex.com/trading/trade-quotes/?market=50&date=${L.date}" target="_blank" rel="noopener">JSE quotes ↗</a><button class="btn" data-close>Close</button></div>`,
-  (root) => { bindForecast(root, d.forecasts, sym); bindNews(root, d, sym); bindRecovery(root, d, sym); root.querySelector('#buy-this').addEventListener('click', () => posForm(d, { sym })); });
+  (root) => { bindForecast(root, d.forecasts, sym); bindNews(root, d, sym); bindRecovery(root, d, sym); bindPop(root, d, sym); root.querySelector('#buy-this').addEventListener('click', () => posForm(d, { sym })); });
 }
 
 // ---------- Timestral forecast: fan chart, target odds, speculation ----------
@@ -817,8 +820,9 @@ function recoveryBlock(d, sym) {
       ${rows.map(([k, h]) => `<tr><td>${esc(recLabel(k))}</td><td>${h.n.toLocaleString('en-US')}</td><td>${h.bigWin}%</td><td><b class="${h.bigLoss >= 30 ? 'bad' : ''}">${h.bigLoss}%</b></td><td>${pctCell2(h.avgExcess)}</td></tr>`).join('')}
     </tbody></table></div>` : ''}
     <p class="fine">Back-tested on JSE stocks 40%+ below their 2-year high from ${fd(H.from, false)} to ${fd(H.to, false)}, dividends in, 1.5% costs each way. Shrinking losses and insider buying did not pick out the recoveries. Only stocks Edge still ranked in its top 20 did better (${H.edgeTop20_126?.n ?? 'few'} cases, too few to prove). Recovery picks sit outside the Edge rule: research only, small amounts.</p>
-    ${R.news?.length ? `<p><b>Read first</b> <small class="fine">announcements since the peak; the reasons are usually in the PDF</small></p><ul class="trk">${R.news.map(([dt, t, u]) => `<li>${fd(dt)} · ${u ? `<a href="${esc(u)}" target="_blank" rel="noopener">${esc(t)} ↗</a>` : esc(t)}</li>`).join('')}</ul>` : ''}
+    ${R.news?.length ? `<p><b>Read first</b> <small class="fine">announcements since the peak; the reasons are usually in the PDF</small></p>${newsList(R.news)}` : ''}
     ${aiButton('ai-recover', 'Why did it fall? Can it come back?', key)}${aiOut('ai-recover-out', key)}
+    ${aiBacktestLine(F)}
     ${call ? `<p class="fine">Your last AI verdict (${fd(call.date)} at J$${fmt(call.px, 2)}): <b>${esc(call.verdict)}</b>.</p>` : ''}`;
 }
 const pctCell2 = (v) => (v == null ? '—' : `<b class="${v >= 0 ? 'good' : 'bad'}">${signed(v, 1)}</b>`);
@@ -830,6 +834,7 @@ function recoveryFacts(d, sym) {
   L.push(`Insider trades since the peak: ${R.insiders.buys} buy notices (${R.insiders.boughtShares.toLocaleString('en-US')} shares), ${R.insiders.sells} sell notices (${R.insiders.soldShares.toLocaleString('en-US')} shares).`);
   const recent = (d.jsenews?.posts || []).filter((p) => p.s === sym).slice(0, 4);
   if (R.news?.length) L.push(`Announcements since the peak (newest first): ${R.news.slice(0, 8).map(([dt, t]) => `[${dt}] ${t}`).join('; ')}.`);
+  for (const [dt, t, , sum] of (R.news || []).filter((n) => n[3]).slice(0, 3)) L.push(`What the ${dt} document says (${t.slice(0, 80)}): ${sum}`);
   if (recent.length) L.push(`Text of the latest announcements: ${recent.map((p) => `[${p.d.slice(0, 10)}] ${p.x.slice(0, 220)}`).join(' | ')}`);
   if (st.edge) L.push(`Edge score ${st.edge.score}/100${st.edge.rank ? `, rank ${st.edge.rank} of ${st.edge.of}` : ' (not ranked: trades on fewer than half of days)'}; strongest themes ${Object.entries(st.edge.themes || {}).sort((a, b) => b[1] - a[1]).slice(0, 2).map(([k]) => F.edgeInfo?.themes?.[k]?.label || k).join(', ')}; weakest ${Object.entries(st.edge.themes || {}).sort((a, b) => a[1] - b[1]).slice(0, 2).map(([k]) => F.edgeInfo?.themes?.[k]?.label || k).join(', ')}.`);
   for (const k of R.groups) { const h = H[k]; if (h?.bigWin != null) L.push(`History, ${recLabel(k).toLowerCase()} (${h.n} cases): ${h.bigWin}% rose 25%+ and ${h.bigLoss}% fell 15%+ over 6 months; ${signed(h.avgExcess, 1)} vs the market on average.`); }
@@ -842,22 +847,97 @@ function bindRecovery(root, d, sym) {
     const key = b.dataset.aikey;
     await runAi(b, root.querySelector('#ai-recover-out'), key, recoveryPrompt(recoveryFacts(d, sym)), { maxTokens: 520 });
     const v = /Verdict:\s*\**\s*(Avoid for now|Watch[^\n]*|Speculative[^\n]*)/i.exec(nanoCached(key) || '')?.[1];
-    if (v) aiCalls.add({ sym, date: d.forecasts.asof, px: priceNow(d, sym) ?? d.forecasts.stocks[sym].close, verdict: v.replace(/\*+/g, '').trim().slice(0, 120) });
+    if (v) aiCalls.add({ sym, kind: 'recovery', date: d.forecasts.asof, px: priceNow(d, sym) ?? d.forecasts.stocks[sym].close, verdict: v.replace(/\*+/g, '').trim().slice(0, 120) });
   });
 }
 function recoveryCard(F) {
   const H = F?.ideas?.recovery?.all126; if (!H || !F.stocks) return '';
   const list = Object.entries(F.stocks).filter(([, v]) => v.recovery && !v.pref).sort((a, b) => (a[1].edge?.rank || 999) - (b[1].edge?.rank || 999));
-  const calls = aiCalls.get(); const last = (s) => calls.filter((c) => c.sym === s).slice(-1)[0];
-  if (!list.length && !calls.length) return '';
-  const callRows = calls.slice(-8).reverse().map((c) => { const now = F.stocks[c.sym]?.close; const ch = now && c.px ? (now / c.px - 1) * 100 : null;
-    return `<li><b class="symlink" data-sym="${esc(c.sym)}">${esc(c.sym)}</b> · ${fd(c.date)} · ${esc(c.verdict.split(':')[0])} at J$${fmt(c.px, 2)}${ch != null ? ` · now ${pctCell2(ch)}` : ''}</li>`; }).join('');
+  const calls = aiCalls.get().filter((c) => (c.kind || 'recovery') === 'recovery'); const last = (s) => calls.filter((c) => c.sym === s).slice(-1)[0];
+  if (!list.length) return '';
   return `<h2 class="sec">Recovery watch <small>big fallers, outside the Edge rule</small></h2>
     <p class="fine">Stocks 40% or more below their 2-year high. History is against them: of ${H.n.toLocaleString('en-US')} past cases, ${H.bigWin}% rose 25%+ over the next 6 months and ${H.bigLoss}% fell 15%+. Tap one to see why it fell, the record for its exact situation, and to ask the AI whether this one is different.</p>
     <div class="tblwrap"><table class="yt pick"><thead><tr><th>Stock</th><th>Down</th><th>Edge #</th><th>Losses</th><th>AI verdict</th></tr></thead><tbody>
       ${list.map(([s, v]) => { const c = last(s); return `<tr data-sym="${esc(s)}"><td><b>${esc(s)}</b></td><td>${fmt(v.recovery.drop, 0)}%</td><td>${v.edge?.rank ?? '—'}</td><td>${v.recovery.groups.includes('lossMaking126') ? '<span class="bad">yes</span>' : 'no'}</td><td>${c ? esc(c.verdict.split(':')[0]) : '—'}</td></tr>`; }).join('')}
-    </tbody></table></div>
-    ${callRows ? `<p><b>Your AI recovery calls</b> <small class="fine">price then vs now, before costs; judge the AI on these after 6 months</small></p><ul class="trk">${callRows}</ul>` : ''}`;
+    </tbody></table></div>`;
+}
+// ---------- pop watch: sudden big rises (scripts/pops.py), outside the Edge rule ----------
+const newsList = (news) => `<ul class="trk">${news.map(([dt, t, u, sum]) => `<li>${fd(dt)} · ${u ? `<a href="${esc(u)}" target="_blank" rel="noopener">${esc(t)} ↗</a>` : esc(t)}${sum ? `<br><small class="fine">✦ AI read it: ${esc(sum)}</small>` : ''}</li>`).join('')}</ul>`;
+const DRIVER = (I, k) => I?.drivers?.[k]?.label || k;
+function aiBacktestLine(F) {
+  const A = F?.aiBacktest; if (!A?.cases) return '';
+  const g = (k) => A[k]; const part = (k, lab) => (g(k) ? `${lab} ${signed(g(k).avgExcess, 1)} (${g(k).n})` : null);
+  const parts = [part('avoid126', '“Avoid”'), part('watch126', '“Watch”'), part('speculative126', '“Speculative”')].filter(Boolean);
+  const sp = g('speculative126'); const av = g('avoid126');
+  const skill = sp && av && sp.n >= 15 && av.n >= 15 ? (sp.avgExcess - av.avgExcess >= 3 ? 'Its “Speculative” calls did better than its “Avoid” calls.' : 'Its verdicts did not separate the winners from the losers.') : 'Too few calls of each kind to judge yet.';
+  return `<p class="fine"><b>Blind test of this AI</b> on ${A.cases} past big fallers, names and years hidden (${fd(A.from, false)}–${fd(A.to, false)}, ${esc(A.model || 'Gemini')}): 6 months later vs the market, ${parts.join(' · ')}. ${skill}</p>`;
+}
+function popBlock(d, sym) {
+  const F = d.forecasts; const st = F?.stocks?.[sym]; const p = st?.pop; const I = F?.popInfo; if (!p || !I) return '';
+  const M = I.model; const R = p.recent; const after = I.after || {}; const key = `ai-p-${sym}-${F.asof || ''}`;
+  const lift = M?.baseRate ? p.odds / M.baseRate : null;
+  return `<h4>Pop watch · ${R ? `up ${fmt(R.gain, 0)}% in a month` : `${fmt(p.odds, 1)}% chance of a sudden jump`} <span class="vchip ${R ? 'bad' : 'ok'}">${R ? 'History: most gave some back' : 'Speculative'}</span></h4>
+    ${R ? `<p>Up ${fmt(R.gain, 0)}% since ${fd(R.since)} (dividends in), ahead of the average stock by 25 points or more. News around it: ${R.drivers.map((k) => esc(DRIVER(I, k))).join(', ')}.</p>
+      ${R.news?.length ? newsList(R.news) : ''}
+      <p class="fine">After the ${I.pops} pops since ${fd(I.from, false)}, buying when the rise ended trailed the market by ${fmt(Math.abs(after.all63?.avgExcess ?? 0), 1)} points over the next 3 months${after.none63 ? ` (${fmt(Math.abs(after.none63.avgExcess), 1)} points when no announcement explained the rise)` : ''}. That is a proven trap, not a forecast for this stock.</p>
+      ${aiButton('ai-pop', 'Why did it jump? Will it hold?', key)}${aiOut('ai-pop-out', key)}` : ''}
+    <p>Chance of a pop (25+ points over the market) in the next month: <b>${fmt(p.odds, 1)}%</b>, #${p.rank} of ${p.of}${lift ? `, ${fmt(lift, 1)}× a typical stock (${fmt(M.baseRate, 1)}%)` : ''}.${p.why?.length && lift >= 1 ? ` Why: ${p.why.map(esc).join(', ')}.` : ''}</p>
+    <p class="fine">On data the model hadn’t seen (since ${fd(M.split, false)}), its top 5 each month popped ${fmt(M.top5.popRate, 0)}% of the time vs ${fmt(M.top5.allPopRate, 0)}% for all stocks, but also fell 20%+ ${fmt(M.top5.crashRate, 0)}% of the time vs ${fmt(M.top5.allCrashRate, 0)}%, and lost ${signed(M.top5.excessAfterCosts, 1)} a month after their own spreads and fees. Pop odds are a lottery ticket, not a buy signal.</p>`;
+}
+function popFacts(d, sym) {
+  const F = d.forecasts; const st = F.stocks[sym]; const p = st.pop; const R = p.recent; const I = F.popInfo; const A = I.after || {}; const L = [];
+  L.push(`Stock: ${sym} (${st.fund?.name || sym}). Price J$${fmt(priceNow(d, sym) ?? st.close, 2)}, up ${fmt(R.gain, 0)}% since ${R.since} (dividends included), 25+ points more than the average stock.`);
+  if (st.fund?.lastQuarters?.length) L.push(`Quarterly profit, oldest to newest: ${quarterLine(st.fund)}.`);
+  L.push(`News kinds around the rise: ${R.drivers.map((k) => DRIVER(I, k)).join(', ')}.`);
+  if (R.news?.length) L.push(`Announcements around the rise (newest first): ${R.news.map(([dt, t]) => `[${dt}] ${t}`).join('; ')}.`);
+  for (const [dt, t, , sum] of (R.news || []).filter((n) => n[3]).slice(0, 3)) L.push(`What the ${dt} document says (${t.slice(0, 80)}): ${sum}`);
+  const recent = (d.jsenews?.posts || []).filter((x) => x.s === sym).slice(0, 3);
+  if (recent.length) L.push(`Text of the latest announcements: ${recent.map((x) => `[${x.d.slice(0, 10)}] ${x.x.slice(0, 220)}`).join(' | ')}`);
+  if (st.edge) L.push(`Edge score ${st.edge.score}/100${st.edge.rank ? `, rank ${st.edge.rank} of ${st.edge.of}` : ' (not ranked)'}.`);
+  const line = (k, lab) => (A[k]?.n ? L.push(`History, ${lab} (${A[k].n} cases): ${signed(A[k].avgExcess, 1)} vs the market over the 3 months after the rise.`) : null);
+  line('all63', 'all JSE pops'); for (const k of R.drivers) line(`${k}63`, `pops with ${DRIVER(I, k).toLowerCase()}`);
+  if (st.signals?.liquidity) L.push(`Trades on ${st.signals.liquidity.tradedPct}% of days, about J$${fmt(st.signals.liquidity.adv20 / 1e6, 1)}M a day.`);
+  return L.join('\n');
+}
+function bindPop(root, d, sym) {
+  const b = root.querySelector('#ai-pop'); if (!b) return;
+  b.addEventListener('click', async () => {
+    const key = b.dataset.aikey;
+    await runAi(b, root.querySelector('#ai-pop-out'), key, popPrompt(popFacts(d, sym)), { maxTokens: 520 });
+    const v = /Verdict:\s*\**\s*(Don.t chase|Watch[^\n]*|Speculative[^\n]*)/i.exec(nanoCached(key) || '')?.[1];
+    if (v) aiCalls.add({ sym, kind: 'pop', date: d.forecasts.asof, px: priceNow(d, sym) ?? d.forecasts.stocks[sym].close, verdict: v.replace(/\*+/g, '').trim().slice(0, 120) });
+  });
+}
+function popCard(F) {
+  const I = F?.popInfo; const M = I?.model; if (!I || !M || !F.stocks) return '';
+  const S = Object.entries(F.stocks).filter(([, v]) => v.pop && !v.pref);
+  const odds = S.slice().sort((a, b) => b[1].pop.odds - a[1].pop.odds).slice(0, 8);
+  const recent = S.filter(([, v]) => v.pop.recent).sort((a, b) => b[1].pop.recent.gain - a[1].pop.recent.gain);
+  const drv = Object.entries(I.drivers || {}).filter(([, v]) => v.pops >= 3).slice(0, 7);
+  return `<h2 class="sec">Pop watch <small>sudden big rises, outside the Edge rule</small></h2>
+    <p class="fine">A pop = beating the average JSE stock by 25+ points within a month, confirmed on the bid/ask midpoint. There were ${I.pops} pops in ${I.stocks} stocks from ${fd(I.from, false)} to ${fd(I.to, false)} (middle gain ${fmt(I.medianGain, 0)}%). Most came from small, volatile stocks far below their high, and half had no announcement anywhere near them.</p>
+    <div class="sigs">
+      <div class="sig"><div class="sig-h"><b>What was around the pops</b><span class="vchip ok">vs any month</span></div>
+        <div class="tblwrap"><table class="yt"><thead><tr><th>News nearby</th><th>Pops</th><th>Any stock-month</th></tr></thead><tbody>
+          ${drv.map(([, v]) => `<tr><td>${esc(v.label)}</td><td>${fmt(v.pops, 0)}%</td><td>${fmt(v.anyMonth, 0)}%</td></tr>`).join('')}
+        </tbody></table></div>
+        <div class="fine">News from 5 trading days before a rise to its end. Pops were no more likely around results, insider buying or dividend notices than an ordinary month, so the news rarely explains them.</div></div>
+      ${recent.length ? `<div class="sig"><div class="sig-h"><b>Just popped</b><span class="vchip bad">${signed(I.after?.all63?.avgExcess, 1)} vs market after 3 months, historically</span></div>
+        <div>${recent.map(([s, v]) => `<b class="symlink" data-sym="${esc(s)}">${esc(s)}</b> +${fmt(v.pop.recent.gain, 0)}% <small class="fine">(${v.pop.recent.drivers.map((k) => esc(DRIVER(I, k))).join(', ')})</small>`).join(' · ')}</div>
+        <div class="fine">Buying when a pop ended trailed the market by ${fmt(Math.abs(I.after?.all63?.avgExcess ?? 0), 1)} points over the next 3 months (${I.after?.all63?.n} cases, a proven trap). Tap one to see the news and ask the AI whether the jump rests on anything lasting.</div></div>` : ''}
+      <div class="sig"><div class="sig-h"><b>Highest pop odds now</b><span class="vchip ok">Speculative</span></div>
+        <div class="tblwrap"><table class="yt pick"><thead><tr><th>Stock</th><th>Pop odds</th><th>Why</th><th>Edge #</th></tr></thead><tbody>
+          ${odds.map(([s, v]) => `<tr data-sym="${esc(s)}"><td><b>${esc(s)}</b></td><td>${fmt(v.pop.odds, 1)}%</td><td><small>${(v.pop.why || []).slice(0, 2).map(esc).join(', ')}</small></td><td>${v.edge?.rank ?? '—'}</td></tr>`).join('')}
+        </tbody></table></div>
+        <div class="fine">Chance of a pop in the next month; a typical stock: ${fmt(M.baseRate, 1)}%. On unseen data (since ${fd(M.split, false)}) the model ranked well (AUC ${fmt(M.testAUC, 2)}), and its top 5 popped ${fmt(M.top5.popRate, 0)}% of the time vs ${fmt(M.top5.allPopRate, 0)}% for all stocks. They also crashed ${fmt(M.top5.crashRate, 0)}% vs ${fmt(M.top5.allCrashRate, 0)}% and lost ${signed(M.top5.excessAfterCosts, 1)} a month after their wide spreads and fees. Treat these as lottery tickets: tiny amounts or none.</div></div>
+    </div>`;
+}
+function aiCallsCard(F) {
+  const calls = aiCalls.get(); if (!calls.length) return '';
+  const rows = calls.slice(-10).reverse().map((c) => { const now = F?.stocks?.[c.sym]?.close; const ch = now && c.px ? (now / c.px - 1) * 100 : null;
+    return `<li><b class="symlink" data-sym="${esc(c.sym)}">${esc(c.sym)}</b> · ${(c.kind || 'recovery') === 'pop' ? 'pop' : 'recovery'} · ${fd(c.date)} · ${esc(c.verdict.split(':')[0])} at J$${fmt(c.px, 2)}${ch != null ? ` · now ${pctCell2(ch)}` : ''}</li>`; }).join('');
+  return `<h2 class="sec">Your AI speculative calls <small>price then vs now, before costs</small></h2><ul class="trk">${rows}</ul>
+    <p class="fine">Every verdict the AI gave you on a big faller or a pop, saved on this phone. Judge it on these after 6 months; until then they prove nothing.</p>`;
 }
 function asymCard(F) {
   const A = F?.ideas?.asymmetry; if (!A?.bands) return '';

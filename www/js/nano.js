@@ -179,6 +179,22 @@ FACTS:
 ${facts}`;
 }
 
+export function popPrompt(facts) {
+  return `You help a careful private investor on the Jamaica Stock Exchange judge a stock that has just jumped. The facts come from a research app. The "History" lines are back-tests of JSE stocks after similar jumps.
+${RULES}
+Start from the history: most JSE stocks gave back part of a sudden jump over the next 3 months, especially when no news explained it. Your job is to say whether this jump rests on lasting news, or to say it doesn't.
+Write exactly these 7 lines, each starting with "• ":
+• What moved it: the news around the jump (quote announcement titles, dates or results), or "No announcement explains it".
+• Kind of move: one of news about profits / dividend or capital news / a deal or take-over / no news (trading only) / unclear, and why.
+• Does the news last: does it change the company's profits or value for good, or is it a one-time event?
+• What would make it hold: 1 or 2 specific, checkable events.
+• What would make it fade: 1 or 2 events.
+• History check: quote the History lines that fit this stock, with their numbers.
+• Verdict: exactly one of "Don't chase", "Watch: wait for <the trigger>", or "Speculative: small position only". Choose Speculative only if specific, lasting news supports a higher price; then add that it is untested and should be at most 5% of the money.
+FACTS:
+${facts}`;
+}
+
 export function digestPrompt(posts) {
   return `Here are recent Jamaica Stock Exchange announcements for stocks an investor holds or is watching.
 ${RULES}
