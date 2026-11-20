@@ -63,6 +63,19 @@ The back-test counts a limit order as filled only on a day the stock traded stri
 ### Recovery watch
 `scripts/recovery.py` lists the stocks trading 40% or more below their 2-year high. For each one it saves the drop, the profit path, dividends, insider trades since the peak and the announcements to read. `idea_tests.py` back-tests the next 6 months for stocks in each situation: loss-making, losses shrinking, insiders buying, no dividend, and each Edge-rank band. The app shows the matching history on the stock's page. Its "Why did it fall? Can it come back?" AI button has to explain the cause, name what to wait for, quote that history, and pick one of three verdicts: avoid, watch, or a small speculative position. The phone logs each verdict with the price, so the AI's calls can be judged after 6 months. On the JSE most of these stocks kept falling, so none of this touches the Edge score or the buy list.
 
+### Pop watch
+`scripts/pops.py` finds every sudden big rise: a stock beating the average JSE stock by 25+ points within 21 trading days, confirmed on the bid/ask midpoint. It tags the news around each rise and measures the 3 months after. It also fits a model of the chance of a rise in the next month on the first half of history and judges it on the second. The record is sobering:
+- Half the rises had no announcement nearby.
+- Buying after a rise trailed the market over the next 3 months (a proven trap).
+- The stocks with the highest rise odds rose more often but also crashed more often, and lost money after their wide spreads.
+
+The Trade page shows all of this as lottery tickets, outside the Edge rule. A stock that just rose gets a "Why did it jump? Will it hold?" AI button.
+
+### What the AI reads
+`scripts/read_notices.py` runs nightly. It summarises up to 15 PDFs behind key announcements (reviews, delays, take-overs and results first) for the stocks on the recovery and pop watches, using the same low-cost Gemini model as the report reader. Scanned letters go to it as files. Summaries are kept in `data/notices.json`. They appear under each announcement and in the facts the AI gets.
+
+`scripts/ai_backtest.py` is a blind test of the recovery AI. For past big fallers it rebuilds the facts the AI would have had that day, with the company's name and years removed and history taken only from earlier cases. It asks the app's own prompt and scores each verdict on the next 6 months. Run it from Actions → "Read financial reports (AI)" → job `ai_backtest`. The `notices` job reads chosen stocks' announcements on demand.
+
 `scripts/test_registry.py` keeps every test ever run, including every trading rule, in `data/test_registry.json`. It judges each one by a stricter bar: overlap-adjusted |t| of at least 3, the same sign in both halves, and at least 30 cases.
 
 ## Building
