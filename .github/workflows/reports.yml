@@ -3,8 +3,14 @@ name: Read financial reports (AI)
 on:
   workflow_dispatch:
     inputs:
-      max: { description: 'Max reports to read this run', default: '40' }
+      job:
+        description: 'reports: read financial statements · notices: summarise key announcements · ai_backtest: blind test of the recovery AI'
+        type: choice
+        options: [reports, notices, ai_backtest]
+        default: reports
+      max: { description: 'Max reports / notices / AI test cases this run', default: '40' }
       indexpages: { description: 'Max index pages to fetch (100 announcements each)', default: '6' }
+      syms: { description: 'notices only: comma-separated symbols to read instead of the watch lists', default: '' }
 
 concurrency: { group: reports, cancel-in-progress: false }
 
@@ -20,6 +26,7 @@ jobs:
       - name: PDF tools
         run: sudo apt-get update -qq && sudo apt-get install -y -qq poppler-utils
       - name: Read reports (saving after every batch)
+        if: github.event.inputs.job == 'reports' || github.event.inputs.job == ''
         env:
           GEMINI_API_KEY: ${{ secrets.GEMINI_API_KEY }}
         run: |
@@ -35,3 +42,25 @@ jobs:
             [ "$(cat /tmp/reports_more 2>/dev/null)" = "yes" ] || break
             left=$(( left - n ))
           done
+      - name: Summarise key announcements
+        if: github.event.inputs.job == 'notices'
+        env:
+          GEMINI_API_KEY: ${{ secrets.GEMINI_API_KEY }}
+        run: |
+          pip install -q numpy pandas
+          python scripts/read_notices.py "${{ github.event.inputs.max }}" ${{ github.event.inputs.syms && format('--syms={0}', github.event.inputs.syms) || '' }}
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git add data/notices.json && { git diff --cached --quiet || git commit -q -m "data: announcement summaries $(date -u +%F) [skip ci]"; }
+          for i in 1 2 3; do git pull --rebase -X theirs -q && git push -q && break; git rebase --abort 2>/dev/null; sleep 5; done
+      - name: Blind test of the recovery AI
+        if: github.event.inputs.job == 'ai_backtest'
+        env:
+          GEMINI_API_KEY: ${{ secrets.GEMINI_API_KEY }}
+        run: |
+          pip install -q numpy pandas scipy
+          python scripts/ai_backtest.py "${{ github.event.inputs.max }}"
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git add data/ai_backtest.json && { git diff --cached --quiet || git commit -q -m "data: recovery AI blind test $(date -u +%F) [skip ci]"; }
+          for i in 1 2 3; do git pull --rebase -X theirs -q && git push -q && break; git rebase --abort 2>/dev/null; sleep 5; done

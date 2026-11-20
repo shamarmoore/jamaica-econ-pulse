@@ -78,8 +78,22 @@ def _news(sym, since):
                 posts[p['id']] = [p['d'][:10], p.get('t', ''), p.get('u')]
     except Exception:
         pass
-    keep = [v for v in posts.values() if not ROUTINE.search(v[1])]
-    return sorted(keep, key=lambda v: v[0], reverse=True)[:MAX_NEWS]
+    keep = sorted((v for v in posts.values() if not ROUTINE.search(v[1])), key=lambda v: v[0], reverse=True)[:MAX_NEWS]
+    read = _notices()
+    return [v + [read[v[2]]] if v[2] in read else v for v in keep]
+
+
+def _notices():
+    """{announcement link: one-line summary of its PDF} from scripts/read_notices.py."""
+    if 'notices' not in _cache:
+        try:
+            N = json.load(open('data/notices.json', encoding='utf-8')).get('notices', {})
+        except Exception:
+            N = {}
+        _cache['notices'] = {k: ' '.join(x for x in (v.get('what'), f"Cause given: {v['why']}" if v.get('why') else None,
+                                                    f"Figures: {v['numbers']}" if v.get('numbers') else None, f"Next: {v['next']}" if v.get('next') else None) if x)[:600]
+                             for k, v in N.items() if v.get('what')}
+    return _cache['notices']
 
 
 def dossiers(out, fs):
@@ -103,7 +117,7 @@ def dossiers(out, fs):
             'insiders': {'buys': sum(e['side'] == 'buy' for e in ins), 'sells': sum(e['side'] == 'sell' for e in ins),
                          'boughtShares': int(sum(e.get('shares') or 0 for e in ins if e['side'] == 'buy')),
                          'soldShares': int(sum(e.get('shares') or 0 for e in ins if e['side'] == 'sell'))},
-            'news': _news(s, since),
+            'news': _news(s, since),   # [date, title, link, AI summary of its PDF when read_notices.py has read it]
         }
         n += 1
     return n
