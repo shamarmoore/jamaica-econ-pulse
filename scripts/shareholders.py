@@ -3,10 +3,10 @@
 JSE rules make listed companies print their ten largest shareholders in every quarterly report. Nothing else publishes
 who owns what, so this is the only record of a big holder adding or cutting. For each report in data/reports_index.json
 the script sends only the page(s) holding that list: the text of pages with a "top ten / largest shareholders" heading,
-or, when no page has one, the pages that are pictures with no text layer (as a small PDF). A list is kept as checked
-("ok") only when its holdings fall in order and agree with the percentages printed beside them.
+or, when no page has one, the pages that are pictures with no text layer (as a small PDF). The readings are stored as
+read; check() decides which lists the tests and the app use, so a stricter or looser check needs no re-reading.
 
-  data/shareholders.json : {'reports': {post_id: {sym, date, asOf, issued, holders: [[name, units, pct]], src, ok}}}
+  data/shareholders.json : {'reports': {post_id: {sym, date, asOf, issued, holders: [[name, units, pct]], src}}}
   changes()              -> one row per pair of consecutive checked lists for a company (idea_tests.py, forecast.py)
   latest(sym)            -> the newest checked list with each holder's change since the list before it
 Usage: GEMINI_API_KEY=... python scripts/shareholders.py [max=300] [--cache=DIR] [--dry-run]
@@ -79,20 +79,18 @@ def pages_to_send(path, pdf):
 
 
 def check(holders, issued):
-    """A list counts only if it is in falling order and its units agree with its percentages."""
-    if len(holders) < 3:
-        return False
+    """A list counts when its holdings agree with the printed percentages of 2% or more (rounding hides smaller ones),
+    or, with no percentages printed, when its holdings fall in order."""
     u = [h[1] for h in holders]
-    if any(x is None or x <= 0 for x in u) or any(b > a * 1.001 for a, b in zip(u, u[1:])):
+    if len(holders) < 3 or any(x is None or x <= 0 for x in u):
         return False
-    implied = [h[1] / (h[2] / 100) for h in holders if h[2]]
+    implied = [h[1] / (h[2] / 100) for h in holders if h[2] and h[2] >= 2]
     if issued:
         implied.append(issued)
     if len(implied) >= 2:
         mid = sorted(implied)[len(implied) // 2]
-        if sum(abs(x / mid - 1) < 0.03 for x in implied) < 0.7 * len(implied):
-            return False
-    return True
+        return sum(abs(x / mid - 1) < 0.03 for x in implied) >= 0.7 * len(implied)
+    return all(b <= a * 1.001 for a, b in zip(u, u[1:]))
 
 
 def read(p):
@@ -118,7 +116,7 @@ def read(p):
         return {**base, 'src': src, 'skip': 'no shareholder list found'}
     holders = [[str(h.get('name') or '').strip()[:80], _num(h.get('units')), _num(h.get('pct'))] for h in r['holders'][:10] if isinstance(h, dict)]
     issued = _num(r.get('issued_shares'))
-    return {**base, 'asOf': r.get('as_of'), 'issued': issued, 'holders': holders, 'src': src, 'model': RR.MODEL, 'ok': check(holders, issued)}
+    return {**base, 'asOf': r.get('as_of'), 'issued': issued, 'holders': holders, 'src': src, 'model': RR.MODEL}
 
 
 def main():
@@ -149,7 +147,7 @@ def main():
     if not DRY:
         json.dump(store, open(OUT, 'w', encoding='utf-8'), separators=(',', ':'), ensure_ascii=False)
     R = store['reports'].values()
-    print(f"SHAREHOLDERS read {done[0]} of {len(todo)}; stored {len(store['reports'])}, checked {sum(1 for r in R if r.get('ok'))}, "
+    print(f"SHAREHOLDERS read {done[0]} of {len(todo)}; stored {len(store['reports'])}, checked {sum(1 for r in R if r.get('holders') and check(r['holders'], r.get('issued')))}, "
           f"skipped {sum(1 for r in R if r.get('skip'))}; tokens {RR.tokens}")
     with open(os.environ.get('MORE_FLAG', os.path.join(tempfile.gettempdir(), 'shareholders_more')), 'w') as f:
         f.write('yes' if len(todo) == MAX else 'no')
@@ -174,8 +172,8 @@ def lists(sym=None):
     """{sym: [checked list, oldest first]}, one per publication date."""
     out = {}
     for r in _load(OUT, {'reports': {}})['reports'].values():
-        if r.get('ok') and (sym is None or r['sym'] == sym):
-            out.setdefault(r['sym'], {})[r['date']] = r
+        if r.get('holders') and (sym is None or r['sym'] == sym) and check(r['holders'], r.get('issued')):
+            out.setdefault(r['sym'], {})[r['date']] = {**r, 'holders': sorted(r['holders'], key=lambda h: -h[1])}
     return {s: [v[d] for d in sorted(v)] for s, v in out.items()}
 
 
