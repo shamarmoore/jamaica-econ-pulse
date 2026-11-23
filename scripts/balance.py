@@ -36,11 +36,8 @@ def _bbd_payers():
     """Companies that declare their dividends in Barbados dollars (so their statements are in Barbados dollars too)."""
     global _BBD
     if _BBD is None:
-        try:
-            from tslib import load_fundamentals
-            _BBD = {s for s, f in load_fundamentals().items() if any(d.get('cur') == 'BBD' for d in (f.get('dividends') or [])[-4:])}
-        except Exception:
-            _BBD = set()
+        F = _load('data/jse_fundamentals.json', {}).get('stocks', {})
+        _BBD = {s for s, f in F.items() if any(d.get('cur') == 'BBD' for d in (f.get('dividends') or [])[-4:])}
     return _BBD
 
 

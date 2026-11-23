@@ -10,7 +10,7 @@ import numpy as np
 import pandas as pd
 from scipy.stats import spearmanr
 sys.path.insert(0, 'scripts')
-from tslib import load_history, load_fundamentals, _quarter_events, is_pref, FX_TO_JMD, fx_rate
+from tslib import load_history, load_fundamentals, _quarter_events, is_pref, FX_TO_JMD, fx_rate, profit_fx
 warnings.filterwarnings('ignore')
 
 close, vol = load_history()
@@ -83,40 +83,8 @@ for _s in syms:
     if _s.endswith('JMD') and _s[:-3] + 'USD' in shares.index and shares[_s[:-3] + 'USD'] > 0:
         shares[_s] = shares[_s] + shares[_s[:-3] + 'USD']
 MCAP = P * shares
-
-
-def _profit_fx():
-    """J$ per unit of the currency each company REPORTS its profits in. The dividend currency (FXR) is only a guess at
-    this — several companies report in US$ but pay in J$ — so the currency printed on the company's own financial
-    statements (read by scripts/read_reports.py) wins wherever a report has been read."""
-    out = dict(FXR)
-    mc = (P.ffill().iloc[-1] * shares)
-    read = set()
-    try:
-        import balance as _bal
-        last = {}
-        for r in _bal.readings():
-            last[r['sym']] = r
-        for s, r in last.items():
-            if s in out:
-                read.add(s)
-                out[s] = _bal.bs_fx(r['currency'], r.get('equity_attributable_to_owners') or r.get('total_equity'), mc.get(s))
-    except Exception as e:
-        print('report currencies skipped:', repr(e)[:100])
-    ttm = FF['ttm'].ffill().iloc[-1]
-    for s in out:
-        if not (pd.notna(ttm.get(s)) and mc.get(s) and mc[s] > 0 and ttm[s] > 0):
-            continue
-        # a year's profit can't be bigger than the whole company's market value: the conversion must be wrong
-        if out[s] > 1 and ttm[s] * out[s] / mc[s] > 1:
-            out[s] = 1.0
-        # no report read yet, and the price is 400+ times the profit unless that profit is in US$: it is in US$
-        elif out[s] == 1 and s not in read and mc[s] / ttm[s] > 400 and mc[s] / (ttm[s] * FX_TO_JMD['USD']) < 60:
-            out[s] = FX_TO_JMD['USD']
-    return pd.Series(out)
-
-
-fx = _profit_fx()
+_ttm = FF['ttm'].ffill().iloc[-1]
+fx = pd.Series({s: profit_fx(FUND.get(s), P[s], MCAP[s].iloc[-1], _ttm[s]) for s in syms})
 DIV12 = D.rolling(252, min_periods=1).sum()
 JVAL = V * P
 

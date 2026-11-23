@@ -2,6 +2,7 @@
 import json, os
 import numpy as np
 import pandas as pd
+import balance
 
 MODEL_ID = 'mistralai/Timestral-209M'
 LEVELS = np.array([0.01, 0.05, 0.1, 0.15, 0.2, 0.25, 0.3, 0.35, 0.4, 0.45, 0.5, 0.55, 0.6, 0.65, 0.7, 0.75, 0.8, 0.85, 0.9, 0.95, 0.99])
@@ -218,6 +219,9 @@ def load_fundamentals(path='data/jse_fundamentals.json'):
                 d['amt'] = d['amt'] / k
         if f.get('shares') and f.get('at') and pd.Timestamp(f['at'][:10]) < day:
             f['shares'] = f['shares'] * k
+    for r in balance.readings():   # oldest first, so each company ends on its latest read report
+        if r['sym'] in F:
+            F[r['sym']]['report'] = r
     return F
 
 
@@ -239,6 +243,24 @@ def fx_rate(f, price):
         if len(px) and px.iloc[-1] > 0:
             ys.append(d['amt'] * rate / px.iloc[-1])
     return 1.0 if ys and np.median(ys) > 0.25 else rate
+
+
+def profit_fx(f, price, mcap, ttm):
+    """J$ per unit of the currency the company REPORTS its profits in, relative to how its share price is quoted.
+    The dividend currency (fx_rate) is only a guess at this — several companies report in US$ but pay in J$ — so the
+    currency printed on the company's latest read report (f['report']) wins. mcap and ttm, the latest market value and
+    trailing-year profit, feed two sanity rules."""
+    r = (f or {}).get('report')
+    rate = balance.bs_fx(r['currency'], r.get('equity_attributable_to_owners') or r.get('total_equity'), mcap) if r else fx_rate(f, price)
+    if not (pd.notna(ttm) and mcap and mcap > 0 and ttm > 0):
+        return rate
+    # a year's profit can't be bigger than the whole company's market value: the conversion must be wrong
+    if rate > 1 and ttm * rate / mcap > 1:
+        return 1.0
+    # no report read yet, and the price is 400+ times the profit unless that profit is in US$: it is in US$
+    if rate == 1 and not r and mcap / ttm > 400 and mcap / (ttm * FX_TO_JMD['USD']) < 60:
+        return FX_TO_JMD['USD']
+    return rate
 
 
 def _quarter_events(f):
@@ -273,7 +295,7 @@ def fundamental_series(f, price, index):
     out = pd.DataFrame(np.nan, index=index, columns=FEATS)
     if not f:
         return out
-    fx = fx_rate(f, price)
+    div_fx = fx_rate(f, price)
     shares = f.get('shares')
     ev = _quarter_events(f)
     if ev and shares:
@@ -285,10 +307,10 @@ def fundamental_series(f, price, index):
         prev_d = prev.reindex(index.union(prev.index)).ffill().reindex(index)
         loss_d = loss.reindex(index.union(loss.index)).ffill().reindex(index)
         mcap = price.reindex(index).ffill() * shares
-        out['ey'] = (ttm_d * fx / mcap).clip(-0.5, 0.5)
+        out['ey'] = (ttm_d * profit_fx(f, price, mcap.iloc[-1], ttm_d.iloc[-1]) / mcap).clip(-0.5, 0.5)
         out['growth'] = ((ttm_d - prev_d) / prev_d.abs().replace(0, np.nan)).clip(-1, 2)
         out['lossq'] = loss_d
-    divs = [(pd.Timestamp(d['ex']), d['amt'] * (fx if d['cur'] != 'JMD' else 1.0)) for d in f.get('dividends', []) if d.get('ex')]
+    divs = [(pd.Timestamp(d['ex']), d['amt'] * (div_fx if d['cur'] != 'JMD' else 1.0)) for d in f.get('dividends', []) if d.get('ex')]
     if divs:
         ds = pd.Series([a for _, a in divs], index=pd.DatetimeIndex([d for d, _ in divs])).groupby(level=0).sum()
         daily = ds.reindex(index.union(ds.index)).fillna(0)
