@@ -219,9 +219,30 @@ def load_fundamentals(path='data/jse_fundamentals.json'):
                 d['amt'] = d['amt'] / k
         if f.get('shares') and f.get('at') and pd.Timestamp(f['at'][:10]) < day:
             f['shares'] = f['shares'] * k
+    ytd = {}
     for r in balance.readings():   # oldest first, so each company ends on its latest read report
-        if r['sym'] in F:
-            F[r['sym']]['report'] = r
+        s = r['sym']
+        if s not in F:
+            continue
+        F[s]['report'] = r
+        fy, month = balance.fy_end(r['period_end'], r['months'])
+        if month == ((F[s].get('fye') or {}).get('month') or 12):
+            ytd[(s, fy, r['months'])] = r
+    # the JSE table shows a quarter weeks, sometimes months, after the company files it: until then a 0/missing quarter
+    # is taken from the filed statements, which give year-to-date figures, so a later quarter is the difference of two
+    if not os.environ.get('FILL_OFF'):
+        for (s, fy, m), r in ytd.items():
+            prev = {'net_profit': 0, 'net_profit_attributable_to_owners': 0} if m == 3 else ytd.get((s, fy, m - 3))
+            # net_profit (owners' share and minorities together) is the figure the JSE table prints
+            q = next((r[k] - prev[k] for k in ('net_profit', 'net_profit_attributable_to_owners')
+                      if prev and r.get(k) is not None and prev.get(k) is not None), None)
+            if q is None:
+                continue
+            qs = F[s].setdefault('quarters', {}).setdefault(str(fy), [])
+            i = m // 3 - 1
+            qs.extend([0] * (i + 1 - len(qs)))
+            if qs[i] in (0, None):
+                qs[i] = q
     return F
 
 
