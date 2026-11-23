@@ -89,6 +89,17 @@ class ProfitDataTests(unittest.TestCase):
         # LEARN filed its second quarter to 30 June 2025 (a J$523,453 profit) on 4 December 2025, 157 days later
         self.assertEqual([d for d, v in tslib._quarter_events(self.F['LEARN']) if v == 523_453], [pd.Timestamp('2025-12-04')])
 
+    def test_quarters_count_one_a_day_in_quarter_order(self):
+        # callers take the last four counted quarters as a year and the fourth one back as the same quarter a year earlier
+        bad = []
+        for s, f in self.F.items():
+            alone = [q for q in (counted(f, fy, qi) for fy in sorted(f.get('quarters', {})) for qi in range(4)) if q]
+            ev = tslib._quarter_events(f)
+            if ([v for _, v in ev] != [v for _, v in alone] or any(b <= a for (a, _), (b, _) in zip(ev, ev[1:]))
+                    or any(d < a for (d, _), (a, _) in zip(ev, alone))):
+                bad.append(s)
+        self.assertEqual(bad, [])
+
 
 if __name__ == '__main__':
     unittest.main()
