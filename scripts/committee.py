@@ -9,7 +9,7 @@ names its Yahoo code imports directly) at install(); TradingAgents' own files ar
 
 Run with the TradingAgents venv (`TradingAgents/.venv`), PYTHONUTF8=1. The model runs on OpenRouter: the key is read from
 OPENROUTER_API_KEY or ~/.config/openrouter/.env and never written anywhere. COMMITTEE_MODEL picks the model (default
-meta-llama/llama-3.1-8b-instruct); COMMITTEE_BUDGET (US$, default 4.50) stops a run once the key's lifetime spend reaches it.
+openai/gpt-oss-120b); COMMITTEE_BUDGET (US$, default 4.50) stops a run once the key's lifetime spend reaches it.
 The backtest is blind: each case hides the company behind an alias (JSE017), its name and symbol are removed from every
 text the agents read, and decisions are scored on the next 63 trading days against the market, 1.5% costs each way, as in
 scripts/ai_backtest.py. Re-running continues where it stopped."""
@@ -568,7 +568,7 @@ def config(mode, model):
     home = DIR / mode
     cfg.update(
         llm_provider='openrouter', deep_think_llm=model, quick_think_llm=model, backend_url=None, max_debate_rounds=1,
-        max_risk_discuss_rounds=1, max_tool_rounds=6, max_tokens=2500, output_language='English', holding_period_days=H,
+        max_risk_discuss_rounds=1, max_tool_rounds=6, max_tokens=int(os.environ.get('COMMITTEE_MAX_TOKENS', 2500)), output_language='English', holding_period_days=H,
         benchmark_ticker=MKT, results_dir=str(home / 'results'), data_cache_dir=str(DIR / 'cache'),
         memory_log_path=str(home / 'memory.md'), news_article_limit=12, global_news_article_limit=10, global_news_lookback_days=14,
         data_vendors={category: 'jse' for category in router.TOOLS_CATEGORIES}, tool_vendors={})
@@ -657,7 +657,7 @@ class Committee:
     """One TradingAgents graph for a mode, with the budget, the spend and the network guard around every run."""
 
     def __init__(self, mode, blind):
-        self.model = os.environ.get('COMMITTEE_MODEL', 'meta-llama/llama-3.1-8b-instruct')
+        self.model = os.environ.get('COMMITTEE_MODEL', 'openai/gpt-oss-120b')
         self.budget = Budget(load_key(), float(os.environ.get('COMMITTEE_BUDGET', 4.5)))
         self.spend, self.blocked = Spend(), Blocked()
         self.graph = build_graph(mode, self.model, blind, [self.spend])
