@@ -290,7 +290,8 @@ def _quarter_events(f):
     each quarter counts only from when it was public: the company's own usual reporting delay where its reports have been
     read (scripts/balance.py), otherwise 60 days after the quarter ends, and at least 90 for the year-end quarter. (Reports
     show a median delay of 45 days but about 3 in 10 arrive later, so the old flat 45 days peeked early for late filers.)
-    A quarter whose statements have been read never counts before the day they were first filed (f['filed']).
+    A quarter whose statements have been read never counts before the day they were first filed (f['filed']), and none
+    counts before the day after the quarter ahead of it: callers take the last four events as a year.
     The JSE table shows 0 for quarters not reported separately: a 0 is treated as missing, except that a missing 4th
     quarter is filled as annual profit minus the first three quarters when all of those are known."""
     m = (f.get('fye') or {}).get('month') or 12
@@ -312,8 +313,9 @@ def _quarter_events(f):
             day = (filed.get(fy) or [None] * 4)[qi]
             if day:
                 avail = max(avail, pd.Timestamp(day))
+            if ev:
+                avail = max(avail, ev[-1][0] + pd.Timedelta(days=1))
             ev.append((avail, float(v)))
-    ev.sort()
     return ev
 
 
