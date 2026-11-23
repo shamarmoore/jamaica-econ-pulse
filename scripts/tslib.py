@@ -228,6 +228,7 @@ def load_fundamentals(path='data/jse_fundamentals.json'):
         fy, month = balance.fy_end(r['period_end'], r['months'])
         if month == ((F[s].get('fye') or {}).get('month') or 12):
             ytd[(s, fy, r['months'])] = r
+            F[s].setdefault('filed', {}).setdefault(str(fy), [None] * 4)[r['months'] // 3 - 1] = r['first_pub']
     # the JSE table shows a quarter weeks, sometimes months, after the company files it: until then a 0/missing quarter
     # is taken from the filed statements, which give year-to-date figures, so a later quarter is the difference of two
     if not os.environ.get('FILL_OFF'):
@@ -289,11 +290,13 @@ def _quarter_events(f):
     each quarter counts only from when it was public: the company's own usual reporting delay where its reports have been
     read (scripts/balance.py), otherwise 60 days after the quarter ends, and at least 90 for the year-end quarter. (Reports
     show a median delay of 45 days but about 3 in 10 arrive later, so the old flat 45 days peeked early for late filers.)
+    A quarter whose statements have been read never counts before the day they were first filed (f['filed']).
     The JSE table shows 0 for quarters not reported separately: a 0 is treated as missing, except that a missing 4th
     quarter is filled as annual profit minus the first three quarters when all of those are known."""
     m = (f.get('fye') or {}).get('month') or 12
     lag = int((f.get('fye') or {}).get('lag') or os.environ.get('QLAG') or 60)
     annual = {str(k): v for k, v in (f.get('annual') or {}).items()}
+    filed = f.get('filed') or {}
     ev = []
     for fy, qs in sorted(f.get('quarters', {}).items()):
         fyi = int(fy)
@@ -306,6 +309,9 @@ def _quarter_events(f):
             end = (pd.Timestamp(year=fyi, month=m, day=1) + pd.offsets.MonthEnd(0)) - pd.DateOffset(months=3 * (3 - qi))
             end = end + pd.offsets.MonthEnd(0)
             avail = end + pd.Timedelta(days=max(90, lag) if qi == 3 else lag)
+            day = (filed.get(fy) or [None] * 4)[qi]
+            if day:
+                avail = max(avail, pd.Timestamp(day))
             ev.append((avail, float(v)))
     ev.sort()
     return ev

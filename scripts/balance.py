@@ -44,13 +44,17 @@ def _bbd_payers():
 def readings(only_ok=True):
     R = [r for r in _load('data/financials.json', {}).get('reports', {}).values() if r.get('period_end') and r.get('months') and (r.get('ok') or not only_ok)]
     # one reading per company and period: the latest publication wins (revised or audited versions), but a consolidated
-    # reading beats a company-only one, because a listed subsidiary's statements can be filed under its parent's symbol
+    # reading beats a company-only one, because a listed subsidiary's statements can be filed under its parent's symbol.
+    # first_pub keeps the day the winning kind was first published, which is when the period's results became public
     best = {}
     bbd = _bbd_payers()
     for r in sorted(R, key=lambda r: (bool(r.get('consolidated')), r['pub'])):
         if r['sym'] in bbd and r.get('currency') == 'USD':
             r['currency'] = 'BBD'    # early readings only knew J$, US$ and TT$: a plain "$" on a Barbados fund's report was taken for US$
-        best[(r['sym'], r['period_end'], r['months'])] = r
+        k = (r['sym'], r['period_end'], r['months'])
+        was = best.get(k)
+        r['first_pub'] = was['first_pub'] if was and bool(was.get('consolidated')) == bool(r.get('consolidated')) else r['pub']
+        best[k] = r
     return sorted(best.values(), key=lambda r: r['pub'])
 
 
