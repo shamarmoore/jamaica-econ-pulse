@@ -1,4 +1,6 @@
 from copy import copy, deepcopy
+from types import SimpleNamespace
+import tempfile
 from pathlib import Path
 from unittest import mock
 import json
@@ -283,6 +285,78 @@ class WiringTests(unittest.TestCase):
 
     def test_an_unknown_indicator_lists_what_exists(self):
         self.assertIn('usd_jmd', C.macro_indicators('cpi', ASOF))
+
+
+def scripted_model(seen):
+    """A chat model that asks every tool it is given for data once, then writes a rating, and records every prompt it is sent."""
+    from langchain_core.language_models.chat_models import BaseChatModel
+    from langchain_core.messages import AIMessage, ToolMessage
+    from langchain_core.outputs import ChatGeneration, ChatResult
+
+    class Scripted(BaseChatModel):
+        tools: list = []
+
+        @property
+        def _llm_type(self):
+            return 'scripted'
+
+        def _generate(self, messages, stop=None, run_manager=None, **kwargs):
+            seen.append('\n'.join(str(m.content) for m in messages))
+            day = ASOF
+            args = {'get_stock_data': {'start_date': '2025-05-01', 'end_date': day}, 'get_indicators': {'indicator': 'rsi', 'curr_date': day},
+                    'get_news': {'start_date': '2025-05-01', 'end_date': day}, 'get_macro_indicators': {'indicator': 'usd_jmd', 'curr_date': day},
+                    'get_prediction_markets': {'topic': 'x'}, 'get_insider_transactions': {}}
+            if self.tools and not any(isinstance(m, ToolMessage) for m in messages):
+                calls = [{'name': t.name, 'args': args.get(t.name, {'curr_date': day}), 'id': f'{t.name}-1'} for t in self.tools]
+                message = AIMessage(content='', tool_calls=calls)
+            else:
+                message = AIMessage(content='**Rating**: Overweight\n\nThe evidence is mixed.')
+            return ChatResult(generations=[ChatGeneration(message=message)])
+
+        def bind_tools(self, tools, **kwargs):
+            return self.model_copy(update={'tools': list(tools)})
+
+        def with_structured_output(self, *args, **kwargs):
+            raise NotImplementedError
+
+    return Scripted()
+
+
+class WholeRunTests(unittest.TestCase):
+    """The real TradingAgents graph, with a scripted model in place of OpenRouter, on the app's data."""
+
+    def run_graph(self, blind):
+        context = C.Context(VIEW, blind=blind)
+        C.install(context)
+        context.focus('TJH', ASOF)
+        seen = []
+        client = SimpleNamespace(get_llm=lambda: scripted_model(seen))
+        with tempfile.TemporaryDirectory() as tmp, mock.patch.object(C, 'DIR', Path(tmp)), \
+                mock.patch('tradingagents.graph.trading_graph.create_tier_client', return_value=client), \
+                mock.patch('socket.getaddrinfo', side_effect=AssertionError('network used')):
+            graph = C.build_graph('test', 'scripted', blind)
+            state, rating = graph.propagate(context.alias('TJH'), ASOF)
+        return state, rating, '\n'.join(seen), context.alias('TJH')
+
+    def test_every_analyst_reads_jse_data_and_the_committee_reaches_a_rating_without_network(self):
+        state, rating, seen, ticker = self.run_graph(blind=False)
+        self.assertEqual(rating, 'Overweight')
+        for report in ('market_report', 'news_report', 'fundamentals_report'):
+            self.assertTrue(state[report].strip(), report)
+        self.assertIn('# Stock data for TJH', seen)
+        self.assertIn('Verified market data snapshot for TJH', seen)
+        self.assertIn('Insider transactions for TJH', seen)
+        self.assertIn('Prediction markets are not applicable', seen)
+        self.assertIn('TRANSJAMAICAN HIGHWAY LIMITED', seen)
+
+    def test_a_blind_run_never_shows_the_agents_the_company(self):
+        state, rating, seen, ticker = self.run_graph(blind=True)
+        self.assertEqual(rating, 'Overweight')
+        self.assertRegex(ticker, r'^JSE\d{3}$')
+        self.assertIn(f'# Stock data for {ticker}', seen)
+        self.assertEqual(C.leaks(seen, 'TJH', 'TRANSJAMAICAN HIGHWAY LIMITED'), [])
+        self.assertIn('a company listed on the Jamaica Stock Exchange', seen)
+        self.assertNotIn('settle', state.get('memory_note', ''))
 
 
 class CommitteeBacktestTests(unittest.TestCase):

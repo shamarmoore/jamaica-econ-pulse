@@ -560,7 +560,7 @@ def install(context):
     agent_context.get_company_profile = get_company_profile
 
 
-def config(mode, model, blind=False):
+def config(mode, model):
     """TradingAgents config: everything routed to "jse", analysts without social, bounded debates and output, one folder per mode."""
     from tradingagents.dataflows import router
     from tradingagents.default_config import DEFAULT_CONFIG
@@ -644,18 +644,23 @@ class Blocked:
         socket.getaddrinfo = self._real
 
 
+def build_graph(mode, model, blind, callbacks=()):
+    from tradingagents.graph.trading_graph import TradingAgentsGraph
+    graph = TradingAgentsGraph(selected_analysts=list(ANALYSTS), config=config(mode, model), callbacks=list(callbacks))
+    if blind:
+        from tradingagents.memory.settlement import Settlement
+        graph.settle_all_pending = lambda wait=True: Settlement()   # no lessons from real outcomes between blind cases
+    return graph
+
+
 class Committee:
     """One TradingAgents graph for a mode, with the budget, the spend and the network guard around every run."""
 
     def __init__(self, mode, blind):
-        from tradingagents.graph.trading_graph import TradingAgentsGraph
         self.model = os.environ.get('COMMITTEE_MODEL', 'meta-llama/llama-3.1-8b-instruct')
         self.budget = Budget(load_key(), float(os.environ.get('COMMITTEE_BUDGET', 4.5)))
         self.spend, self.blocked = Spend(), Blocked()
-        self.graph = TradingAgentsGraph(selected_analysts=list(ANALYSTS), config=config(mode, self.model), callbacks=[self.spend])
-        if blind:
-            from tradingagents.memory.settlement import Settlement
-            self.graph.settle_all_pending = lambda wait=True: Settlement()   # no lessons from real outcomes between blind cases
+        self.graph = build_graph(mode, self.model, blind, [self.spend])
 
     def run(self, ticker, trade_date):
         """-> (state, rating, cost in US$, seconds, tokens)"""
