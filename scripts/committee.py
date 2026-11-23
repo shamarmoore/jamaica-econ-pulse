@@ -32,7 +32,6 @@ from tradingagents.dataflows.errors import NoMarketDataError
 
 MKT = 'JSEMKT'
 EXCHANGE = 'Jamaica Stock Exchange'
-MIN_TRADED = 0.20            # a stock counts in the market when it traded on this share of the last 60 days
 STALE_DAYS = 10              # newest price older than this before the date asked for is no data
 H, COST, STEP = 63, 0.015, 3  # holding days, cost each way, and review dates 3 Edge grid steps (63 trading days) apart
 TOP = 10
@@ -59,6 +58,15 @@ def _load(path, default):
 
 def _ts(x):
     return pd.Timestamp(x).normalize()
+
+
+def _month_end(x):
+    return _ts(x) + pd.offsets.MonthEnd(0)
+
+
+def _jmd_per(cur, boj):
+    """J$ per unit of a currency: the BOJ rate for US$, the app's fixed rates for the others."""
+    return boj if cur == 'USD' else tslib.FX_TO_JMD.get(cur or 'JMD', 1.0)
 
 
 def _key(name):
@@ -139,17 +147,15 @@ class JseView:
         self.posts = sorted(posts, key=lambda p: p['date'], reverse=True)
 
     def _build_market(self):
-        P = self.close.ffill()
-        r = (P / P.shift(1) - 1).where(P.shift(1) > 0).clip(-0.6, 1.5)
-        member = ((self.vol > 0).rolling(60).mean() >= MIN_TRADED) & r.notna()
-        level = 100 * (1 + r.where(member).mean(axis=1).fillna(0)).cumprod()
-        value = (P * self.vol).where(member).sum(axis=1)
-        keep = member.any(axis=1)
-        return self._frame(level[keep], value[keep])
+        """JSEMKT is the JSE Main Index: the equal-weight average of these stocks' daily returns is inflated by bid/ask bounce
+        in thinly traded names (+22% over 63 days when the index rose 6%), so the agents read the published index instead."""
+        level = self.levels['Index'].dropna()
+        return pd.DataFrame({'Date': level.index, 'Open': level.shift(1).fillna(level).values, 'High': level.values, 'Low': level.values,
+                             'Close': level.values, 'Volume': 0})
 
     @staticmethod
     def _frame(close, volume, hi=None, lo=None):
-        """Without a quoted range (the market index) the day's range is from the previous close to the close."""
+        """Without a quoted range the day's range is from the previous close to the close."""
         opened = close.shift(1).fillna(close)
         c = close.values
         top = opened.values if hi is None else hi.reindex(close.index).values
@@ -187,12 +193,13 @@ class JseView:
 
     # fundamentals
     def statements(self, sym, asof):
-        """One report per period (the latest published by asof), newest period first."""
+        """One report per period (the latest published by asof; a group's consolidated report beats a subsidiary's filed under the
+        same symbol), newest period first."""
         best = {}
         for r in self.reports.get(sym, []):
             if r['pub'] <= str(_ts(asof).date()):
                 k = (r['period_end'], r.get('months'))
-                if k not in best or r['pub'] > best[k]['pub']:
+                if k not in best or (bool(r.get('consolidated')), r['pub']) > (bool(best[k].get('consolidated')), best[k]['pub']):
                     best[k] = r
         return sorted(best.values(), key=lambda r: (r['period_end'], r['pub']), reverse=True)
 
@@ -201,18 +208,76 @@ class JseView:
             self._features[sym] = tslib.fundamental_series(self.fund.get(sym), self.close[sym].ffill(), self.close.index)
         return self._features[sym]
 
+    def boj(self, asof):
+        """(date, J$ per US$) of the Bank of Jamaica rate on the latest day on or before asof."""
+        fx = pd.Series({pd.Timestamp(d): v for d, v in self.macro.get('fx', {}).items()}, dtype=float).sort_index().loc[:_ts(asof)]
+        return (fx.index[-1], float(fx.iloc[-1])) if len(fx) else (None, tslib.FX_TO_JMD['USD'])
+
+    def quarters(self, sym, asof):
+        """Standalone quarters derived from the year-to-date reports published by asof, newest first. A quarter is its report's
+        year-to-date figure minus the previous report's in the same financial year (the first quarter is its report as filed)."""
+        ytd = {}
+        for r in self.statements(sym, asof):
+            end = _month_end(r['period_end'])
+            ytd[(_month_end(end - pd.DateOffset(months=r['months'])), r['months'])] = r
+        out = []
+        for (start, m), r in ytd.items():
+            prev = {} if m == 3 else ytd.get((start, m - 3))
+            if prev is None or m not in (3, 6, 9, 12) or (prev and prev.get('currency') != r.get('currency')):
+                continue
+            q = {'end': _month_end(r['period_end']), 'currency': r.get('currency'), 'pub': r['pub'], 'months': m}
+            for key, keys in (('net_profit', ('net_profit', 'net_profit_attributable_to_owners')), ('revenue', ('revenue',))):
+                q[key] = next((r[k] - (prev.get(k) or 0) for k in keys if r.get(k) is not None and (not prev or prev.get(k) is not None)), None)
+            if q['net_profit'] is not None or q['revenue'] is not None:
+                out.append(q)
+        return sorted(out, key=lambda q: q['end'], reverse=True)
+
+    @staticmethod
+    def trailing(quarters, key='net_profit'):
+        """Sum of the first 4 of these newest-first quarters when they are 4 consecutive quarters in one currency, else None."""
+        last = quarters[:4]
+        if len(last) == 4 and all(q[key] is not None for q in last) and len({q['currency'] for q in last}) == 1 \
+                and all(_month_end(a['end'] - pd.DateOffset(months=3)) == b['end'] for a, b in zip(last, last[1:])):
+            return sum(q[key] for q in last)
+        return None
+
+    def results(self, sym, asof):
+        """(latest published report, the report for the same period a year earlier or None), or None without reports."""
+        reports = self.statements(sym, asof)
+        if not reports:
+            return None
+        now = reports[0]
+        a_year_ago = _month_end(_month_end(now['period_end']) - pd.DateOffset(years=1))
+        return now, next((r for r in reports if r['months'] == now['months'] and _month_end(r['period_end']) == a_year_ago), None)
+
     def overview(self, sym, asof):
         asof = _ts(asof)
+        close = self.close[sym].ffill().loc[:asof]
         c = self.close[sym].loc[:asof].dropna()
         if c.empty:
             raise NoMarketDataError(sym, sym, 'no prices')
         f = self.fund.get(sym) or {}
+        f = {**f, 'dividends': [d for d in f.get('dividends', []) if d.get('ex') and d['ex'] <= str(asof.date())]}
         price = c.iloc[-1]
-        feat = self._feat(sym).loc[:asof].iloc[-1]
-        events = [(d, v) for d, v in tslib._quarter_events(f) if d <= asof]
-        fx = self._profit_fx(sym, asof)
-        ttm = sum(v for _, v in events[-4:]) * fx if len(events) >= 4 else None
         value_ = float(price * f['shares']) if f.get('shares') else None
+        boj_date, boj = self.boj(asof)
+        quarters = self.quarters(sym, asof)
+        events = [(d, v) for d, v in tslib._quarter_events(f) if d <= asof]
+        filed = self.trailing(quarters)
+        ttm_raw = filed if filed is not None else sum(v for _, v in events[-4:]) if len(events) >= 4 else None
+        prior = self.trailing(quarters[4:]) if filed is not None else None
+        reports = self.statements(sym, asof)
+        factor = tslib.profit_fx(f, close, value_, ttm_raw)
+        cur = (quarters[0]['currency'] if filed is not None else reports[0].get('currency') if reports else None) \
+            or next((k for k, v in tslib.FX_TO_JMD.items() if v == factor), 'JMD')
+        to_quote = 1.0 if factor == 1.0 else _jmd_per(cur, boj)
+        ttm = None if ttm_raw is None else ttm_raw * to_quote
+        div_in_quote = tslib.fx_rate(f, close) == 1.0
+        since = str((asof - pd.Timedelta(days=365)).date())
+        paid = [d for d in f['dividends'] if d['ex'] > since]
+        dps = sum(d['amt'] * (1.0 if d['cur'] == 'JMD' or div_in_quote else _jmd_per(d['cur'], boj)) for d in paid)
+        eps = ttm / f['shares'] if ttm is not None and f.get('shares') else None
+        feat = self._feat(sym).loc[:asof].iloc[-1]
         win = slice(-60, None)
         traded = (self.vol[sym].loc[:asof].iloc[win] > 0)
         value = (self.close[sym].ffill() * self.vol[sym]).loc[:asof].iloc[-20:]
@@ -226,26 +291,24 @@ class JseView:
             return None if past.empty else float(s.iloc[-1] / past.iloc[-1] - 1)
 
         year = c.loc[asof - pd.Timedelta(days=365):]
+        q0 = quarters[0] if quarters else None
         return {
-            'name': f.get('name'), 'asof': asof, 'priceDate': c.index[-1], 'price': float(price),
-            'marketValue': value_, 'ttmProfit': ttm, 'ey': ttm / value_ if ttm is not None and value_ else None,
-            'quartersPublished': len(events), 'growth': feat.growth, 'dy': feat.dy, 'lossq': feat.lossq,
+            'name': f.get('name'), 'asof': asof, 'priceDate': c.index[-1], 'price': float(price), 'bojDate': boj_date, 'boj': boj,
+            'marketValue': value_, 'quoteCurrency': cur if to_quote == 1.0 else 'JMD', 'reportCurrency': cur, 'toQuote': to_quote,
+            'ttmRaw': ttm_raw, 'ttm': ttm, 'ttmSource': 'filed' if filed is not None else 'table', 'ttmEnd': q0['end'] if filed is not None else None,
+            'shares': f.get('shares'), 'eps': eps, 'dps': dps, 'payments': len(paid), 'payout': None if not eps or eps <= 0 else dps / eps,
+            'ey': ttm / value_ if ttm is not None and value_ else None,
+            'growth': ttm_raw / prior - 1 if prior and prior > 0 else feat.growth,
+            'dy': feat.dy, 'lossq': feat.lossq, 'quartersPublished': len(events),
+            'results': self.results(sym, asof), 'quarter': q0,
+            'quarterYearAgo': q0 and next((q for q in quarters if q['end'] == _month_end(q0['end'] - pd.DateOffset(years=1))), None),
             'returns': {k: change(c, d) for k, d in (('1 month', 30), ('3 months', 91), ('6 months', 182), ('12 months', 365))},
+            'market3m': change(mkt, 91),
             'vsMarket3m': None if change(c, 91) is None or change(mkt, 91) is None else change(c, 91) - change(mkt, 91),
             'year': (float(year.min()), float(year.max())),
             'tradedShare': float(traded.mean()), 'valuePerDay': float(value.mean()), 'spread': None if pd.isna(spread) else float(spread),
-            'dividends': [d for d in f.get('dividends', []) if d.get('ex') and d['ex'] <= str(asof.date())][-4:],
+            'dividends': f['dividends'][-4:],
             'sector': self.sector(sym, asof)}
-
-    def _profit_fx(self, sym, asof):
-        """Share-price currency units per unit of the currency the company reports in (its latest published report). The app's own
-        feature converts by the dividend currency, which leaves a US$ reporter that pays J$ dividends (TJH) unconverted."""
-        f = self.fund.get(sym) or {}
-        divs = [d for d in f.get('dividends', []) if d.get('ex') and d.get('amt')]
-        reports = self.statements(sym, asof)
-        reports_in = reports[0].get('currency') if reports else (divs[-1]['cur'] if divs else 'JMD')
-        quoted_in_dividend_currency = bool(divs) and divs[-1]['cur'] != 'JMD' and tslib.fx_rate(f, self.close[sym].ffill()) == 1.0
-        return 1.0 if quoted_in_dividend_currency else tslib.FX_TO_JMD.get(reports_in, 1.0)
 
     def sector(self, sym, asof):
         """Which JSE sector index the stock has moved with over the 500 days to asof, as scripts/signals.py reads it."""
@@ -352,6 +415,47 @@ def _d(x):
     return str(_ts(x).date())
 
 
+UNIT = {'JMD': 'J$', 'USD': 'US$', 'TTD': 'TT$', 'BBD': 'Bds$'}
+
+
+def _both(x, cur, rate):
+    """An amount in its own currency, followed by its J$ value at `rate` (J$ per unit) when it is not in J$."""
+    if x is None or pd.isna(x):
+        return 'n/a'
+    own = _big(x, UNIT.get(cur, f'{cur} '))
+    return own if cur in (None, 'JMD') else f'{own} (= {_big(x * rate)})'
+
+
+def _versus(now, before):
+    return 'n/m' if now is None or before is None or before <= 0 else _pct(now / before - 1)
+
+
+def _profit(r):
+    return r['net_profit'] if r.get('net_profit') is not None else r.get('net_profit_attributable_to_owners')
+
+
+def _pair(label, now, before, cur, boj, since):
+    """'net profit X (= J$..) vs Y (= J$..) <since> (+z%)'"""
+    rate = _jmd_per(cur, boj)
+    text = f'{label} {_both(now, cur, rate)}'
+    return text if before is None else f'{text} vs {_both(before, cur, rate)} {since} ({_versus(now, before)})'
+
+
+def _results_line(now, before, boj):
+    cur, months = now.get('currency'), now['months']
+    span = 'the full year' if months == 12 else f'{months} months'
+    return (f'Latest published results: {span} to {now["period_end"]}, published {now["pub"]}: '
+            + _pair('net profit', _profit(now), before and _profit(before), cur, boj, 'a year earlier') + '; '
+            + _pair('revenue', now.get('revenue'), before and before.get('revenue'), cur, boj, 'a year earlier') + '.')
+
+
+def _quarter_line(q, ago, boj):
+    how = 'as filed' if q['months'] == 3 else f'derived as the {q["months"]}-month figure minus the {q["months"] - 3}-month figure'
+    return (f'Latest standalone quarter: the quarter to {_d(q["end"])} ({how}): '
+            + _pair('net profit', q['net_profit'], ago and ago['net_profit'], q['currency'], boj, 'in the same quarter a year earlier') + '; '
+            + _pair('revenue', q['revenue'], ago and ago['revenue'], q['currency'], boj, 'in the same quarter a year earlier') + '.')
+
+
 def _label(raw):
     return raw.strip().upper()
 
@@ -393,9 +497,14 @@ def stock_data(symbol, start_date, end_date):
         raise NoMarketDataError(symbol, symbol, f'no trading rows between {start_date} and {end_date}')
     shown = rows.tail(120)
     csv = shown.assign(Date=shown.Date.dt.strftime('%Y-%m-%d'), Volume=shown.Volume.round().astype('int64')).round(4).to_csv(index=False)
-    what = ('JSE market index: equal-weight average daily return of the stocks that traded on 20%+ of the last 60 days, price only, '
-            'starting at 100; Volume is J$ traded by those stocks') if c.resolve(symbol) == MKT else \
-        f'prices in J$ (US$ for symbols ending USD), split-adjusted; Volume in shares'
+    sym = c.resolve(symbol)
+    day, rate = c.view.boj(end_date)
+    if sym == MKT:
+        what = 'JSE Main Index level in index points (the published index; Open is the previous close, High and Low equal the close; Volume is not available and shown as 0)'
+    elif sym.endswith('USD'):
+        what = (f'prices in US$, split-adjusted; Volume in shares. Multiply by J${rate:,.2f} per US$ (Bank of Jamaica, {_d(day) if day is not None else "assumed"}) for J$')
+    else:
+        what = 'prices in J$, split-adjusted; Volume in shares'
     return (f'# Stock data for {_label(symbol)} from {start_date} to {end_date} ({EXCHANGE})\n# Total records: {len(rows)}'
             + (f' (showing the latest {len(shown)})' if len(shown) < len(rows) else '') + f'\n# {what}\n'
             '# Open is the previous close (the JSE data has no opening price). High and Low are the quoted range for the day where the '
@@ -422,15 +531,37 @@ def fundamentals(ticker, as_of_date=None):
         L.append(f'Name: {o["name"]}')
     if o['sector']:
         L.append(f'Sector: {o["sector"]}')
+    boj, qc, rc = o['boj'], o['quoteCurrency'], o['reportCurrency']
+    L.append(f'Exchange rate: J${boj:,.2f} per US$ (Bank of Jamaica, {_d(o["bojDate"]) if o["bojDate"] is not None else "no rate on record, assumed"}). '
+             'Every US$ or other non-J$ amount below is followed by its J$ value at this rate.')
     L.append(f'Last price: {o["price"]:,.2f} on {_d(o["priceDate"])}. 12-month range {o["year"][0]:,.2f} to {o["year"][1]:,.2f}. '
-             'Amounts are in the share\'s quote currency (J$ for almost every JSE stock).')
-    L.append('Price change: ' + ', '.join(f'{k} {_pct(v)}' for k, v in o['returns'].items()) + f'; 3 months vs the JSE market {_pct(o["vsMarket3m"])}.')
-    L.append(f'Market value {_big(o["marketValue"])} (price x the latest known share count). Trailing 12-month profit {_big(o["ttmProfit"])} '
-             f'(last 4 quarters published by {asof}; {o["quartersPublished"]} quarters on record).')
-    L.append(f'Earnings yield (trailing profit / market value) {_pct(o["ey"])}; profit growth vs a year earlier {_pct(o["growth"], 0)}; dividend yield (last 12 months) '
+             f'Amounts are in the share\'s quote currency ({UNIT.get(qc, qc)}).')
+    L.append('Price change: ' + ', '.join(f'{k} {_pct(v)}' for k, v in o['returns'].items()) + f'. Over 3 months the JSE Main Index moved {_pct(o["market3m"])}, so the stock is {"n/a" if o["vsMarket3m"] is None else f"{o["vsMarket3m"] * 100:+.1f}"} percentage points against it.')
+    shares = f'{o["shares"] / 1e9:.2f}B' if o['shares'] else 'n/a'
+    mv = o['marketValue']
+    mv_text = _both(mv, qc, _jmd_per(qc, boj)) if qc != 'JMD' else f'{_big(mv)} (= {_big(mv / boj, "US$")})'
+    L.append(f'Market value {mv_text} (price x {shares} shares, the latest known share count).')
+    if o['ttmRaw'] is None:
+        L.append('Trailing 12-month profit: fewer than 4 quarters of profit on record.')
+    else:
+        basis = (f'the 4 quarters to {_d(o["ttmEnd"])}, summed from the filed statements' if o['ttmSource'] == 'filed'
+                 else f'the last 4 quarters of the JSE results table published by {asof}')
+        L.append(f'Trailing 12-month profit {_both(o["ttmRaw"], rc, _jmd_per(rc, boj))} ({basis}).')
+        u = UNIT.get(qc, qc)
+        payout = 'n/a (no profit)' if o['payout'] is None else f'{o["payout"] * 100:.0f}%'
+        L.append(f'Over those 12 months: earnings per share {u}{o["eps"]:.4f} (trailing profit in {u} / {shares} shares); dividends per share '
+                 f'{u}{o["dps"]:.4f} (ex-dates in the 12 months to {asof}, {o["payments"]} payment{"" if o["payments"] == 1 else "s"}); dividend payout ratio {payout}.')
+    now, before = o['results'] or (None, None)
+    if now:
+        L.append(_results_line(now, before, boj))
+    q = o['quarter']
+    if q:
+        L.append(_quarter_line(q, o['quarterYearAgo'], boj))
+    L.append(f'Earnings yield (trailing profit / market value) {_pct(o["ey"])}; trailing profit growth vs the 12 months before {_pct(o["growth"], 0)}; dividend yield (last 12 months) '
              f'{_pct(o["dy"]).lstrip("+")}; loss-making quarters in the last 4: {"n/a" if pd.isna(o["lossq"]) else int(o["lossq"])}.')
     if o['dividends']:
-        L.append('Recent dividends (ex-date, per share): ' + '; '.join(f'{d["ex"]} {d["cur"]} {d["amt"]:g}' for d in o['dividends']) + '.')
+        L.append('Recent dividends (ex-date, per share): ' + '; '.join(
+            f'{d["ex"]} {d["cur"]} {d["amt"]:g}' + ('' if d['cur'] == 'JMD' else f' (= J${d["amt"] * _jmd_per(d["cur"], boj):.4f})') for d in o['dividends']) + '.')
     else:
         L.append('No dividends on record before this date.')
     L.append(f'Liquidity: traded on {o["tradedShare"] * 100:.0f}% of the last 60 days, about {_big(o["valuePerDay"])} a day over the last 20; '
@@ -447,10 +578,42 @@ def _statement(title, fields, ticker, freq, as_of_date):
                 f'{asof} are in the app\'s data. Report the figures as unavailable.')
     head = ['field'] + [f'{r["period_end"]} ({r.get("months")}m {r.get("currency")}, published {r["pub"]})' for r in reports]
     rows = [[k] + ['' if r.get(k) is None else f'{r[k]:.0f}' for r in reports] for k in fields]
+    day, boj = c.view.boj(asof)
+    note = ''
+    if any(r.get('currency') not in (None, 'JMD') for r in reports):
+        rows += [[f'{k} (J$)'] + ['' if r.get(k) is None else f'{r[k] * _jmd_per(r.get("currency"), boj):.0f}' for r in reports] for k in fields]
+        note = (f'\n# Rows ending (J$) restate every column in J$ at J${boj:,.2f} per US$ (Bank of Jamaica, {_d(day) if day is not None else "assumed"}), '
+                'the rate at the date of this request, not at each period end.')
     return (f'# {title} data for {_label(ticker)} ({freq}), as published on the JSE by {asof}\n'
             '# Columns are reporting periods: period end, months of the financial year covered (income and cash-flow figures are '
-            'cumulative for those months), currency, publication date. Amounts are in full units of that currency.\n'
+            'cumulative for those months, so a 9m column is the first nine months, not one quarter), currency, publication date. '
+            'Amounts are in full units of that currency.' + note + '\n'
             + '\n'.join(','.join(map(str, r)) for r in [head] + rows))
+
+
+def _quarter_table(ticker, asof):
+    """The standalone quarters derived from the year-to-date reports, newest first, each beside the same quarter a year earlier."""
+    c = ctx()
+    sym = c.resolve(ticker)
+    quarters = c.view.quarters(sym, asof)
+    if not quarters:
+        return ''
+    ago = {q['end']: q for q in quarters}
+    _, boj = c.view.boj(asof)
+
+    def cell(v):
+        return '' if v is None else f'{v:.0f}'
+
+    rows = []
+    for q in quarters[:8]:
+        y = ago.get(_month_end(q['end'] - pd.DateOffset(years=1)), {})
+        rate = _jmd_per(q['currency'], boj)
+        rows.append([_d(q['end']), q['currency'], cell(q['net_profit']), cell(q['net_profit'] and q['net_profit'] * rate), cell(y.get('net_profit')),
+                     _versus(q['net_profit'], y.get('net_profit')), cell(q['revenue']), cell(y.get('revenue')), _versus(q['revenue'], y.get('revenue'))])
+    head = ['quarter_end', 'currency', 'net_profit', 'net_profit_JMD', 'net_profit_year_earlier', 'net_profit_change', 'revenue', 'revenue_year_earlier', 'revenue_change']
+    return ('\n\n# Standalone quarters, newest first. Each is derived from the year-to-date reports above: a quarter is its report minus the previous '
+            'report of the same financial year (the first quarter is its report as filed). net_profit_JMD is at the same rate as above. '
+            'Amounts are in full units of the currency column.\n' + '\n'.join(','.join(r) for r in [head] + rows))
 
 
 def balance_sheet(ticker, freq='quarterly', as_of_date=None):
@@ -458,11 +621,12 @@ def balance_sheet(ticker, freq='quarterly', as_of_date=None):
 
 
 def cashflow(ticker, freq='quarterly', as_of_date=None):
-    return _statement('Cash Flow', CASHFLOW, ticker, freq, as_of_date)
+    return _statement('Cash Flow (year-to-date)', CASHFLOW, ticker, freq, as_of_date)
 
 
 def income_statement(ticker, freq='quarterly', as_of_date=None):
-    return _statement('Income Statement', INCOME, ticker, freq, as_of_date)
+    text = _statement('Income Statement (year-to-date)', INCOME, ticker, freq, as_of_date)
+    return text + _quarter_table(ticker, _asof(as_of_date))
 
 
 def _note(p):
@@ -731,7 +895,7 @@ def tool_outputs(ticker, trade_date):
             'get_prediction_markets': prediction_markets('JSE')}
 
 
-HARNESS = {'jse', 'stock', 'exchange', 'shares', 'manufacturing', 'distribution', 'jmd', 'usd'}   # words the tool texts themselves use
+HARNESS = {'financial', 'jse', 'stock', 'exchange', 'shares', 'manufacturing', 'distribution', 'jmd', 'usd'}   # words the tool texts themselves use
 
 
 def leaks(text, sym, name):

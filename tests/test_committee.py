@@ -134,16 +134,23 @@ class PriceTests(unittest.TestCase):
         f = VIEW.frame('BIL', ASOF)
         self.assertEqual(f.Open.iloc[1:].tolist(), f.Close.iloc[:-1].tolist())
 
-    def test_market_is_the_equal_weight_average_return_of_stocks_that_traded(self):
-        day = pd.Timestamp('2025-03-14')
-        P = VIEW.close.ffill()
-        i = P.index.get_loc(day)
-        traded = (VIEW.vol.iloc[i - 59:i + 1] > 0).mean() >= C.MIN_TRADED
-        r = (P.iloc[i] / P.iloc[i - 1] - 1)[traded & (P.iloc[i - 1] > 0)].clip(-0.6, 1.5)
-        m = VIEW.market.set_index('Date').Close
-        self.assertAlmostEqual(m.loc[day] / m.shift(1).loc[day] - 1, r.mean(), places=9)
+    def test_the_market_the_agents_read_is_the_jse_main_index(self):
         C.install(C.Context(VIEW))
-        self.assertEqual(C.get_closes(C.MKT, '2025-03-14', '2025-03-15').index.tolist(), [day])
+        f = VIEW.frame(C.MKT, '2026-11-18')
+        index = VIEW.levels['Index'].dropna()
+        self.assertEqual(f.Close.tolist(), index.tolist())
+        self.assertAlmostEqual(f.Close.iloc[-1] / f.Close.iloc[-64], index.iloc[-1] / index.iloc[-64])
+        self.assertTrue((f.High == f.Close).all() and (f.Low == f.Close).all() and (f.Volume == 0).all())
+        self.assertEqual(f.Open.iloc[1:].tolist(), f.Close.iloc[:-1].tolist())
+        self.assertIn('Main Index', C.stock_data(C.MKT, '2026-11-01', '2026-11-18'))
+        self.assertEqual(C.get_closes(C.MKT, '2026-11-17', '2026-11-18').tolist(), [index.loc['2026-11-17']])
+
+    def test_the_stock_is_compared_with_the_main_index_not_an_equal_weight_average(self):
+        o = VIEW.overview('TJH', '2026-11-18')
+        c, m = VIEW.close['TJH'].dropna(), VIEW.levels['Index'].dropna()
+        day = pd.Timestamp('2026-11-18') - pd.Timedelta(days=91)
+        self.assertAlmostEqual(o['market3m'], m.iloc[-1] / m.loc[:day].iloc[-1] - 1)
+        self.assertAlmostEqual(o['vsMarket3m'], (c.iloc[-1] / c.loc[:day].iloc[-1] - 1) - o['market3m'])
 
     def test_indicators_run_on_jse_prices(self):
         C.install(C.Context(VIEW))
@@ -160,6 +167,82 @@ class PriceTests(unittest.TestCase):
             C.load_ohlcv('TJH', '2027-12-31')
         with self.assertRaises(C.NoMarketDataError):
             C.load_ohlcv('TJH8.0', ASOF)
+
+
+class NumbersAreStatedTests(unittest.TestCase):
+    """The committee's models misread numbers they had to derive, so the tools state them: an exchange rate beside every US$ figure,
+    profit and dividends per share with the payout ratio, the latest results, and the standalone quarters."""
+
+    def setUp(self):
+        C.install(C.Context(VIEW))
+        self.text = C.fundamentals('TJH', '2026-11-23')
+        self.rate = VIEW.macro['fx']['2026-11-18']
+
+    def test_every_us_dollar_figure_carries_its_j_dollar_value_at_the_boj_rate_and_the_rate_is_stated(self):
+        self.assertIn(f'J${self.rate:,.2f} per US$ (Bank of Jamaica, 2026-11-18)', self.text)
+        for line in self.text.split('\n'):
+            for m in re.finditer(r'US\$[\d.,]+[KMB]?', line):
+                if 'Exchange rate' not in line:
+                    self.assertTrue(line[m.end():].startswith(' (= J$') or line.startswith('Market value'), line)
+        self.assertIn(f'US$38.14M (= J${38.136e6 * self.rate / 1e9:.2f}B)', self.text)
+        assets = VIEW.statements('TJH', '2026-11-23')[0]['total_assets']
+        self.assertIn(f'total_assets (J$),{round(assets * self.rate)}', C.balance_sheet('TJH', 'quarterly', '2026-11-23'))
+
+    def test_the_market_value_is_given_in_both_currencies(self):
+        value = VIEW.close['TJH'].dropna().iloc[-1] * VIEW.fund['TJH']['shares']
+        m = re.search(r'Market value J\$([\d.,]+)B \(= US\$([\d.,]+)M\)', self.text)
+        self.assertAlmostEqual(float(m.group(1)) * 1e9, value, delta=value * 0.001)
+        self.assertAlmostEqual(float(m.group(2)) * 1e6 * self.rate, value, delta=value * 0.001)
+
+    def test_the_latest_results_and_quarter_are_stated_against_a_year_earlier(self):
+        self.assertIn('Latest published results: 9 months to 2026-09-30, published 2026-11-12: net profit US$38.14M', self.text)
+        self.assertIn('vs US$28.07M (= J$', self.text)
+        self.assertIn('a year earlier (+35.9%)', self.text)
+        self.assertIn('Latest standalone quarter: the quarter to 2026-09-30 (derived as the 9-month figure minus the 6-month figure): net profit US$13.28M', self.text)
+        self.assertIn('vs US$10.29M', self.text)
+        self.assertIn('(+29.1%)', self.text)
+
+    def test_trailing_profit_per_share_dividends_and_payout_are_stated_in_one_currency(self):
+        o = VIEW.overview('TJH', '2026-11-23')
+        quarters = [13279000, 11626000, 13231000, 36677000 - 28066000]
+        eps = sum(quarters) * self.rate / VIEW.fund['TJH']['shares']
+        dps = 0.165 + 0.1652
+        self.assertEqual(o['ttmRaw'], sum(quarters))
+        self.assertAlmostEqual(o['eps'], eps)
+        self.assertAlmostEqual(o['payout'], dps / eps)
+        self.assertIn(f'earnings per share J${eps:.4f}', self.text)
+        self.assertIn(f'dividends per share J${dps:.4f}', self.text)
+        self.assertIn(f'dividend payout ratio {dps / eps * 100:.0f}%', self.text)
+
+    def test_a_payout_above_100_percent_is_stated_as_one(self):
+        view = copy(VIEW)
+        view.fund = deepcopy(VIEW.fund)
+        view.fund['TJH']['dividends'].append({'ex': '2026-11-20', 'cur': 'JMD', 'amt': 1.0})
+        C.install(C.Context(view))
+        self.assertRegex(C.fundamentals('TJH', '2026-11-23'), r'dividend payout ratio \d{3}%')
+
+    def test_results_not_yet_published_are_not_stated(self):
+        before = C.fundamentals('TJH', '2026-11-11')
+        self.assertIn('Latest published results: 3 months to 2026-03-31, published 2026-05-11', before)
+        self.assertNotIn('2026-09-30', before)
+
+    def test_the_income_statement_lists_standalone_quarters_beside_the_year_to_date_columns(self):
+        text = C.income_statement('TJH', 'quarterly', '2026-11-23')
+        self.assertIn('year-to-date', text.split('\n')[0])
+        self.assertIn('9m USD, published 2026-11-12', text)
+        self.assertIn('Standalone quarters, newest first', text)
+        self.assertIn('2026-09-30,USD,13279000,', text)
+        self.assertIn(',10287000,+29.1%,29496000,24365000,+21.1%', text)
+        self.assertIn('2025-12-31,USD,8611000,', text)
+
+    def test_the_new_lines_do_not_name_the_company_when_blind(self):
+        context = C.Context(VIEW, blind=True)
+        C.install(context)
+        context.focus('TJH', '2026-11-23')
+        alias = context.alias('TJH')
+        for text in (C.fundamentals(alias, '2026-11-23'), C.income_statement(alias, 'quarterly', '2026-11-23')):
+            self.assertEqual(C.leaks(text, 'TJH', VIEW.fund['TJH']['name']), [])
+        self.assertIn('Latest standalone quarter', C.fundamentals(alias, '2026-11-23'))
 
 
 class HidingTests(unittest.TestCase):
