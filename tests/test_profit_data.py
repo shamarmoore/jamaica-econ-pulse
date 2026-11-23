@@ -34,6 +34,10 @@ class ProfitDataTests(unittest.TestCase):
     def test_a_filed_quarter_missing_from_the_jse_table_is_filled_from_the_statements(self):
         self.assertAlmostEqual(self.F['TJH']['quarters']['2026'][2], TJH_Q3_2026, delta=1_000)
 
+    def test_the_group_report_beats_a_subsidiary_report_filed_under_the_same_symbol(self):
+        # Mayberry Investments' own statements are filed under MGL next to Mayberry Group's consolidated ones
+        self.assertEqual(self.F['MGL']['quarters']['2024'][0], -1_435_688_000)
+
     def test_a_table_quarter_that_disagrees_with_the_statements_is_kept(self):
         self.assertEqual(self.F['TJH']['quarters']['2025'][3], 9_836_000)
 
