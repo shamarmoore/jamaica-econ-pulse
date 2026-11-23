@@ -89,6 +89,11 @@ class ProfitDataTests(unittest.TestCase):
         # LEARN filed its second quarter to 30 June 2025 (a J$523,453 profit) on 4 December 2025, 157 days later
         self.assertEqual([d for d, v in tslib._quarter_events(self.F['LEARN']) if v == 523_453], [pd.Timestamp('2025-12-04')])
 
+    def test_a_quarter_without_read_statements_waits_the_companys_own_usual_delay(self):
+        # LEARN's year-end month comes from its JSE page. Its slowest read quarterly report took 157 days, so
+        # data/fiscal_years.json gives it the 120-day cap, not the 60-day default
+        self.assertEqual([d for d, v in tslib._quarter_events(self.F['LEARN']) if v == 9_536_429], [pd.Timestamp('2022-06-30') + pd.Timedelta(days=120)])
+
     def test_quarters_count_one_a_day_in_quarter_order(self):
         # callers take the last four counted quarters as a year and the fourth one back as the same quarter a year earlier
         bad = []
