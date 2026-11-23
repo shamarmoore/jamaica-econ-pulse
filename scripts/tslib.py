@@ -199,13 +199,15 @@ def load_fundamentals(path='data/jse_fundamentals.json'):
         F = json.load(open(path))['stocks']
     except Exception:
         return {}
-    # month each company's financial year ends, learned from its own reports (scripts/balance.py); without it the
-    # quarters are dated as if every year ended in December, which is late (never early) for other year-ends
+    # month each company's financial year ends and its usual reporting delay, learned from its own reports
+    # (scripts/balance.py); the JSE page's month wins where it gives one. Without a month the quarters are dated as if
+    # every year ended in December, which is late (never early) for other year-ends
     if not os.environ.get('FISCAL_OFF'):
         try:
             for s, v in json.load(open('data/fiscal_years.json')).items():
-                if s in F and not (F[s].get('fye') or {}).get('month'):
-                    F[s]['fye'] = {'month': int(v['month']), 'lag': None if os.environ.get('LAG_OFF') else v.get('lag')}
+                if s in F:
+                    fye = F[s].get('fye') or {}
+                    F[s]['fye'] = {**fye, 'month': fye.get('month') or int(v['month']), 'lag': None if os.environ.get('LAG_OFF') else v.get('lag')}
         except Exception:
             pass
     # per-share figures on the same footing as the split-adjusted prices: dividends paid before a split shrink by its
@@ -287,15 +289,17 @@ def profit_fx(f, price, mcap, ttm):
 
 def _quarter_events(f):
     """[(available_date, profit)] in time order. Quarter ends come from the fiscal year-end month (December if unknown);
-    each quarter counts only from when it was public: the company's own usual reporting delay where its reports have been
-    read (scripts/balance.py), otherwise 60 days after the quarter ends, and at least 90 for the year-end quarter. (Reports
-    show a median delay of 45 days but about 3 in 10 arrive later, so the old flat 45 days peeked early for late filers.)
+    each quarter counts only from when it was public: 60 days after the quarter ends, or the company's own usual reporting
+    delay where its reports have been read (scripts/balance.py) and it is longer, and at least 90 for the year-end quarter.
+    (Reports show a median delay of 45 days but about 3 in 10 arrive later, so the old flat 45 days peeked early for late
+    filers. An own delay under 60 days, learned from reports before 2025, put as many later quarters before their filing as
+    60 days did, so it never shortens the wait.)
     A quarter whose statements have been read never counts before the day they were first filed (f['filed']), and none
     counts before the day after the quarter ahead of it: callers take the last four events as a year.
     The JSE table shows 0 for quarters not reported separately: a 0 is treated as missing, except that a missing 4th
     quarter is filled as annual profit minus the first three quarters when all of those are known."""
     m = (f.get('fye') or {}).get('month') or 12
-    lag = int((f.get('fye') or {}).get('lag') or os.environ.get('QLAG') or 60)
+    lag = max(int((f.get('fye') or {}).get('lag') or 0), int(os.environ.get('QLAG') or 60))
     annual = {str(k): v for k, v in (f.get('annual') or {}).items()}
     filed = f.get('filed') or {}
     ev = []
