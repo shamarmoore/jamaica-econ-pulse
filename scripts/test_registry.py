@@ -8,7 +8,8 @@ Tests are never removed. One that a study stops producing stays as 'retired', so
 Holding periods are read from test names (21, 63, 126 days); a name without one is treated as 63 days, the cautious choice.
 
   update(edge_v2_output)   -> data/test_registry.json (called by edge_v2.py)
-  python scripts/test_registry.py   -> rebuilds from data/idea_tests.json, data/factor_study.json, data/edge_v2.json and data/ai_backtest.json
+  python scripts/test_registry.py   -> rebuilds from data/idea_tests.json, data/factor_study.json, data/edge_v2.json, data/ai_backtest.json
+                                       and data/committee_backtest.json
 """
 import json, re
 import numpy as np
@@ -85,7 +86,8 @@ def update(v2=None, today=None):
     v2 = v2 if v2 is not None else _load('data/edge_v2.json', {})
     today = today or (v2 or {}).get('made') or ''
     rows = _ideas(_load('data/idea_tests.json', {})) + _factors(_load('data/factor_study.json', {})) + _edge_v2(v2) \
-        + _ideas({'recovery_verdicts': _load('data/ai_backtest.json', {}).get('summary', {})}, 'ai')
+        + _ideas({'recovery_verdicts': _load('data/ai_backtest.json', {}).get('summary', {})}, 'ai') \
+        + _ideas({'rating_spread': _load('data/committee_backtest.json', {}).get('summary', {}).get('tests', {})}, 'committee')
     old = {r['id']: r for r in _load(PATH, {}).get('tests', [])}
     tests = []
     for r in rows:
