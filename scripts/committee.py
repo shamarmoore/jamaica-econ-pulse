@@ -13,7 +13,7 @@ meta-llama/llama-3.1-8b-instruct); COMMITTEE_BUDGET (US$, default 4.50) stops a 
 The backtest is blind: each case hides the company behind an alias (JSE017), its name and symbol are removed from every
 text the agents read, and decisions are scored on the next 63 trading days against the market, 1.5% costs each way, as in
 scripts/ai_backtest.py. Re-running continues where it stopped."""
-import glob, json, os, re, socket, sys, time, urllib.request
+import glob, json, os, re, socket, sys, threading, time, urllib.request
 from copy import deepcopy
 from dataclasses import dataclass
 from datetime import date
@@ -21,6 +21,7 @@ from pathlib import Path
 
 import numpy as np
 import pandas as pd
+from langchain_core.callbacks import BaseCallbackHandler
 
 ROOT = Path(__file__).resolve().parents[1]
 os.chdir(ROOT)   # the app's loaders read data/ relative to the repo root
@@ -589,10 +590,11 @@ def load_key():
 
 
 class Budget:
-    """The key's lifetime spend in US$ from OpenRouter; a run refuses to start once it reaches the limit."""
+    """The key's lifetime spend in US$. OpenRouter's usage figure trails the calls by a minute or two, so the spend this process
+    has measured on the responses themselves counts too; a run refuses to start once either reaches the limit."""
 
     def __init__(self, key, limit):
-        self.key, self.limit = key, limit
+        self.key, self.limit, self.known = key, limit, 0.0
 
     def usage(self):
         req = urllib.request.Request('https://openrouter.ai/api/v1/key', headers={'Authorization': f'Bearer {self.key}'})
@@ -600,11 +602,24 @@ class Budget:
             return float(json.loads(r.read())['data']['usage'])
 
     def start(self):
-        spent = self.usage()
+        spent = max(self.usage(), self.known)
         print(f'COMMITTEE spent so far US${spent:.4f} of US${self.limit:.2f}')
         if spent >= self.limit:
             raise SystemExit(f'committee: budget reached (US${spent:.4f} >= US${self.limit:.2f}); not starting a run')
         return spent
+
+
+class Spend(BaseCallbackHandler):
+    """Cost in US$ and tokens of every model response, as OpenRouter reports them on the response."""
+
+    def __init__(self):
+        self.cost, self.tokens, self.lock = 0.0, 0, threading.Lock()
+
+    def on_llm_end(self, response, **kwargs):
+        usage = (response.llm_output or {}).get('token_usage') or {}
+        with self.lock:
+            self.cost += usage.get('cost') or 0.0
+            self.tokens += usage.get('total_tokens') or 0
 
 
 class Blocked:
@@ -630,16 +645,14 @@ class Blocked:
 
 
 class Committee:
-    """One TradingAgents graph for a mode, with the budget, token counts and the network guard around every run."""
+    """One TradingAgents graph for a mode, with the budget, the spend and the network guard around every run."""
 
     def __init__(self, mode, blind):
-        from langchain_core.callbacks import UsageMetadataCallbackHandler
         from tradingagents.graph.trading_graph import TradingAgentsGraph
         self.model = os.environ.get('COMMITTEE_MODEL', 'meta-llama/llama-3.1-8b-instruct')
         self.budget = Budget(load_key(), float(os.environ.get('COMMITTEE_BUDGET', 4.5)))
-        self.tokens = UsageMetadataCallbackHandler()
-        self.blocked = Blocked()
-        self.graph = TradingAgentsGraph(selected_analysts=list(ANALYSTS), config=config(mode, self.model), callbacks=[self.tokens])
+        self.spend, self.blocked = Spend(), Blocked()
+        self.graph = TradingAgentsGraph(selected_analysts=list(ANALYSTS), config=config(mode, self.model), callbacks=[self.spend])
         if blind:
             from tradingagents.memory.settlement import Settlement
             self.graph.settle_all_pending = lambda wait=True: Settlement()   # no lessons from real outcomes between blind cases
@@ -647,15 +660,14 @@ class Committee:
     def run(self, ticker, trade_date):
         """-> (state, rating, cost in US$, seconds, tokens)"""
         before, t0 = self.budget.start(), time.time()
-        used0 = sum(u.get('total_tokens', 0) for u in self.tokens.usage_metadata.values())
+        cost0, tokens0 = self.spend.cost, self.spend.tokens
         with self.blocked:
             state, rating = self.graph.propagate(ticker, trade_date)
-        seconds = time.time() - t0
-        spent = self.budget.usage()
-        used = sum(u.get('total_tokens', 0) for u in self.tokens.usage_metadata.values()) - used0
-        print(f'COMMITTEE {ticker} {trade_date}: {rating}, US${spent - before:.4f}, {seconds:.0f}s, {used:,} tokens; total US${spent:.4f}; '
+        seconds, cost, tokens = time.time() - t0, self.spend.cost - cost0, self.spend.tokens - tokens0
+        self.budget.known = before + cost
+        print(f'COMMITTEE {ticker} {trade_date}: {rating}, US${cost:.4f}, {seconds:.0f}s, {tokens:,} tokens; running total US${self.budget.known:.4f}; '
               f'blocked data-host lookups {len(self.blocked.attempts)}')
-        return state, rating, spent - before, seconds, used
+        return state, rating, cost, seconds, tokens
 
 
 # ---------------------------------------------------------------- live

@@ -350,6 +350,21 @@ class BudgetAndKeyTests(unittest.TestCase):
         with mock.patch.object(C.Budget, 'usage', return_value=4.49):
             self.assertEqual(budget.start(), 4.49)
 
+    def test_spend_the_key_reports_late_still_counts_against_the_budget(self):
+        budget = C.Budget('k', 4.5)
+        budget.known = 4.6
+        with mock.patch.object(C.Budget, 'usage', return_value=0.1), self.assertRaisesRegex(SystemExit, 'budget reached'):
+            budget.start()
+
+    def test_cost_and_tokens_are_read_off_each_model_response(self):
+        from langchain_core.outputs import LLMResult
+        spend = C.Spend()
+        spend.on_llm_end(LLMResult(generations=[], llm_output={'token_usage': {'cost': 0.001, 'total_tokens': 10}}))
+        spend.on_llm_end(LLMResult(generations=[], llm_output={'token_usage': {'cost': 0.0005, 'total_tokens': 5}}))
+        spend.on_llm_end(LLMResult(generations=[], llm_output=None))
+        self.assertAlmostEqual(spend.cost, 0.0015)
+        self.assertEqual(spend.tokens, 15)
+
     def test_the_key_comes_from_the_environment_or_the_config_file(self):
         import os
         import tempfile
