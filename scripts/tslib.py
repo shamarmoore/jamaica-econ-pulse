@@ -1,5 +1,5 @@
 """Shared helpers for JSE forecasting: load history, run Timestral, hype score, target-hit odds."""
-import json, os
+import json, os, re
 import numpy as np
 import pandas as pd
 import balance
@@ -375,3 +375,21 @@ def health(feat_row):
     return {'score': round(100 * sum(w[k] * v for k, v in parts.items()) / tot), 'parts': {k: round(v, 2) for k, v in parts.items()},
             'ey': None if pd.isna(ey) else round(float(ey) * 100, 1), 'growth': None if pd.isna(g) else round(float(g) * 100, 1),
             'dy': None if pd.isna(dy) else round(float(dy) * 100, 2), 'lossq': None if pd.isna(lq) else int(lq)}
+
+
+# ---------- hiding a company from the model ----------
+GENERIC = {'limited', 'ltd', 'company', 'group', 'holdings', 'jamaica', 'jamaican', 'caribbean', 'the', 'and', 'of', 'co', 'inc', 'plc', 'fund', 'funds'}
+
+
+def anon(text, sym, name):
+    """Company name, symbol and years removed, so the model can't recognise the company or the date.
+    `name` is the company's full name from the JSE fundamentals (None if unknown). Free text only: it would also eat
+    four-digit numbers out of a price table."""
+    words = re.findall(r'[A-Za-z0-9&]+', name or '')
+    text = re.sub(rf'^.*?\(\s*{re.escape(sym)}\s*\)', 'The Company', text)
+    text = re.sub(rf'\b{re.escape(sym)}\b', 'the Company', text)
+    for w in [w for w in words if w.lower() not in GENERIC and len(w) > 2]:
+        text = re.sub(rf'\b{re.escape(w)}\b', 'the Company', text, flags=re.I)
+    text = re.sub(r'\b(19|20)\d\d\b', '', text)
+    text = re.sub(r'(the Company[\s,\-–]*)+(limited|ltd\.?|group|holdings)?', 'the Company ', text, flags=re.I)
+    return re.sub(r'\s{2,}', ' ', text).strip()

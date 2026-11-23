@@ -24,7 +24,7 @@ import pandas as pd
 import factor_study as fs
 import insiders as INS
 import recovery
-from tslib import _quarter_events
+from tslib import _quarter_events, anon
 
 KEY = os.environ.get('GEMINI_API_KEY', '').strip()
 MODEL = os.environ.get('GEMINI_MODEL', 'gemini-3.5-flash-lite')   # the app's default cloud model
@@ -44,11 +44,7 @@ def app_prompt():
 
 
 def outcome(s, t):
-    r = float(np.clip(TRI[s].iloc[t + 1 + H] / TRI[s].iloc[t + 1], 0.05, 4) * (1 - COST) ** 2 - 1)
-    m = (fs.V.iloc[max(0, t - 59):t + 1] > 0).mean() >= 0.2
-    u = m.values & (P.iloc[t].values > 0) & (TRI.iloc[t + 1].values > 0)
-    mk = float(np.nanmean(np.clip(TRI.iloc[t + 1 + H].values[u] / TRI.iloc[t + 1].values[u] - 1, -0.9, 3)))
-    return r, r - mk
+    return fs.outcome(s, t, H, COST)
 
 
 # ---- every episode on a 21-day grid, with its situation and outcome: the pool History lines are built from
@@ -90,26 +86,12 @@ REPORTS = json.load(open('data/reports_index.json', encoding='utf-8')).get('post
 INSIDE = [e for e in INS.events() if not e.get('skip') and e.get('who') != 'company' and e.get('side') in ('buy', 'sell')]
 
 
-GENERIC = {'limited', 'ltd', 'company', 'group', 'holdings', 'jamaica', 'jamaican', 'caribbean', 'the', 'and', 'of', 'co', 'inc', 'plc', 'fund', 'funds'}
-
-
-def anon(text, s):
-    """Company name, symbol and years removed, so the model can't recognise the company or the date."""
-    words = re.findall(r'[A-Za-z0-9&]+', (fs.FUND.get(s) or {}).get('name') or '')
-    text = re.sub(rf'^.*?\(\s*{re.escape(s)}\s*\)', 'The Company', text)
-    text = re.sub(rf'\b{re.escape(s)}\b', 'the Company', text)
-    for w in [w for w in words if w.lower() not in GENERIC and len(w) > 2]:
-        text = re.sub(rf'\b{re.escape(w)}\b', 'the Company', text, flags=re.I)
-    text = re.sub(r'\b(19|20)\d\d\b', '', text)
-    text = re.sub(r'(the Company[\s,\-–]*)+(limited|ltd\.?|group|holdings)?', 'the Company ', text, flags=re.I)
-    return re.sub(r'\s{2,}', ' ', text).strip()
-
-
 def months_before(d, t):
     return max(0, round((idx[t] - pd.Timestamp(d)).days / 30.4))
 
 
 def facts(s, t):
+    name = (fs.FUND.get(s) or {}).get('name')
     w = P[s].iloc[max(0, t - recovery.LOOKBACK + 1):t + 1]
     peak = w.idxmax(); since = str(peak.date()); today = str(idx[t].date())
     L = [f'Stock: the Company. Price J${P[s].iloc[t]:,.2f}, {abs(recovery.drop(fs, t, s)) * 100:.0f}% below its 2-year high of J${w.max():,.2f} ({months_before(peak, t)} months before).']
@@ -125,8 +107,8 @@ def facts(s, t):
     posts += [(p['date'], p['title'], '') for p in REPORTS if p.get('sym') == s and since <= p['date'] <= today]
     posts.sort(reverse=True)
     if posts:
-        L.append('Announcements since the peak (newest first): ' + '; '.join(f'[{months_before(d, t)} months before] {anon(ti, s)}' for d, ti, _ in posts[:8]) + '.')
-        texts = [f'[{months_before(d, t)} months before] {anon(x, s)[:220]}' for d, _, x in posts if x][:3]
+        L.append('Announcements since the peak (newest first): ' + '; '.join(f'[{months_before(d, t)} months before] {anon(ti, s, name)}' for d, ti, _ in posts[:8]) + '.')
+        texts = [f'[{months_before(d, t)} months before] {anon(x, s, name)[:220]}' for d, _, x in posts if x][:3]
         if texts:
             L.append('Text of the latest announcements: ' + ' | '.join(texts))
     day = rank_on(t)
