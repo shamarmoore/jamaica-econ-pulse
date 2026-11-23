@@ -94,6 +94,10 @@ class ProfitDataTests(unittest.TestCase):
         # data/fiscal_years.json gives it the 120-day cap, not the 60-day default
         self.assertEqual([d for d, v in tslib._quarter_events(self.F['LEARN']) if v == 9_536_429], [pd.Timestamp('2022-06-30') + pd.Timedelta(days=120)])
 
+    def test_a_usual_delay_under_60_days_does_not_shorten_the_wait(self):
+        # GHL's saved usual delay is 50 days (data/fiscal_years.json)
+        self.assertEqual([d for d, v in tslib._quarter_events(self.F['GHL']) if v == 256_336_000], [pd.Timestamp('2022-06-30') + pd.Timedelta(days=60)])
+
     def test_quarters_count_one_a_day_in_quarter_order(self):
         # callers take the last four counted quarters as a year and the fourth one back as the same quarter a year earlier
         bad = []
