@@ -2,6 +2,7 @@
 import json, os
 import numpy as np
 import pandas as pd
+import balance
 
 MODEL_ID = 'mistralai/Timestral-209M'
 LEVELS = np.array([0.01, 0.05, 0.1, 0.15, 0.2, 0.25, 0.3, 0.35, 0.4, 0.45, 0.5, 0.55, 0.6, 0.65, 0.7, 0.75, 0.8, 0.85, 0.9, 0.95, 0.99])
@@ -198,13 +199,15 @@ def load_fundamentals(path='data/jse_fundamentals.json'):
         F = json.load(open(path))['stocks']
     except Exception:
         return {}
-    # month each company's financial year ends, learned from its own reports (scripts/balance.py); without it the
-    # quarters are dated as if every year ended in December, which is late (never early) for other year-ends
+    # month each company's financial year ends and its usual reporting delay, learned from its own reports
+    # (scripts/balance.py); the JSE page's month wins where it gives one. Without a month the quarters are dated as if
+    # every year ended in December, which is late (never early) for other year-ends
     if not os.environ.get('FISCAL_OFF'):
         try:
             for s, v in json.load(open('data/fiscal_years.json')).items():
-                if s in F and not (F[s].get('fye') or {}).get('month'):
-                    F[s]['fye'] = {'month': int(v['month']), 'lag': None if os.environ.get('LAG_OFF') else v.get('lag')}
+                if s in F:
+                    fye = F[s].get('fye') or {}
+                    F[s]['fye'] = {**fye, 'month': fye.get('month') or int(v['month']), 'lag': None if os.environ.get('LAG_OFF') else v.get('lag')}
         except Exception:
             pass
     # per-share figures on the same footing as the split-adjusted prices: dividends paid before a split shrink by its
@@ -218,6 +221,31 @@ def load_fundamentals(path='data/jse_fundamentals.json'):
                 d['amt'] = d['amt'] / k
         if f.get('shares') and f.get('at') and pd.Timestamp(f['at'][:10]) < day:
             f['shares'] = f['shares'] * k
+    ytd = {}
+    for r in balance.readings():   # oldest first, so each company ends on its latest read report
+        s = r['sym']
+        if s not in F:
+            continue
+        F[s]['report'] = r
+        fy, month = balance.fy_end(r['period_end'], r['months'])
+        if month == ((F[s].get('fye') or {}).get('month') or 12):
+            ytd[(s, fy, r['months'])] = r
+            F[s].setdefault('filed', {}).setdefault(str(fy), [None] * 4)[r['months'] // 3 - 1] = r['first_pub']
+    # the JSE table shows a quarter weeks, sometimes months, after the company files it: until then a 0/missing quarter
+    # is taken from the filed statements, which give year-to-date figures, so a later quarter is the difference of two
+    if not os.environ.get('FILL_OFF'):
+        for (s, fy, m), r in ytd.items():
+            prev = {'net_profit': 0, 'net_profit_attributable_to_owners': 0} if m == 3 else ytd.get((s, fy, m - 3))
+            # net_profit (owners' share and minorities together) is the figure the JSE table prints
+            q = next((r[k] - prev[k] for k in ('net_profit', 'net_profit_attributable_to_owners')
+                      if prev and r.get(k) is not None and prev.get(k) is not None), None)
+            if q is None:
+                continue
+            qs = F[s].setdefault('quarters', {}).setdefault(str(fy), [])
+            i = m // 3 - 1
+            qs.extend([0] * (i + 1 - len(qs)))
+            if qs[i] in (0, None):
+                qs[i] = q
     return F
 
 
@@ -241,16 +269,39 @@ def fx_rate(f, price):
     return 1.0 if ys and np.median(ys) > 0.25 else rate
 
 
+def profit_fx(f, price, mcap, ttm):
+    """J$ per unit of the currency the company REPORTS its profits in, relative to how its share price is quoted.
+    The dividend currency (fx_rate) is only a guess at this — several companies report in US$ but pay in J$ — so the
+    currency printed on the company's latest read report (f['report']) wins. mcap and ttm, the latest market value and
+    trailing-year profit, feed two sanity rules."""
+    r = (f or {}).get('report')
+    rate = balance.bs_fx(r['currency'], r.get('equity_attributable_to_owners') or r.get('total_equity'), mcap) if r else fx_rate(f, price)
+    if not (pd.notna(ttm) and mcap and mcap > 0 and ttm > 0):
+        return rate
+    # a year's profit can't be bigger than the whole company's market value: the conversion must be wrong
+    if rate > 1 and ttm * rate / mcap > 1:
+        return 1.0
+    # no report read yet, and the price is 400+ times the profit unless that profit is in US$: it is in US$
+    if rate == 1 and not r and mcap / ttm > 400 and mcap / (ttm * FX_TO_JMD['USD']) < 60:
+        return FX_TO_JMD['USD']
+    return rate
+
+
 def _quarter_events(f):
     """[(available_date, profit)] in time order. Quarter ends come from the fiscal year-end month (December if unknown);
-    each quarter counts only from when it was public: the company's own usual reporting delay where its reports have been
-    read (scripts/balance.py), otherwise 60 days after the quarter ends, and at least 90 for the year-end quarter. (Reports
-    show a median delay of 45 days but about 3 in 10 arrive later, so the old flat 45 days peeked early for late filers.)
+    each quarter counts only from when it was public: 60 days after the quarter ends, or the company's own usual reporting
+    delay where its reports have been read (scripts/balance.py) and it is longer, and at least 90 for the year-end quarter.
+    (Reports show a median delay of 45 days but about 3 in 10 arrive later, so the old flat 45 days peeked early for late
+    filers. An own delay under 60 days, learned from reports before 2025, put as many later quarters before their filing as
+    60 days did, so it never shortens the wait.)
+    A quarter whose statements have been read never counts before the day they were first filed (f['filed']), and none
+    counts before the day after the quarter ahead of it: callers take the last four events as a year.
     The JSE table shows 0 for quarters not reported separately: a 0 is treated as missing, except that a missing 4th
     quarter is filled as annual profit minus the first three quarters when all of those are known."""
     m = (f.get('fye') or {}).get('month') or 12
-    lag = int((f.get('fye') or {}).get('lag') or os.environ.get('QLAG') or 60)
+    lag = max(int((f.get('fye') or {}).get('lag') or 0), int(os.environ.get('QLAG') or 60))
     annual = {str(k): v for k, v in (f.get('annual') or {}).items()}
+    filed = f.get('filed') or {}
     ev = []
     for fy, qs in sorted(f.get('quarters', {}).items()):
         fyi = int(fy)
@@ -263,8 +314,12 @@ def _quarter_events(f):
             end = (pd.Timestamp(year=fyi, month=m, day=1) + pd.offsets.MonthEnd(0)) - pd.DateOffset(months=3 * (3 - qi))
             end = end + pd.offsets.MonthEnd(0)
             avail = end + pd.Timedelta(days=max(90, lag) if qi == 3 else lag)
+            day = (filed.get(fy) or [None] * 4)[qi]
+            if day:
+                avail = max(avail, pd.Timestamp(day))
+            if ev:
+                avail = max(avail, ev[-1][0] + pd.Timedelta(days=1))
             ev.append((avail, float(v)))
-    ev.sort()
     return ev
 
 
@@ -273,7 +328,7 @@ def fundamental_series(f, price, index):
     out = pd.DataFrame(np.nan, index=index, columns=FEATS)
     if not f:
         return out
-    fx = fx_rate(f, price)
+    div_fx = fx_rate(f, price)
     shares = f.get('shares')
     ev = _quarter_events(f)
     if ev and shares:
@@ -285,10 +340,10 @@ def fundamental_series(f, price, index):
         prev_d = prev.reindex(index.union(prev.index)).ffill().reindex(index)
         loss_d = loss.reindex(index.union(loss.index)).ffill().reindex(index)
         mcap = price.reindex(index).ffill() * shares
-        out['ey'] = (ttm_d * fx / mcap).clip(-0.5, 0.5)
+        out['ey'] = (ttm_d * profit_fx(f, price, mcap.iloc[-1], ttm_d.iloc[-1]) / mcap).clip(-0.5, 0.5)
         out['growth'] = ((ttm_d - prev_d) / prev_d.abs().replace(0, np.nan)).clip(-1, 2)
         out['lossq'] = loss_d
-    divs = [(pd.Timestamp(d['ex']), d['amt'] * (fx if d['cur'] != 'JMD' else 1.0)) for d in f.get('dividends', []) if d.get('ex')]
+    divs = [(pd.Timestamp(d['ex']), d['amt'] * (div_fx if d['cur'] != 'JMD' else 1.0)) for d in f.get('dividends', []) if d.get('ex')]
     if divs:
         ds = pd.Series([a for _, a in divs], index=pd.DatetimeIndex([d for d, _ in divs])).groupby(level=0).sum()
         daily = ds.reindex(index.union(ds.index)).fillna(0)
