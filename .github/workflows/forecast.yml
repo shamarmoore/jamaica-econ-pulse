@@ -10,7 +10,7 @@ on:
   schedule:
     - cron: '23 23 * * 1-5'   # 6:23 pm Jamaica, weekdays, after JSE quotes post
 
-concurrency: { group: forecast, cancel-in-progress: false }
+concurrency: { group: 'forecast-${{ github.ref_name }}', cancel-in-progress: false }   # a branch run never holds up main's
 
 jobs:
   update:
@@ -28,6 +28,7 @@ jobs:
       - name: Company announcements (insider trades, results, dividends)
         run: node scripts/jse_announcements.mjs 160 || echo "announcements skipped"
       - name: Read new financial reports (AI balance-sheet reader)
+        if: github.ref_name == 'main'   # the Gemini quota is for main; a branch run keeps the readings it has
         env:
           GEMINI_API_KEY: ${{ secrets.GEMINI_API_KEY }}
         run: |
@@ -51,10 +52,12 @@ jobs:
       - name: Company announcement feed
         run: python scripts/insiders.py || echo "announcement feed skipped"
       - name: Read new results reports and key announcements (AI)
+        if: github.ref_name == 'main'
         env:
           GEMINI_API_KEY: ${{ secrets.GEMINI_API_KEY }}
         run: python scripts/read_notices.py 40 || echo "notice reader skipped"
       - name: Read top-ten shareholder lists (AI), new reports first, then the back-catalogue
+        if: github.ref_name == 'main'
         env:
           GEMINI_API_KEY: ${{ secrets.GEMINI_API_KEY }}
         run: pip install -q pypdf cryptography && python scripts/shareholders.py 150 || echo "shareholder reader skipped"

@@ -42,6 +42,12 @@ jobs:
         env: { TOK: '${{ secrets.FORECAST_TOKEN }}' }
         run: |
           if [ -n "$TOK" ]; then printf "export const BUILT_IN_GH_TOKEN = '%s';\n" "$TOK" > www/js/config.js; echo "token built in"; else echo "no FORECAST_TOKEN secret — app will use the token entered in Sources"; fi
+      - name: Branch builds read the data on their own branch, so a branch's data changes show before it is merged
+        if: github.ref_name != 'main'
+        env: { REF: '${{ github.ref_name }}' }
+        run: |
+          sed -i "s#?ref=main#?ref=${REF//\//%2F}#g" www/js/sources.js
+          ! grep -q '?ref=main' www/js/sources.js
       - run: npx cap sync android
       - name: Branch builds install next to the regular app (own app id and name)
         if: github.ref_name != 'main'
@@ -101,4 +107,4 @@ jobs:
         run: |
           gh release create "test-${BRANCH//\//-}-${{ github.run_number }}" out/*.apk --prerelease --target "$GITHUB_SHA" \
             --title "JA Econ Pulse TEST (${BRANCH}) 1.0.${{ github.run_number }}" \
-            --notes "Test build of branch ${BRANCH}. It installs as a separate app (JA Econ Pulse TEST) and does not replace or update the regular app. Its settings and saved positions start empty."
+            --notes "Test build of branch ${BRANCH}. It installs as a separate app (JA Econ Pulse TEST), reads its data from branch ${BRANCH} instead of main, and does not replace or update the regular app. Its settings and saved positions start empty."
