@@ -315,14 +315,14 @@ def profit_fx(f, price, mcap, ttm):
 
 
 def _quarter_events(f):
-    """[(available_date, profit)] in time order. Quarter ends come from the fiscal year-end month (December if unknown);
-    each quarter counts only from when it was public: 60 days after the quarter ends, or the company's own usual reporting
-    delay where its reports have been read (scripts/balance.py) and it is longer, and at least 90 for the year-end quarter.
+    """[(available_date, profit)] in time order. Quarter ends come from the fiscal year-end month (December if unknown).
+    A quarter whose statements have been read counts from the day they were first filed (f['filed']). Any other quarter
+    counts from when it was probably public: 60 days after the quarter ends, or the company's own usual reporting delay
+    where its reports have been read (scripts/balance.py) and it is longer, and at least 90 for the year-end quarter.
     (Reports show a median delay of 45 days but about 3 in 10 arrive later, so the old flat 45 days peeked early for late
     filers. An own delay under 60 days, learned from reports before 2025, put as many later quarters before their filing as
-    60 days did, so it never shortens the wait.)
-    A quarter whose statements have been read never counts before the day they were first filed (f['filed']), and none
-    counts before the day after the quarter ahead of it: callers take the last four events as a year.
+    60 days did, so it never shortens the wait.) None counts before the day after the quarter ahead of it: callers take
+    the last four events as a year.
     A 0 is a missing quarter (load_fundamentals fills a missing 4th one from the table's year total)."""
     m = (f.get('fye') or {}).get('month') or 12
     lag = max(int((f.get('fye') or {}).get('lag') or 0), int(os.environ.get('QLAG') or 60))
@@ -336,10 +336,8 @@ def _quarter_events(f):
                 continue
             end = (pd.Timestamp(year=fyi, month=m, day=1) + pd.offsets.MonthEnd(0)) - pd.DateOffset(months=3 * (3 - qi))
             end = end + pd.offsets.MonthEnd(0)
-            avail = end + pd.Timedelta(days=max(90, lag) if qi == 3 else lag)
             day = (filed.get(fy) or [None] * 4)[qi]
-            if day:
-                avail = max(avail, pd.Timestamp(day))
+            avail = pd.Timestamp(day) if day else end + pd.Timedelta(days=max(90, lag) if qi == 3 else lag)
             if ev:
                 avail = max(avail, ev[-1][0] + pd.Timedelta(days=1))
             ev.append((avail, float(v)))
