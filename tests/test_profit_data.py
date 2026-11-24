@@ -29,13 +29,10 @@ def first_filings():
 
 def counted(f, fy, qi):
     """(day, profit) of quarter qi (0-3) of financial year fy when it is the company's only quarter, or None if it never
-    counts. A missing 4th quarter can be the year's profit minus the other three, so those stay."""
+    counts."""
     year = (list(f.get('quarters', {}).get(str(fy), [])) + [0] * 4)[:4]
-    keep = range(4) if qi == 3 and year[3] in (0, None) else [qi]
-    alone = [v if i in keep else 0 for i, v in enumerate(year)]
-    without = [0 if i == qi else v for i, v in enumerate(alone)]
-    added = set(tslib._quarter_events(dict(f, quarters={str(fy): alone}))) - set(tslib._quarter_events(dict(f, quarters={str(fy): without}, annual={})))
-    return min(added) if added else None
+    ev = tslib._quarter_events(dict(f, quarters={str(fy): [v if i == qi else 0 for i, v in enumerate(year)]}))
+    return ev[0] if ev else None
 
 
 class ProfitDataTests(unittest.TestCase):
@@ -125,8 +122,8 @@ class ProfitDataTests(unittest.TestCase):
         self.assertEqual(early, [])
 
     def test_a_late_filer_counts_from_the_day_it_filed(self):
-        # LEARN filed its second quarter to 30 June 2025 (a J$523,453 profit) on 4 December 2025, 157 days later
-        self.assertEqual([d for d, v in tslib._quarter_events(self.F['LEARN']) if v == 523_453], [pd.Timestamp('2025-12-04')])
+        # LEARN filed its second quarter to 30 June 2025 (J$445,292 profit for the owners) on 4 December 2025, 157 days later
+        self.assertEqual([d for d, v in tslib._quarter_events(self.F['LEARN']) if v == 445_292], [pd.Timestamp('2025-12-04')])
 
     def test_a_quarter_without_read_statements_waits_the_companys_own_usual_delay(self):
         # LEARN's year-end month comes from its JSE page. Its slowest read quarterly report took 157 days, so

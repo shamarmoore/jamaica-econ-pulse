@@ -231,21 +231,32 @@ def load_fundamentals(path='data/jse_fundamentals.json'):
         if month == ((F[s].get('fye') or {}).get('month') or 12):
             ytd[(s, fy, r['months'])] = r
             F[s].setdefault('filed', {}).setdefault(str(fy), [None] * 4)[r['months'] // 3 - 1] = r['first_pub']
-    # the JSE table shows a quarter weeks, sometimes months, after the company files it: until then a 0/missing quarter
-    # is taken from the filed statements, which give year-to-date figures, so a later quarter is the difference of two
+    # the JSE table shows 0 for a quarter not reported separately. A missing 4th quarter is the table's year less its
+    # first three, all on the table's basis, so this runs before the statements below replace any of those three
+    for f in F.values():
+        annual = {str(k): v for k, v in (f.get('annual') or {}).items()}
+        for fy, qs in f.get('quarters', {}).items():
+            qs = (list(qs) + [None] * 4)[:4]
+            if qs[3] in (0, None) and all(q not in (0, None) for q in qs[:3]) and annual.get(fy) not in (0, None):
+                f['quarters'][fy] = qs[:3] + [annual[fy] - sum(qs[:3])]
+    # where the filed statements give a quarter they beat the JSE table, which lags them and can be wrong (J$ in a US$
+    # series, a slipped digit) or on another basis. They give year-to-date figures, so a later quarter is the difference
+    # of two, which means something only between two readings of one kind in the currency profit_fx applies
     if not os.environ.get('FILL_OFF'):
         for (s, fy, m), r in ytd.items():
-            prev = {'net_profit': 0, 'net_profit_attributable_to_owners': 0} if m == 3 else ytd.get((s, fy, m - 3))
-            # net_profit (owners' share and minorities together) is the figure the JSE table prints
-            q = next((r[k] - prev[k] for k in ('net_profit', 'net_profit_attributable_to_owners')
-                      if prev and r.get(k) is not None and prev.get(k) is not None), None)
+            prev = {**r, 'net_profit': 0, 'net_profit_attributable_to_owners': 0} if m == 3 else ytd.get((s, fy, m - 3))
+            if (not prev or r['currency'] != F[s]['report']['currency']
+                    or (prev['currency'], prev.get('consolidated')) != (r['currency'], r.get('consolidated'))):
+                continue
+            # earnings yield is the owners' share; net_profit (owners' share and minorities together) only without it
+            q = next((r[k] - prev[k] for k in ('net_profit_attributable_to_owners', 'net_profit')
+                      if r.get(k) is not None and prev.get(k) is not None), None)
             if q is None:
                 continue
             qs = F[s].setdefault('quarters', {}).setdefault(str(fy), [])
             i = m // 3 - 1
             qs.extend([0] * (i + 1 - len(qs)))
-            if qs[i] in (0, None):
-                qs[i] = q
+            qs[i] = q
     return F
 
 
@@ -296,18 +307,14 @@ def _quarter_events(f):
     60 days did, so it never shortens the wait.)
     A quarter whose statements have been read never counts before the day they were first filed (f['filed']), and none
     counts before the day after the quarter ahead of it: callers take the last four events as a year.
-    The JSE table shows 0 for quarters not reported separately: a 0 is treated as missing, except that a missing 4th
-    quarter is filled as annual profit minus the first three quarters when all of those are known."""
+    A 0 is a missing quarter (load_fundamentals fills a missing 4th one from the table's year total)."""
     m = (f.get('fye') or {}).get('month') or 12
     lag = max(int((f.get('fye') or {}).get('lag') or 0), int(os.environ.get('QLAG') or 60))
-    annual = {str(k): v for k, v in (f.get('annual') or {}).items()}
     filed = f.get('filed') or {}
     ev = []
     for fy, qs in sorted(f.get('quarters', {}).items()):
         fyi = int(fy)
         qs = list(qs) + [None] * (4 - len(qs))
-        if (qs[3] in (0, None)) and all(q not in (0, None) for q in qs[:3]) and annual.get(str(fy)) not in (0, None):
-            qs[3] = annual[str(fy)] - sum(qs[:3])
         for qi, v in enumerate(qs[:4]):
             if v in (0, None):
                 continue
