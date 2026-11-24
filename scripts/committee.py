@@ -952,7 +952,7 @@ def summarize(cases):
     half = dates[len(dates) // 2]
     pct = lambda x: None if x is None else round(float(x) * 100, 2)
 
-    def group(members):
+    def group(members, right):
         g = [r for r in rows if r['rating'] in members]
         if not g:
             return None
@@ -963,7 +963,7 @@ def summarize(cases):
         mean = np.mean([r['excess'] for r in g])
         t = _tstat([np.mean(v) for v in by.values()])
         f_m, s_m = (np.mean(f) if len(f) >= 5 else None), (np.mean(s) if len(s) >= 5 else None)
-        return {'n': len(g), 'avgExcess': pct(mean), 't': round(t, 2), 'firstHalf': pct(f_m), 'secondHalf': pct(s_m), 'verdict': _verdict(mean, t, f_m, s_m)}
+        return {'n': len(g), 'avgExcess': pct(mean), 't': round(t, 2), 'firstHalf': pct(f_m), 'secondHalf': pct(s_m), 'verdict': _verdict(right * mean, t, f_m, s_m)}
 
     def pooled(sel):
         up = [r['excess'] for r in sel if r['rating'] in UP]
@@ -982,8 +982,8 @@ def summarize(cases):
            'ratings': {k: {'n': sum(1 for r in rows if r['rating'] == k), 'avgExcess': pct(np.mean([r['excess'] for r in rows if r['rating'] == k]))}
                        for k in ('Buy', 'Overweight', 'Hold', 'Underweight', 'Sell', 'REVIEW') if any(r['rating'] == k for r in rows)}}
     tests = {}
-    for key, members in (('buyOverweight63', UP), ('underweightSell63', DOWN)):
-        if (g := group(members)):
+    for key, members, right in (('buyOverweight63', UP, 1), ('underweightSell63', DOWN, -1)):
+        if (g := group(members, right)):
             tests[key] = g
     up, down = [r['excess'] for r in rows if r['rating'] in UP], [r['excess'] for r in rows if r['rating'] in DOWN]
     if len(up) >= 2 and len(down) >= 2:
