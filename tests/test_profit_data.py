@@ -3,6 +3,7 @@ import os
 from pathlib import Path
 from unittest import mock
 import sys
+import tempfile
 import unittest
 
 import pandas as pd
@@ -41,6 +42,8 @@ class ProfitDataTests(unittest.TestCase):
         close, _ = tslib.load_history()
         cls.px = close.ffill()
         cls.F = tslib.load_fundamentals()
+        with mock.patch.dict(os.environ, {'FILL_OFF': '1'}):
+            cls.printed = tslib.load_fundamentals()
 
     def latest(self, sym):
         return tslib.fundamental_series(self.F[sym], self.px[sym], self.px.index).iloc[-1]
@@ -90,10 +93,34 @@ class ProfitDataTests(unittest.TestCase):
 
     def test_a_fourth_quarter_derived_from_the_year_comes_from_the_tables_own_quarters(self):
         # PJAM's statements stop at nine months for 2025, so its fourth quarter is the table's year less the table's
-        # first three quarters, all total profit. Taking the statements' owners' share of those three instead would
-        # leave the minorities' nine months inside the fourth quarter
+        # first three quarters, all total profit, then scaled by the nine months' owners' share. Taking the statements'
+        # owners' share of those three instead would leave the minorities' nine months inside the fourth quarter
         q4 = 8_089_522_000 - (2_110_711_000 + 2_482_475_000 + 2_227_418_000)
-        self.assertEqual(counted(self.F['PJAM'], 2025, 3)[1], q4)
+        self.assertAlmostEqual(counted(self.F['PJAM'], 2025, 3)[1], q4 * 5_407_753_000 / 6_820_603_000, delta=1)
+
+    def test_a_table_quarter_the_statements_cannot_replace_is_scaled_to_the_owners_share(self):
+        # EPLY's 2025 statements stop at nine months (its year-end reading failed its checks), so its fourth quarter is
+        # the table's total profit, of which the nine months say the owners kept 29%
+        self.assertAlmostEqual(self.F['EPLY']['quarters']['2025'][3], 497_021_000 * 348_977_000 / 1_219_953_000, delta=1)
+
+    def test_a_table_quarter_stays_as_printed_when_the_minorities_part_outweighs_the_groups_profit(self):
+        # no company's year does this today; a group profit near zero would make the owners' share several times it
+        def reading(sym, total, owners):
+            return {'sym': sym, 'period_end': '2025-03-31', 'months': 3, 'currency': 'JMD', 'consolidated': True,
+                    'pub': '2025-05-01', 'first_pub': '2025-05-01', 'net_profit': total, 'net_profit_attributable_to_owners': owners}
+        table = {s: {'quarters': {'2025': [100, 200, 300, 400]}, 'fye': {'month': 12}} for s in ('ZZA', 'ZZB')}
+        with tempfile.TemporaryDirectory() as d:
+            path = os.path.join(d, 'jse_fundamentals.json')
+            json.dump({'stocks': table}, open(path, 'w'))
+            with mock.patch.object(balance, 'readings', return_value=[reading('ZZA', 10, 50), reading('ZZB', 10, 5)]):
+                F = tslib.load_fundamentals(path)
+        self.assertEqual(F['ZZA']['quarters']['2025'], [50, 200, 300, 400])
+        self.assertEqual(F['ZZB']['quarters']['2025'], [5, 100, 150, 200])
+
+    def test_a_company_filing_one_set_of_statements_fills_across_a_changed_consolidated_flag(self):
+        # IPCL files one set of statements; its reader marked the three months to May 2026 company-only and the six
+        # months to August consolidated. Only MGL files both kinds for one period
+        self.assertEqual(self.F['IPCL']['quarters']['2027'][1], 59_446_407 - 32_776_516)
 
     def test_the_earnings_yield_uses_the_owners_share_of_profit(self):
         # on 18 November 2026 PROVEN's counted year is its nine months to December 2025 and its three months to June
