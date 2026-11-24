@@ -58,6 +58,16 @@ def readings(only_ok=True):
     return sorted(best.values(), key=lambda r: r['pub'])
 
 
+def dual_filers():
+    """Companies with a consolidated and a company-only reading of the same period: a group and a subsidiary (or the
+    parent alone) filing under one symbol, whose two kinds of statements must not be subtracted from each other."""
+    kinds = {}
+    for r in _load('data/financials.json', {}).get('reports', {}).values():
+        if r.get('ok') and r.get('period_end') and r.get('months'):
+            kinds.setdefault((r['sym'], r['period_end'], r['months']), set()).add(bool(r.get('consolidated')))
+    return {k[0] for k, v in kinds.items() if len(v) == 2}
+
+
 def fiscal_months():
     by = {}
     for r in readings(only_ok=False):

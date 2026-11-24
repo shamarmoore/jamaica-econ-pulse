@@ -241,12 +241,15 @@ def load_fundamentals(path='data/jse_fundamentals.json'):
                 f['quarters'][fy] = qs[:3] + [annual[fy] - sum(qs[:3])]
     # where the filed statements give a quarter they beat the JSE table, which lags them and can be wrong (J$ in a US$
     # series, a slipped digit) or on another basis. They give year-to-date figures, so a later quarter is the difference
-    # of two, which means something only between two readings of one kind in the currency profit_fx applies
+    # of two, which means something only between two readings in the currency profit_fx applies, and of one kind for a
+    # company that files both kinds (elsewhere the reader's consolidated flag flips between identical statements)
     if not os.environ.get('FILL_OFF'):
+        dual = balance.dual_filers()
+        replaced = set()
         for (s, fy, m), r in ytd.items():
             prev = {**r, 'net_profit': 0, 'net_profit_attributable_to_owners': 0} if m == 3 else ytd.get((s, fy, m - 3))
-            if (not prev or r['currency'] != F[s]['report']['currency']
-                    or (prev['currency'], prev.get('consolidated')) != (r['currency'], r.get('consolidated'))):
+            if (not prev or r['currency'] != F[s]['report']['currency'] or prev['currency'] != r['currency']
+                    or (s in dual and prev.get('consolidated') != r.get('consolidated'))):
                 continue
             # earnings yield is the owners' share; net_profit (owners' share and minorities together) only without it
             q = next((r[k] - prev[k] for k in ('net_profit_attributable_to_owners', 'net_profit')
@@ -257,6 +260,19 @@ def load_fundamentals(path='data/jse_fundamentals.json'):
             i = m // 3 - 1
             qs.extend([0] * (i + 1 - len(qs)))
             qs[i] = q
+            replaced.add((s, str(fy), i))
+        # a table quarter the statements could not replace holds the owners' and minorities' profit together, so it is
+        # scaled by the owners' share in that year's longest reading. Where the minorities' part outweighs the group's
+        # profit (an owners' share outside 0 to 2) a proportional split means nothing and the figure stays as printed
+        share = {}
+        for (s, fy, m), r in sorted(ytd.items()):
+            if r.get('net_profit_attributable_to_owners') is not None and r.get('net_profit'):
+                share[(s, str(fy))] = r['net_profit_attributable_to_owners'] / r['net_profit']
+        for (s, fy), k in share.items():
+            qs = F[s].get('quarters', {}).get(fy, [])
+            for i, v in enumerate(qs[:4]):
+                if 0 < k < 2 and v not in (0, None) and (s, fy, i) not in replaced:
+                    qs[i] = v * k
     return F
 
 

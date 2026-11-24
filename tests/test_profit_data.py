@@ -82,8 +82,9 @@ class ProfitDataTests(unittest.TestCase):
         self.assertEqual(self.F['MPCCEL']['quarters']['2025'][3], -1_308_184 - -959_826)
 
     def test_a_quarter_from_statements_in_two_currencies_keeps_the_table_figure(self):
-        # ASBH's three months to March 2025 are in TT$ and its six months to June in US$: their difference means nothing
-        self.assertEqual(self.F['ASBH']['quarters']['2025'][1], 2_752_000)
+        # ASBH's three months to March 2025 are in TT$ and its six months to June in US$: their difference means nothing.
+        # The table's figure stays, scaled to the owners' share of the year (US$9,669,000 of 10,969,000)
+        self.assertAlmostEqual(self.F['ASBH']['quarters']['2025'][1], 2_752_000 * 9_669_000 / 10_969_000, delta=1)
 
     def test_quarters_are_the_owners_share_of_profit(self):
         # PROVEN's owners' share of profit, US$, years to March: 3, 6 and 9 months to December 2025, then 3 and 6
