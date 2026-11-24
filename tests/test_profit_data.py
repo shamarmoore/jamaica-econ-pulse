@@ -124,12 +124,13 @@ class ProfitDataTests(unittest.TestCase):
         self.assertEqual(self.F['IPCL']['quarters']['2027'][1], 59_446_407 - 32_776_516)
 
     def test_the_earnings_yield_uses_the_owners_share_of_profit(self):
-        # on 18 November 2026 PROVEN's counted year is its nine months to December 2025 and its three months to June
-        # 2026: US$1,446,000 and 8,232,111 for the owners. Its shares are quoted in J$
+        # on 18 November 2026 PROVEN's counted year is its six months to December 2025 (nine months, US$1,446,000 for the
+        # owners, less three, -2,647,767) and its six months to September 2026 (6,841,184, filed 13 November). Its
+        # January-March 2026 quarter has no figure. Its shares are quoted in J$
         day, f = pd.Timestamp('2026-11-18'), self.F['PROVEN']
         ey = tslib.fundamental_series(f, self.px['PROVEN'], self.px.index).loc[day, 'ey']
         mcap = self.px['PROVEN'][day] * f['shares']
-        self.assertAlmostEqual(ey, (1_446_000 + 8_232_111) * tslib.FX_TO_JMD['USD'] / mcap, places=6)
+        self.assertAlmostEqual(ey, (1_446_000 - -2_647_767 + 6_841_184) * tslib.FX_TO_JMD['USD'] / mcap, places=6)
 
     def test_a_filled_quarter_is_dated_like_the_same_quarter_printed_in_the_table(self):
         with mock.patch.dict(os.environ, {'FILL_OFF': '1'}):
@@ -148,6 +149,23 @@ class ProfitDataTests(unittest.TestCase):
             if q and q[0] < pd.Timestamp(pub):
                 early.append((s, end, months, pub, str(q[0].date())))
         self.assertEqual(early, [])
+
+    def test_a_filed_quarter_counts_from_its_filing_not_the_companys_usual_delay(self):
+        # TJH filed its third quarter of 2026 on 12 November 2026. One slow filing gave it a 120-day usual delay, which
+        # held the quarter back to 28 January 2027
+        self.assertEqual(counted(self.F['TJH'], 2026, 2)[0], pd.Timestamp('2026-11-12'))
+
+    def test_every_filed_quarter_counts_from_the_day_it_was_filed(self):
+        off = []
+        for (s, end, months), pub in first_filings().items():
+            f = self.F.get(s)
+            fy, month = balance.fy_end(end, months)
+            if not f or month != ((f.get('fye') or {}).get('month') or 12):
+                continue
+            q = counted(f, fy, months // 3 - 1)
+            if q and q[0] != pd.Timestamp(pub):
+                off.append((s, end, months, pub, str(q[0].date())))
+        self.assertEqual(off, [])
 
     def test_a_late_filer_counts_from_the_day_it_filed(self):
         # LEARN filed its second quarter to 30 June 2025 (J$445,292 profit for the owners) on 4 December 2025, 157 days later
