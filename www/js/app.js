@@ -766,6 +766,7 @@ function stockSheet(sym) {
     ${recoveryBlock(d, sym)}
     ${popBlock(d, sym)}
     ${signalsBlock(d.forecasts, sym)}
+    ${nextQBlock(d.forecasts, sym)}
     ${bsBlock(d.forecasts, sym)}
     ${holdersBlock(d.forecasts, sym)}
     ${forecastBlock(d.forecasts, sym)}
@@ -808,7 +809,16 @@ const recLabel = (k) => REC_GROUPS.find(([g]) => g === k)?.[1] || k;
 const AI_CALLS = 'ep_aicalls_v1';
 const aiCalls = { get() { try { return JSON.parse(localStorage.getItem(AI_CALLS)) || []; } catch (_) { return []; } },
   add(c) { const v = aiCalls.get().filter((x) => !(x.sym === c.sym && x.date === c.date)); v.push(c); try { localStorage.setItem(AI_CALLS, JSON.stringify(v.slice(-200))); } catch (_) { /* full */ } } };
-const quarterLine = (fund) => (fund?.lastQuarters || []).map(([q, v]) => `${q} ${v < 0 ? '−' : '+'}J$${fmt(Math.abs(v) / 1e6, 0)}M`).join(', ');
+const CUR = { JMD: 'J$', USD: 'US$', TTD: 'TT$', BBD: 'BB$' };
+const money = (v, cur) => { const a = Math.abs(v); return `${v < 0 ? '−' : ''}${CUR[cur] || 'J$'}${a >= 1e9 ? `${fmt(a / 1e9, 2)}B` : a >= 1e6 ? `${fmt(a / 1e6, 1)}M` : `${fmt(a / 1e3, 0)}K`}`; };
+const quarterLine = (fund) => (fund?.lastQuarters || []).map(([q, v]) => `${q} ${v < 0 ? '' : '+'}${money(v, fund.cur)}`).join(', ');
+function nextQBlock(F, sym) {
+  const e = F?.stocks?.[sym]?.nextQ; if (!e) return '';
+  const I = F.nextQInfo; const pc = (x) => `${Math.round(x * 100)}%`;
+  return `<h4>Next quarter estimate</h4>
+    <p>Profit for ${esc(e.label)}: about <b>${money(e.mid, e.cur)}</b>, likely between ${money(e.lo, e.cur)} and ${money(e.hi, e.cur)}.${e.lastYear != null ? ` The same quarter last year: ${money(e.lastYear, e.cur)}.` : ''}</p>
+    ${I ? `<p class="fine">Timestral’s forecast from this company’s own past quarters. Tested on ${I.cases.toLocaleString('en-US')} past quarters (${fd(I.from)} to ${fd(I.to)}): it missed by ${pc(I.error.timestral)} of a typical quarter, against ${pc(I.error.lastYear)} for “same as last year”. It called profit up or down on the year right ${I.direction.timestral}% of the time (last quarter’s trend: ${I.direction.lastQuarterTrend}%), and the actual figure landed inside the range ${I.inRange}% of the time. It estimates profit, not the share price: in a November 2026 test, buying the stocks with the strongest estimates did no better than the rest.</p>` : ''}`;
+}
 function recoveryBlock(d, sym) {
   const F = d.forecasts; const st = F?.stocks?.[sym]; const R = st?.recovery; const H = F?.ideas?.recovery; if (!R || !H) return '';
   const rows = R.groups.map((k) => [k, H[k]]).filter(([, h]) => h?.bigWin != null);
