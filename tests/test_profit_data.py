@@ -61,17 +61,56 @@ class ProfitDataTests(unittest.TestCase):
         self.assertAlmostEqual(self.F['TJH']['quarters']['2026'][2], TJH_Q3_2026, delta=1_000)
 
     def test_the_group_report_beats_a_subsidiary_report_filed_under_the_same_symbol(self):
-        # Mayberry Investments' own statements are filed under MGL next to Mayberry Group's consolidated ones
-        self.assertEqual(self.F['MGL']['quarters']['2024'][0], -1_435_688_000)
+        # Mayberry Investments' own statements (a J$113,406,000 loss) are filed under MGL next to Mayberry Group's
+        # consolidated ones, whose owners' share of the first-quarter loss is J$807,389,000
+        self.assertEqual(self.F['MGL']['quarters']['2024'][0], -807_389_000)
 
-    def test_a_table_quarter_that_disagrees_with_the_statements_is_kept(self):
-        self.assertEqual(self.F['TJH']['quarters']['2025'][3], 9_836_000)
+    def test_the_companys_own_fourth_quarter_beats_the_table(self):
+        # TJH's statements give US$36,677,000 for 2025 and 28,066,000 for its first nine months; the table's 9,836,000
+        # rests on a year total that no audited report or announcement supports
+        self.assertEqual(self.F['TJH']['quarters']['2025'][3], 36_677_000 - 28_066_000)
+
+    def test_a_quarter_written_in_the_wrong_currency_is_taken_from_the_statements(self):
+        # the table shows 1,198,577,000 (J$) for MJE's third quarter of 2026; its US$ statements give a nine-month loss
+        # of 70,000 after a six-month loss of 7,698,000
+        self.assertEqual(self.F['MJE']['quarters']['2026'][2], -70_000 - -7_698_000)
+
+    def test_a_misprinted_quarter_and_the_fourth_quarter_derived_from_it_are_taken_from_the_statements(self):
+        # the table's second quarter of 2025 is ten times the statements' figure and its fourth quarter is the year
+        # less that wrong quarter; US$, owners' share
+        self.assertEqual(self.F['MPCCEL']['quarters']['2025'][1], -981_692 - -60_394)
+        self.assertEqual(self.F['MPCCEL']['quarters']['2025'][3], -1_308_184 - -959_826)
+
+    def test_a_quarter_from_statements_in_two_currencies_keeps_the_table_figure(self):
+        # ASBH's three months to March 2025 are in TT$ and its six months to June in US$: their difference means nothing
+        self.assertEqual(self.F['ASBH']['quarters']['2025'][1], 2_752_000)
+
+    def test_quarters_are_the_owners_share_of_profit(self):
+        # PROVEN's owners' share of profit, US$, years to March: 3, 6 and 9 months to December 2025, then 3 and 6
+        # months to September 2026. Minority holders take about an eighth of the total
+        owners = [2_341_000 - -2_647_767, 1_446_000 - 2_341_000, 8_232_111, 6_841_184 - 8_232_111]
+        self.assertEqual([v for _, v in tslib._quarter_events(self.F['PROVEN'])[-4:]], owners)
+
+    def test_a_fourth_quarter_derived_from_the_year_comes_from_the_tables_own_quarters(self):
+        # PJAM's statements stop at nine months for 2025, so its fourth quarter is the table's year less the table's
+        # first three quarters, all total profit. Taking the statements' owners' share of those three instead would
+        # leave the minorities' nine months inside the fourth quarter
+        q4 = 8_089_522_000 - (2_110_711_000 + 2_482_475_000 + 2_227_418_000)
+        self.assertEqual(counted(self.F['PJAM'], 2025, 3)[1], q4)
+
+    def test_the_earnings_yield_uses_the_owners_share_of_profit(self):
+        # on 18 November 2026 PROVEN's counted year is its nine months to December 2025 and its three months to June
+        # 2026: US$1,446,000 and 8,232,111 for the owners. Its shares are quoted in J$
+        day, f = pd.Timestamp('2026-11-18'), self.F['PROVEN']
+        ey = tslib.fundamental_series(f, self.px['PROVEN'], self.px.index).loc[day, 'ey']
+        mcap = self.px['PROVEN'][day] * f['shares']
+        self.assertAlmostEqual(ey, (1_446_000 + 8_232_111) * tslib.FX_TO_JMD['USD'] / mcap, places=6)
 
     def test_a_filled_quarter_is_dated_like_the_same_quarter_printed_in_the_table(self):
         with mock.patch.dict(os.environ, {'FILL_OFF': '1'}):
             printed = tslib.load_fundamentals()['TJH']
         printed['quarters']['2026'][2] = TJH_Q3_2026
-        self.assertEqual(tslib._quarter_events(self.F['TJH']), tslib._quarter_events(printed))
+        self.assertEqual([d for d, _ in tslib._quarter_events(self.F['TJH'])], [d for d, _ in tslib._quarter_events(printed)])
 
     def test_no_quarter_counts_before_its_statements_were_filed(self):
         early = []
