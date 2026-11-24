@@ -123,13 +123,13 @@ function gaugeCard(name, gauge, prev, blurb, key = '') {
     <div class="segs">${segs}</div><div class="gblurb">${blurb}${moved}</div></div>`;
 }
 
-function insightCard(x, i) {
+function insightCard(x) {
   const [lab, ic] = LEVEL[x.level];
   return `<article class="ins ${x.level}">
     <div class="ins-h"><span class="chip ${x.level}">${ic} ${lab}</span><span class="scope">${x.scope}</span></div>
     <h3>${esc(x.title)}</h3>
     <p class="sig">${esc(x.signal)}</p>
-    <details data-k="ins-${esc(x.title.slice(0, 30))}" ${i < 2 ? 'open' : ''}><summary>How it could affect Jamaica</summary>
+    <details data-k="ins-${esc(x.title.slice(0, 30))}"><summary>How it could affect Jamaica</summary>
       <ul>${x.effects.map((e) => `<li>${esc(e)}</li>`).join('')}</ul>
       <p class="watch"><b>Watch:</b> ${esc(x.watch)}</p>
       <p class="src">Data: ${x.sources.map((s) => esc(SOURCES.find((z) => z.id === s)?.name || s)).join(' · ')}</p>
@@ -143,6 +143,8 @@ function viewPulse(d, a) {
   if (!a.insights.length) return empty(running.size ? 'Gathering the latest numbers…' : 'No data yet. Check your connection and tap refresh.');
   const pg = prevGauges?.g || {};
   const c = a.consider;
+  const loud = a.insights.filter((x) => x.level === 'pressure' || x.level === 'watch');
+  const calm = a.insights.filter((x) => !loud.includes(x));
   return `
   <section class="lede"><p>${esc(a.headline)}</p></section>
   ${movesStrip(d)}
@@ -153,13 +155,14 @@ function viewPulse(d, a) {
     ${gaugeCard('Shock risk', a.gauges.shock, pg.shock, 'Storms & disruptions', 'g_shock')}
   </section>
   <h2 class="sec">What’s moving the economy</h2>
-  ${a.insights.map(insightCard).join('')}
-  <h2 class="sec">Things to consider</h2>
+  ${loud.map(insightCard).join('')}
+  ${calm.length ? `<details class="grp" data-k="pulse-calm" ${loud.length ? '' : 'open'}><summary>Easing or steady <span class="cnt">${calm.length}</span></summary>${calm.map(insightCard).join('')}</details>` : ''}
+  <details class="grp" data-k="pulse-consider"><summary>Things to consider</summary>
   <section class="consider">
     ${[['Households', c.households], ['Businesses', c.businesses], ['Investors', c.investors]].map(([t, l]) => `
       <div><h4>${t}</h4><ul>${l.map((x) => `<li>${esc(x)}</li>`).join('')}</ul></div>`).join('')}
-    <p class="fine">Rule-based readings of public data, not forecasts or financial advice.</p>
-  </section>`;
+  </section></details>
+  <p class="fine">Rule-based readings of public data, not forecasts or financial advice.</p>`;
 }
 
 function stat(label, value, sub, extra = '', key = '') {
