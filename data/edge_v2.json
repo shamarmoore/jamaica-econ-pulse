@@ -1,10 +1,10 @@
 {
- "made": "2026-11-18",
+ "made": "2026-11-23",
  "hold": 63,
  "fee": 0.005,
  "step": 21,
  "selectT": 2.0,
- "basis": "buy at the closing ask, sell at the closing bid, 0.5% fees each side, dividends included, top 10 held 3 months",
+ "basis": "dividends included, 0.5% fees each side on top of the price paid; buys at the ask and sells at the bid unless a rule leaves limit orders",
  "v1Split": "2024-09-19",
  "model": {
   "signs": {
@@ -25,239 +25,238 @@
    "lottery": 1,
    "bs_roe": 1,
    "bs_lowdebt": 1,
-   "bs_netcash": 1,
    "bs_margin": 1,
+   "bs_eq_assets": 1,
    "small": -1,
    "turnover": 1,
    "turn_surge": 1,
    "volsurge": 1,
    "illiq": -1,
-   "div_notice": 1,
    "share_issue": -1,
    "fcast": 1
   },
   "weights": {
-   "trend": 0.1407,
-   "value": 0.1672,
-   "earnings": 0.1543,
-   "quality": 0.1604,
-   "trading": 0.1352,
-   "events": 0.1099,
-   "forecast": 0.1322
+   "trend": 0.1298,
+   "value": 0.1618,
+   "earnings": 0.1512,
+   "quality": 0.1544,
+   "trading": 0.1311,
+   "events": 0.1424,
+   "forecast": 0.1293
   },
-  "slope": 0.1008,
+  "slope": 0.0976,
   "buckets": [
    [
     0,
     20,
-    -4.02
+    -4.19
    ],
    [
     20,
     40,
-    -1.98
+    -1.4
    ],
    [
     40,
     60,
-    0.26
+    0.16
    ],
    [
     60,
     80,
-    1.31
+    1.19
    ],
    [
     80,
     100,
-    4.25
+    4.06
    ]
   ],
   "stats": {
    "mom63": {
-    "ic": 0.01,
-    "t": 0.3,
-    "n": 44
+    "ic": 0.005,
+    "t": 0.14,
+    "n": 45
    },
    "mom126": {
-    "ic": 0.05,
-    "t": 1.6,
-    "n": 44
+    "ic": 0.036,
+    "t": 1.14,
+    "n": 45
    },
    "mom12_1": {
-    "ic": 0.109,
-    "t": 3.33,
-    "n": 44
+    "ic": 0.089,
+    "t": 2.51,
+    "n": 45
    },
    "hi52": {
-    "ic": 0.107,
-    "t": 2.9,
-    "n": 44
+    "ic": 0.099,
+    "t": 2.6,
+    "n": 45
    },
    "rev5m": {
-    "ic": 0.041,
-    "t": 1.61,
-    "n": 44
+    "ic": 0.048,
+    "t": 1.71,
+    "n": 45
    },
    "rev21m": {
-    "ic": -0.021,
-    "t": -0.71,
-    "n": 44
+    "ic": -0.018,
+    "t": -0.58,
+    "n": 45
    },
    "bbm": {
-    "ic": 0.015,
-    "t": 0.59,
-    "n": 44
+    "ic": 0.02,
+    "t": 0.75,
+    "n": 45
    },
    "ey": {
-    "ic": 0.147,
-    "t": 5.45,
-    "n": 44
+    "ic": 0.142,
+    "t": 5.28,
+    "n": 45
    },
    "dy": {
-    "ic": 0.137,
-    "t": 5.15,
-    "n": 44
+    "ic": 0.135,
+    "t": 5.04,
+    "n": 45
    },
    "iv_ddm": {
-    "ic": 0.17,
-    "t": 5.95,
-    "n": 44
+    "ic": 0.174,
+    "t": 6.52,
+    "n": 45
    },
    "iv_epv": {
-    "ic": 0.078,
-    "t": 2.42,
-    "n": 44
+    "ic": 0.072,
+    "t": 2.26,
+    "n": 45
    },
    "bs_bp": {
-    "ic": 0.055,
-    "t": 1.34,
-    "n": 32
+    "ic": 0.031,
+    "t": 0.9,
+    "n": 33
    },
    "bs_fcfy": {
-    "ic": 0.042,
-    "t": 1.12,
-    "n": 31
+    "ic": 0.049,
+    "t": 1.31,
+    "n": 33
    },
    "bs_ocfy": {
-    "ic": 0.032,
-    "t": 0.91,
-    "n": 31
+    "ic": 0.045,
+    "t": 1.26,
+    "n": 33
    },
    "growth": {
-    "ic": 0.108,
-    "t": 3.49,
-    "n": 44
+    "ic": 0.104,
+    "t": 3.32,
+    "n": 45
    },
    "q_yoy": {
-    "ic": 0.137,
-    "t": 6.3,
-    "n": 44
+    "ic": 0.139,
+    "t": 6.6,
+    "n": 45
    },
    "accel": {
-    "ic": 0.044,
-    "t": 1.42,
-    "n": 44
+    "ic": 0.046,
+    "t": 1.5,
+    "n": 45
    },
    "fresh_beat": {
-    "ic": 0.165,
-    "t": 3.02,
-    "n": 24
+    "ic": 0.161,
+    "t": 3.33,
+    "n": 34
    },
    "no_weak_results": {
-    "ic": 0.103,
-    "t": 4.5,
-    "n": 44
+    "ic": 0.095,
+    "t": 4.17,
+    "n": 45
    },
    "stable": {
-    "ic": 0.124,
-    "t": 4.25,
-    "n": 44
+    "ic": 0.119,
+    "t": 3.95,
+    "n": 45
    },
    "noloss": {
-    "ic": 0.148,
-    "t": 4.94,
-    "n": 44
+    "ic": 0.139,
+    "t": 4.16,
+    "n": 45
    },
    "divpayer": {
-    "ic": 0.128,
-    "t": 5.19,
-    "n": 44
+    "ic": 0.118,
+    "t": 4.69,
+    "n": 45
    },
    "lowvol": {
-    "ic": 0.088,
-    "t": 2.36,
-    "n": 44
+    "ic": 0.086,
+    "t": 2.35,
+    "n": 45
    },
    "lottery": {
-    "ic": 0.074,
-    "t": 2.5,
-    "n": 44
+    "ic": 0.073,
+    "t": 2.49,
+    "n": 45
    },
    "bs_roe": {
-    "ic": 0.092,
-    "t": 2.23,
-    "n": 32
+    "ic": 0.104,
+    "t": 2.66,
+    "n": 33
    },
    "bs_lowdebt": {
-    "ic": 0.103,
-    "t": 2.06,
-    "n": 31
+    "ic": 0.079,
+    "t": 2.16,
+    "n": 33
    },
    "bs_netcash": {
-    "ic": 0.093,
-    "t": 2.11,
-    "n": 31
+    "ic": 0.069,
+    "t": 1.66,
+    "n": 33
    },
    "bs_cashq": {
-    "ic": -0.044,
-    "t": -1.45,
-    "n": 31
+    "ic": -0.046,
+    "t": -1.55,
+    "n": 33
    },
    "bs_margin": {
-    "ic": 0.143,
-    "t": 3.37,
-    "n": 32
+    "ic": 0.148,
+    "t": 3.63,
+    "n": 33
    },
    "bs_eq_assets": {
-    "ic": 0.083,
-    "t": 1.86,
-    "n": 31
+    "ic": 0.066,
+    "t": 2.0,
+    "n": 33
    },
    "small": {
-    "ic": -0.097,
-    "t": -2.88,
-    "n": 44
+    "ic": -0.091,
+    "t": -2.55,
+    "n": 45
    },
    "turnover": {
-    "ic": 0.058,
-    "t": 2.11,
-    "n": 44
+    "ic": 0.056,
+    "t": 2.08,
+    "n": 45
    },
    "turn_surge": {
-    "ic": 0.055,
-    "t": 2.14,
-    "n": 44
+    "ic": 0.058,
+    "t": 2.27,
+    "n": 45
    },
    "volsurge": {
-    "ic": 0.05,
-    "t": 2.15,
-    "n": 44
+    "ic": 0.051,
+    "t": 2.25,
+    "n": 45
    },
    "illiq": {
-    "ic": -0.084,
-    "t": -2.3,
-    "n": 44
+    "ic": -0.079,
+    "t": -2.15,
+    "n": 45
    },
    "div_chg": {
-    "ic": 0.062,
-    "t": 0.74,
-    "n": 29
+    "ic": 0.057,
+    "t": 0.7,
+    "n": 30
    },
    "div_notice": {
-    "ic": 0.048,
-    "t": 2.11,
-    "n": 40
+    "ic": 0.044,
+    "t": 1.93,
+    "n": 41
    },
    "share_issue": {
     "ic": -0.125,
@@ -265,17 +264,17 @@
     "n": 11
    },
    "insider_net": {
-    "ic": -0.001,
-    "t": -0.03,
-    "n": 44
+    "ic": 0.003,
+    "t": 0.15,
+    "n": 45
    },
    "fcast": {
     "ic": 0.102,
-    "t": 3.88,
+    "t": 3.87,
     "n": 44
    }
   },
-  "trainDates": 44
+  "trainDates": 45
  },
  "themes": {
   "trend": [
@@ -339,291 +338,1537 @@
   "v1": {
    "close": {
     "from": "2024-10-14",
-    "to": "2026-07-21",
-    "periods": 7,
-    "annNet": 14.5,
-    "annMarket": -3.4,
-    "avgExcess": 4.27,
-    "beatPct": 86,
-    "t": 2.22,
-    "firstHalf": 4.18,
-    "secondHalf": 4.36,
-    "worstPeriod": -4.0
+    "to": "2026-08-20",
+    "periods": 8,
+    "turnover": 45,
+    "annNet": 20.1,
+    "annMarket": -0.6,
+    "avgExcess": 4.77,
+    "beatPct": 83,
+    "t": 2.09,
+    "firstHalf": 4.35,
+    "secondHalf": 5.15,
+    "worstPeriod": -5.7
    },
    "honest": {
     "from": "2024-10-14",
-    "to": "2026-07-21",
-    "periods": 7,
-    "annNet": 8.6,
-    "annMarket": -3.2,
-    "avgExcess": 2.92,
-    "beatPct": 71,
-    "t": 1.53,
-    "firstHalf": 2.94,
-    "secondHalf": 2.91,
-    "worstPeriod": -4.3
+    "to": "2026-08-20",
+    "periods": 8,
+    "turnover": 45,
+    "annNet": 14.3,
+    "annMarket": -0.6,
+    "avgExcess": 3.5,
+    "beatPct": 83,
+    "t": 1.59,
+    "firstHalf": 2.95,
+    "secondHalf": 4.0,
+    "worstPeriod": -6.5
    },
    "honestSkipDay": {
     "from": "2024-10-14",
-    "to": "2026-07-21",
-    "periods": 7,
-    "annNet": 10.0,
-    "annMarket": -3.2,
-    "avgExcess": 3.19,
-    "beatPct": 77,
-    "t": 1.65,
-    "firstHalf": 2.21,
-    "secondHalf": 4.17,
-    "worstPeriod": -5.0
+    "to": "2026-08-20",
+    "periods": 8,
+    "turnover": 45,
+    "annNet": 13.8,
+    "annMarket": -0.3,
+    "avgExcess": 3.31,
+    "beatPct": 78,
+    "t": 1.6,
+    "firstHalf": 1.95,
+    "secondHalf": 4.56,
+    "worstPeriod": -6.1
    },
    "since2026": {
     "from": "2026-01-21",
-    "to": "2026-07-21",
-    "periods": 2,
-    "annNet": 22.9,
-    "annMarket": -0.5,
-    "avgExcess": 4.61,
-    "beatPct": 83,
-    "t": 0.91,
-    "firstHalf": 6.49,
-    "secondHalf": 2.73,
-    "worstPeriod": -1.0
+    "to": "2026-08-20",
+    "periods": 3,
+    "turnover": 41,
+    "annNet": 25.1,
+    "annMarket": 3.6,
+    "avgExcess": 3.95,
+    "beatPct": 75,
+    "t": 0.74,
+    "firstHalf": 9.45,
+    "secondHalf": -1.54,
+    "worstPeriod": 0.2
    }
   },
   "full": {
    "walk": {
     "from": "2024-03-13",
-    "to": "2026-07-21",
-    "periods": 9,
-    "annNet": 13.5,
-    "annMarket": -1.7,
-    "avgExcess": 3.74,
-    "beatPct": 82,
-    "t": 2.21,
-    "firstHalf": 3.06,
-    "secondHalf": 4.43,
-    "worstPeriod": -5.6
+    "to": "2026-08-20",
+    "periods": 10,
+    "turnover": 52,
+    "annNet": 17.0,
+    "annMarket": 0.2,
+    "avgExcess": 3.95,
+    "beatPct": 77,
+    "t": 2.15,
+    "firstHalf": 3.72,
+    "secondHalf": 4.19,
+    "worstPeriod": -4.4
    },
    "common": {
     "from": "2024-10-14",
-    "to": "2026-07-21",
-    "periods": 7,
-    "annNet": 14.4,
-    "annMarket": -3.2,
-    "avgExcess": 4.3,
-    "beatPct": 90,
-    "t": 2.18,
-    "firstHalf": 3.32,
-    "secondHalf": 5.19,
-    "worstPeriod": -5.6
+    "to": "2026-08-20",
+    "periods": 8,
+    "turnover": 45,
+    "annNet": 17.7,
+    "annMarket": -0.6,
+    "avgExcess": 4.29,
+    "beatPct": 83,
+    "t": 1.89,
+    "firstHalf": 3.97,
+    "secondHalf": 4.59,
+    "worstPeriod": -4.4
    },
    "honestSkipDay": {
     "from": "2024-10-14",
-    "to": "2026-07-21",
-    "periods": 7,
-    "annNet": 16.5,
-    "annMarket": -3.2,
-    "avgExcess": 4.75,
-    "beatPct": 77,
-    "t": 2.41,
-    "firstHalf": 3.25,
-    "secondHalf": 6.24,
-    "worstPeriod": -6.3
-   },
-   "top5": {
-    "from": "2024-10-14",
-    "to": "2026-07-21",
-    "periods": 7,
-    "annNet": 26.8,
-    "annMarket": -3.2,
-    "avgExcess": 6.92,
-    "beatPct": 86,
-    "t": 2.38,
-    "firstHalf": 5.67,
-    "secondHalf": 8.06,
-    "worstPeriod": -5.9
+    "to": "2026-08-20",
+    "periods": 8,
+    "turnover": 45,
+    "annNet": 17.7,
+    "annMarket": -0.3,
+    "avgExcess": 4.2,
+    "beatPct": 83,
+    "t": 2.03,
+    "firstHalf": 3.42,
+    "secondHalf": 4.91,
+    "worstPeriod": -5.3
    },
    "since2026": {
     "from": "2026-01-21",
-    "to": "2026-07-21",
-    "periods": 2,
-    "annNet": 33.4,
-    "annMarket": -0.5,
-    "avgExcess": 6.64,
-    "beatPct": 83,
-    "t": 1.17,
-    "firstHalf": 9.2,
-    "secondHalf": 4.08,
-    "worstPeriod": -0.6
+    "to": "2026-08-20",
+    "periods": 3,
+    "turnover": 40,
+    "annNet": 28.3,
+    "annMarket": 3.6,
+    "avgExcess": 4.86,
+    "beatPct": 75,
+    "t": 0.8,
+    "firstHalf": 9.47,
+    "secondHalf": 0.25,
+    "worstPeriod": -2.2
    }
   },
   "no_forecast": {
    "walk": {
     "from": "2024-03-13",
-    "to": "2026-07-21",
-    "periods": 9,
-    "annNet": 12.0,
-    "annMarket": -1.7,
-    "avgExcess": 3.38,
-    "beatPct": 79,
-    "t": 2.01,
-    "firstHalf": 2.47,
-    "secondHalf": 4.3,
-    "worstPeriod": -6.3
+    "to": "2026-08-20",
+    "periods": 10,
+    "turnover": 52,
+    "annNet": 15.4,
+    "annMarket": 0.2,
+    "avgExcess": 3.59,
+    "beatPct": 83,
+    "t": 1.96,
+    "firstHalf": 2.9,
+    "secondHalf": 4.29,
+    "worstPeriod": -4.4
    },
    "common": {
     "from": "2024-10-14",
-    "to": "2026-07-21",
-    "periods": 7,
-    "annNet": 13.0,
-    "annMarket": -3.2,
-    "avgExcess": 3.92,
-    "beatPct": 86,
-    "t": 2.0,
-    "firstHalf": 2.62,
-    "secondHalf": 5.11,
-    "worstPeriod": -5.9
+    "to": "2026-08-20",
+    "periods": 8,
+    "turnover": 45,
+    "annNet": 16.3,
+    "annMarket": -0.6,
+    "avgExcess": 3.98,
+    "beatPct": 87,
+    "t": 1.76,
+    "firstHalf": 3.17,
+    "secondHalf": 4.71,
+    "worstPeriod": -3.0
    }
   },
   "no_events": {
    "walk": {
     "from": "2024-03-13",
-    "to": "2026-07-21",
-    "periods": 9,
-    "annNet": 12.8,
-    "annMarket": -1.7,
-    "avgExcess": 3.57,
-    "beatPct": 82,
-    "t": 2.2,
-    "firstHalf": 3.06,
-    "secondHalf": 4.08,
-    "worstPeriod": -5.6
+    "to": "2026-08-20",
+    "periods": 10,
+    "turnover": 51,
+    "annNet": 17.7,
+    "annMarket": 0.2,
+    "avgExcess": 4.12,
+    "beatPct": 77,
+    "t": 2.17,
+    "firstHalf": 3.7,
+    "secondHalf": 4.54,
+    "worstPeriod": -3.2
    },
    "common": {
     "from": "2024-10-14",
-    "to": "2026-07-21",
-    "periods": 7,
-    "annNet": 13.4,
-    "annMarket": -3.2,
-    "avgExcess": 4.07,
-    "beatPct": 90,
-    "t": 2.16,
-    "firstHalf": 3.33,
-    "secondHalf": 4.74,
-    "worstPeriod": -5.6
+    "to": "2026-08-20",
+    "periods": 8,
+    "turnover": 43,
+    "annNet": 18.6,
+    "annMarket": -0.6,
+    "avgExcess": 4.51,
+    "beatPct": 83,
+    "t": 1.92,
+    "firstHalf": 3.79,
+    "secondHalf": 5.18,
+    "worstPeriod": -3.2
    }
   },
   "no_spread": {
    "walk": {
     "from": "2024-03-13",
-    "to": "2026-07-21",
-    "periods": 9,
-    "annNet": 12.7,
-    "annMarket": -1.7,
-    "avgExcess": 3.58,
-    "beatPct": 79,
-    "t": 2.08,
-    "firstHalf": 3.86,
-    "secondHalf": 3.29,
-    "worstPeriod": -5.2
+    "to": "2026-08-20",
+    "periods": 10,
+    "turnover": 58,
+    "annNet": 12.4,
+    "annMarket": 0.2,
+    "avgExcess": 2.92,
+    "beatPct": 73,
+    "t": 1.54,
+    "firstHalf": 3.05,
+    "secondHalf": 2.78,
+    "worstPeriod": -7.4
    },
    "common": {
     "from": "2024-10-14",
-    "to": "2026-07-21",
-    "periods": 7,
-    "annNet": 13.4,
-    "annMarket": -3.2,
-    "avgExcess": 4.05,
-    "beatPct": 81,
-    "t": 1.92,
-    "firstHalf": 4.02,
-    "secondHalf": 4.09,
-    "worstPeriod": -3.8
+    "to": "2026-08-20",
+    "periods": 8,
+    "turnover": 51,
+    "annNet": 13.9,
+    "annMarket": -0.6,
+    "avgExcess": 3.41,
+    "beatPct": 74,
+    "t": 1.46,
+    "firstHalf": 3.85,
+    "secondHalf": 3.01,
+    "worstPeriod": -7.4
    }
   },
   "last_trade_pullback": {
    "walk": {
     "from": "2024-03-13",
-    "to": "2026-07-21",
-    "periods": 9,
-    "annNet": 11.0,
-    "annMarket": -1.7,
-    "avgExcess": 3.12,
-    "beatPct": 79,
-    "t": 2.16,
-    "firstHalf": 3.56,
-    "secondHalf": 2.68,
-    "worstPeriod": -4.4
+    "to": "2026-08-20",
+    "periods": 10,
+    "turnover": 55,
+    "annNet": 13.6,
+    "annMarket": 0.2,
+    "avgExcess": 3.18,
+    "beatPct": 73,
+    "t": 1.99,
+    "firstHalf": 3.62,
+    "secondHalf": 2.73,
+    "worstPeriod": -5.9
    },
    "common": {
     "from": "2024-10-14",
-    "to": "2026-07-21",
-    "periods": 7,
-    "annNet": 10.3,
-    "annMarket": -3.2,
-    "avgExcess": 3.3,
-    "beatPct": 81,
-    "t": 2.0,
-    "firstHalf": 3.35,
-    "secondHalf": 3.26,
-    "worstPeriod": -4.4
+    "to": "2026-08-20",
+    "periods": 8,
+    "turnover": 48,
+    "annNet": 13.2,
+    "annMarket": -0.6,
+    "avgExcess": 3.28,
+    "beatPct": 78,
+    "t": 1.69,
+    "firstHalf": 3.61,
+    "secondHalf": 2.97,
+    "worstPeriod": -5.9
    }
   },
   "equal_theme_weights": {
    "walk": {
     "from": "2024-03-13",
-    "to": "2026-07-21",
-    "periods": 9,
-    "annNet": 13.3,
-    "annMarket": -1.7,
-    "avgExcess": 3.68,
-    "beatPct": 82,
-    "t": 2.24,
-    "firstHalf": 3.23,
-    "secondHalf": 4.14,
-    "worstPeriod": -5.6
+    "to": "2026-08-20",
+    "periods": 10,
+    "turnover": 54,
+    "annNet": 15.3,
+    "annMarket": 0.2,
+    "avgExcess": 3.57,
+    "beatPct": 77,
+    "t": 1.95,
+    "firstHalf": 3.48,
+    "secondHalf": 3.67,
+    "worstPeriod": -3.4
    },
    "common": {
     "from": "2024-10-14",
-    "to": "2026-07-21",
-    "periods": 7,
-    "annNet": 14.6,
-    "annMarket": -3.2,
-    "avgExcess": 4.3,
-    "beatPct": 90,
-    "t": 2.3,
-    "firstHalf": 3.68,
-    "secondHalf": 4.86,
-    "worstPeriod": -5.6
+    "to": "2026-08-20",
+    "periods": 8,
+    "turnover": 48,
+    "annNet": 16.7,
+    "annMarket": -0.6,
+    "avgExcess": 4.08,
+    "beatPct": 83,
+    "t": 1.83,
+    "firstHalf": 4.06,
+    "secondHalf": 4.09,
+    "worstPeriod": -3.2
    }
   },
   "flat_v1_signals": {
    "walk": {
     "from": "2024-03-13",
-    "to": "2026-07-21",
-    "periods": 9,
-    "annNet": 13.5,
-    "annMarket": -1.7,
-    "avgExcess": 3.73,
-    "beatPct": 86,
-    "t": 2.31,
-    "firstHalf": 2.86,
-    "secondHalf": 4.61,
-    "worstPeriod": -6.8
+    "to": "2026-08-20",
+    "periods": 10,
+    "turnover": 50,
+    "annNet": 15.0,
+    "annMarket": 0.2,
+    "avgExcess": 3.49,
+    "beatPct": 80,
+    "t": 2.15,
+    "firstHalf": 3.08,
+    "secondHalf": 3.91,
+    "worstPeriod": -4.0
    },
    "common": {
     "from": "2024-10-14",
-    "to": "2026-07-21",
-    "periods": 7,
-    "annNet": 14.0,
-    "annMarket": -3.2,
-    "avgExcess": 4.15,
-    "beatPct": 90,
-    "t": 2.3,
-    "firstHalf": 2.91,
-    "secondHalf": 5.27,
-    "worstPeriod": -6.5
+    "to": "2026-08-20",
+    "periods": 8,
+    "turnover": 43,
+    "annNet": 15.4,
+    "annMarket": -0.6,
+    "avgExcess": 3.77,
+    "beatPct": 83,
+    "t": 1.89,
+    "firstHalf": 2.98,
+    "secondHalf": 4.49,
+    "worstPeriod": -4.0
    }
+  },
+  "with_relative_value": {
+   "walk": {
+    "from": "2024-03-13",
+    "to": "2026-08-20",
+    "periods": 10,
+    "turnover": 51,
+    "annNet": 16.9,
+    "annMarket": 0.2,
+    "avgExcess": 3.94,
+    "beatPct": 83,
+    "t": 2.18,
+    "firstHalf": 3.57,
+    "secondHalf": 4.32,
+    "worstPeriod": -4.3
+   },
+   "common": {
+    "from": "2024-10-14",
+    "to": "2026-08-20",
+    "periods": 8,
+    "turnover": 43,
+    "annNet": 18.0,
+    "annMarket": -0.6,
+    "avgExcess": 4.37,
+    "beatPct": 87,
+    "t": 1.96,
+    "firstHalf": 3.8,
+    "secondHalf": 4.89,
+    "worstPeriod": -4.3
+   }
+  },
+  "with_normalized_pe": {
+   "walk": {
+    "from": "2024-03-13",
+    "to": "2026-08-20",
+    "periods": 10,
+    "turnover": 53,
+    "annNet": 16.3,
+    "annMarket": 0.2,
+    "avgExcess": 3.8,
+    "beatPct": 77,
+    "t": 2.09,
+    "firstHalf": 3.83,
+    "secondHalf": 3.77,
+    "worstPeriod": -4.4
+   },
+   "common": {
+    "from": "2024-10-14",
+    "to": "2026-08-20",
+    "periods": 8,
+    "turnover": 46,
+    "annNet": 16.8,
+    "annMarket": -0.6,
+    "avgExcess": 4.06,
+    "beatPct": 83,
+    "t": 1.82,
+    "firstHalf": 3.71,
+    "secondHalf": 4.39,
+    "worstPeriod": -4.4
+   }
+  },
+  "rules": {
+   "top10_cross": {
+    "walk": {
+     "from": "2024-03-13",
+     "to": "2026-08-20",
+     "periods": 10,
+     "turnover": 52,
+     "annNet": 17.0,
+     "annMarket": 0.2,
+     "avgExcess": 3.95,
+     "beatPct": 77,
+     "t": 2.15,
+     "firstHalf": 3.72,
+     "secondHalf": 4.19,
+     "worstPeriod": -4.4
+    },
+    "common": {
+     "from": "2024-10-14",
+     "to": "2026-08-20",
+     "periods": 8,
+     "turnover": 45,
+     "annNet": 17.7,
+     "annMarket": -0.6,
+     "avgExcess": 4.29,
+     "beatPct": 83,
+     "t": 1.89,
+     "firstHalf": 3.97,
+     "secondHalf": 4.59,
+     "worstPeriod": -4.4
+    },
+    "pre2026": {
+     "from": "2024-10-14",
+     "to": "2025-12-18",
+     "periods": 5,
+     "turnover": 47,
+     "annNet": 13.4,
+     "annMarket": -3.0,
+     "avgExcess": 3.99,
+     "beatPct": 87,
+     "t": 2.55,
+     "firstHalf": 4.62,
+     "secondHalf": 3.44,
+     "worstPeriod": -4.4
+    },
+    "since2026": {
+     "from": "2026-01-21",
+     "to": "2026-08-20",
+     "periods": 3,
+     "turnover": 40,
+     "annNet": 28.3,
+     "annMarket": 3.6,
+     "avgExcess": 4.86,
+     "beatPct": 75,
+     "t": 0.8,
+     "firstHalf": 9.47,
+     "secondHalf": 0.25,
+     "worstPeriod": -2.2
+    }
+   },
+   "top10_mid": {
+    "walk": {
+     "from": "2024-03-13",
+     "to": "2026-08-20",
+     "periods": 10,
+     "turnover": 52,
+     "annNet": 22.1,
+     "annMarket": 0.2,
+     "avgExcess": 5.07,
+     "beatPct": 87,
+     "t": 2.85,
+     "firstHalf": 4.9,
+     "secondHalf": 5.24,
+     "worstPeriod": -4.9
+    },
+    "common": {
+     "from": "2024-10-14",
+     "to": "2026-08-20",
+     "periods": 8,
+     "turnover": 45,
+     "annNet": 21.9,
+     "annMarket": -0.6,
+     "avgExcess": 5.21,
+     "beatPct": 87,
+     "t": 2.35,
+     "firstHalf": 4.63,
+     "secondHalf": 5.75,
+     "worstPeriod": -4.9
+    },
+    "pre2026": {
+     "from": "2024-10-14",
+     "to": "2025-12-18",
+     "periods": 5,
+     "turnover": 47,
+     "annNet": 16.8,
+     "annMarket": -3.0,
+     "avgExcess": 4.79,
+     "beatPct": 93,
+     "t": 2.99,
+     "firstHalf": 5.35,
+     "secondHalf": 4.29,
+     "worstPeriod": -4.9
+    },
+    "since2026": {
+     "from": "2026-01-21",
+     "to": "2026-08-20",
+     "periods": 3,
+     "turnover": 40,
+     "annNet": 33.9,
+     "annMarket": 3.6,
+     "avgExcess": 6.01,
+     "beatPct": 75,
+     "t": 1.03,
+     "firstHalf": 10.85,
+     "secondHalf": 1.17,
+     "worstPeriod": 0.0
+    }
+   },
+   "top10_join": {
+    "walk": {
+     "from": "2024-03-13",
+     "to": "2026-08-20",
+     "periods": 10,
+     "turnover": 52,
+     "annNet": 22.2,
+     "annMarket": 0.2,
+     "avgExcess": 5.09,
+     "beatPct": 93,
+     "t": 2.85,
+     "firstHalf": 4.87,
+     "secondHalf": 5.3,
+     "worstPeriod": -5.3
+    },
+    "common": {
+     "from": "2024-10-14",
+     "to": "2026-08-20",
+     "periods": 8,
+     "turnover": 45,
+     "annNet": 21.8,
+     "annMarket": -0.6,
+     "avgExcess": 5.17,
+     "beatPct": 91,
+     "t": 2.33,
+     "firstHalf": 4.49,
+     "secondHalf": 5.8,
+     "worstPeriod": -5.3
+    },
+    "pre2026": {
+     "from": "2024-10-14",
+     "to": "2025-12-18",
+     "periods": 5,
+     "turnover": 47,
+     "annNet": 17.1,
+     "annMarket": -3.0,
+     "avgExcess": 4.86,
+     "beatPct": 100,
+     "t": 3.09,
+     "firstHalf": 5.13,
+     "secondHalf": 4.62,
+     "worstPeriod": -5.3
+    },
+    "since2026": {
+     "from": "2026-01-21",
+     "to": "2026-08-20",
+     "periods": 3,
+     "turnover": 40,
+     "annNet": 32.5,
+     "annMarket": 3.6,
+     "avgExcess": 5.76,
+     "beatPct": 75,
+     "t": 0.97,
+     "firstHalf": 10.84,
+     "secondHalf": 0.68,
+     "worstPeriod": 0.9
+    }
+   },
+   "top10_keep20": {
+    "walk": {
+     "from": "2024-03-13",
+     "to": "2026-08-20",
+     "periods": 10,
+     "turnover": 30,
+     "annNet": 18.4,
+     "annMarket": 0.2,
+     "avgExcess": 4.28,
+     "beatPct": 83,
+     "t": 2.11,
+     "firstHalf": 4.3,
+     "secondHalf": 4.27,
+     "worstPeriod": -4.6
+    },
+    "common": {
+     "from": "2024-10-14",
+     "to": "2026-08-20",
+     "periods": 8,
+     "turnover": 21,
+     "annNet": 18.7,
+     "annMarket": -0.6,
+     "avgExcess": 4.53,
+     "beatPct": 87,
+     "t": 1.79,
+     "firstHalf": 4.47,
+     "secondHalf": 4.58,
+     "worstPeriod": -4.6
+    },
+    "pre2026": {
+     "from": "2024-10-14",
+     "to": "2025-12-18",
+     "periods": 5,
+     "turnover": 26,
+     "annNet": 14.7,
+     "annMarket": -3.0,
+     "avgExcess": 4.31,
+     "beatPct": 93,
+     "t": 2.54,
+     "firstHalf": 4.8,
+     "secondHalf": 3.89,
+     "worstPeriod": -4.6
+    },
+    "since2026": {
+     "from": "2026-01-21",
+     "to": "2026-08-20",
+     "periods": 3,
+     "turnover": 11,
+     "annNet": 28.8,
+     "annMarket": 3.6,
+     "avgExcess": 4.93,
+     "beatPct": 75,
+     "t": 0.72,
+     "firstHalf": 10.2,
+     "secondHalf": -0.34,
+     "worstPeriod": -0.5
+    }
+   },
+   "top10_keep30": {
+    "walk": {
+     "from": "2024-03-13",
+     "to": "2026-08-20",
+     "periods": 10,
+     "turnover": 21,
+     "annNet": 19.9,
+     "annMarket": 0.2,
+     "avgExcess": 4.57,
+     "beatPct": 87,
+     "t": 2.42,
+     "firstHalf": 4.26,
+     "secondHalf": 4.87,
+     "worstPeriod": -4.1
+    },
+    "common": {
+     "from": "2024-10-14",
+     "to": "2026-08-20",
+     "periods": 8,
+     "turnover": 10,
+     "annNet": 21.6,
+     "annMarket": -0.6,
+     "avgExcess": 5.13,
+     "beatPct": 91,
+     "t": 2.16,
+     "firstHalf": 5.1,
+     "secondHalf": 5.15,
+     "worstPeriod": -4.1
+    },
+    "pre2026": {
+     "from": "2024-10-14",
+     "to": "2025-12-18",
+     "periods": 5,
+     "turnover": 12,
+     "annNet": 17.3,
+     "annMarket": -3.0,
+     "avgExcess": 4.83,
+     "beatPct": 100,
+     "t": 3.72,
+     "firstHalf": 6.05,
+     "secondHalf": 3.77,
+     "worstPeriod": -4.1
+    },
+    "since2026": {
+     "from": "2026-01-21",
+     "to": "2026-08-20",
+     "periods": 3,
+     "turnover": 6,
+     "annNet": 31.1,
+     "annMarket": 3.6,
+     "avgExcess": 5.68,
+     "beatPct": 75,
+     "t": 0.85,
+     "firstHalf": 12.06,
+     "secondHalf": -0.7,
+     "worstPeriod": 2.8
+    }
+   },
+   "top10_monthly_keep20": {
+    "walk": {
+     "from": "2024-03-13",
+     "to": "2026-08-20",
+     "periods": 30,
+     "turnover": 16,
+     "annNet": 11.1,
+     "annMarket": -0.9,
+     "avgExcess": 0.96,
+     "beatPct": 63,
+     "t": 1.84,
+     "firstHalf": 0.92,
+     "secondHalf": 1.0,
+     "worstPeriod": -3.2
+    },
+    "common": {
+     "from": "2024-10-14",
+     "to": "2026-08-20",
+     "periods": 23,
+     "turnover": 11,
+     "annNet": 13.5,
+     "annMarket": -1.8,
+     "avgExcess": 1.22,
+     "beatPct": 61,
+     "t": 1.91,
+     "firstHalf": 1.24,
+     "secondHalf": 1.2,
+     "worstPeriod": -3.2
+    },
+    "pre2026": {
+     "from": "2024-10-14",
+     "to": "2025-12-18",
+     "periods": 15,
+     "turnover": 13,
+     "annNet": 8.0,
+     "annMarket": -0.4,
+     "avgExcess": 0.68,
+     "beatPct": 60,
+     "t": 1.04,
+     "firstHalf": 1.79,
+     "secondHalf": -0.29,
+     "worstPeriod": -3.2
+    },
+    "since2026": {
+     "from": "2026-01-21",
+     "to": "2026-08-20",
+     "periods": 8,
+     "turnover": 6,
+     "annNet": 24.5,
+     "annMarket": -4.4,
+     "avgExcess": 2.22,
+     "beatPct": 62,
+     "t": 1.64,
+     "firstHalf": 2.78,
+     "secondHalf": 1.66,
+     "worstPeriod": -1.9
+    }
+   },
+   "top10_mid_keep20": {
+    "walk": {
+     "from": "2024-03-13",
+     "to": "2026-08-20",
+     "periods": 10,
+     "turnover": 30,
+     "annNet": 22.3,
+     "annMarket": 0.2,
+     "avgExcess": 5.13,
+     "beatPct": 93,
+     "t": 2.6,
+     "firstHalf": 5.37,
+     "secondHalf": 4.89,
+     "worstPeriod": -5.4
+    },
+    "common": {
+     "from": "2024-10-14",
+     "to": "2026-08-20",
+     "periods": 8,
+     "turnover": 21,
+     "annNet": 21.6,
+     "annMarket": -0.6,
+     "avgExcess": 5.16,
+     "beatPct": 91,
+     "t": 2.08,
+     "firstHalf": 5.03,
+     "secondHalf": 5.27,
+     "worstPeriod": -5.4
+    },
+    "pre2026": {
+     "from": "2024-10-14",
+     "to": "2025-12-18",
+     "periods": 5,
+     "turnover": 26,
+     "annNet": 17.2,
+     "annMarket": -3.0,
+     "avgExcess": 4.89,
+     "beatPct": 100,
+     "t": 2.51,
+     "firstHalf": 5.62,
+     "secondHalf": 4.25,
+     "worstPeriod": -5.4
+    },
+    "since2026": {
+     "from": "2026-01-21",
+     "to": "2026-08-20",
+     "periods": 3,
+     "turnover": 11,
+     "annNet": 32.1,
+     "annMarket": 3.6,
+     "avgExcess": 5.66,
+     "beatPct": 75,
+     "t": 0.88,
+     "firstHalf": 10.61,
+     "secondHalf": 0.71,
+     "worstPeriod": 0.2
+    }
+   },
+   "top10_mid_keep30": {
+    "walk": {
+     "from": "2024-03-13",
+     "to": "2026-08-20",
+     "periods": 10,
+     "turnover": 21,
+     "annNet": 22.8,
+     "annMarket": 0.2,
+     "avgExcess": 5.19,
+     "beatPct": 93,
+     "t": 2.91,
+     "firstHalf": 5.0,
+     "secondHalf": 5.38,
+     "worstPeriod": -3.8
+    },
+    "common": {
+     "from": "2024-10-14",
+     "to": "2026-08-20",
+     "periods": 8,
+     "turnover": 10,
+     "annNet": 23.4,
+     "annMarket": -0.6,
+     "avgExcess": 5.52,
+     "beatPct": 91,
+     "t": 2.42,
+     "firstHalf": 5.18,
+     "secondHalf": 5.82,
+     "worstPeriod": -3.8
+    },
+    "pre2026": {
+     "from": "2024-10-14",
+     "to": "2025-12-18",
+     "periods": 5,
+     "turnover": 12,
+     "annNet": 17.9,
+     "annMarket": -3.0,
+     "avgExcess": 5.01,
+     "beatPct": 100,
+     "t": 3.39,
+     "firstHalf": 6.24,
+     "secondHalf": 3.92,
+     "worstPeriod": -3.8
+    },
+    "since2026": {
+     "from": "2026-01-21",
+     "to": "2026-08-20",
+     "periods": 3,
+     "turnover": 6,
+     "annNet": 34.8,
+     "annMarket": 3.6,
+     "avgExcess": 6.47,
+     "beatPct": 75,
+     "t": 1.05,
+     "firstHalf": 12.3,
+     "secondHalf": 0.64,
+     "worstPeriod": 2.8
+    }
+   },
+   "top7_mid_keep20": {
+    "walk": {
+     "from": "2024-03-13",
+     "to": "2026-08-20",
+     "periods": 10,
+     "turnover": 24,
+     "annNet": 29.0,
+     "annMarket": 0.2,
+     "avgExcess": 6.56,
+     "beatPct": 90,
+     "t": 3.17,
+     "firstHalf": 6.07,
+     "secondHalf": 7.05,
+     "worstPeriod": -3.5
+    },
+    "common": {
+     "from": "2024-10-14",
+     "to": "2026-08-20",
+     "periods": 8,
+     "turnover": 14,
+     "annNet": 30.1,
+     "annMarket": -0.6,
+     "avgExcess": 6.96,
+     "beatPct": 91,
+     "t": 2.75,
+     "firstHalf": 6.13,
+     "secondHalf": 7.73,
+     "worstPeriod": -3.5
+    },
+    "pre2026": {
+     "from": "2024-10-14",
+     "to": "2025-12-18",
+     "periods": 5,
+     "turnover": 18,
+     "annNet": 25.2,
+     "annMarket": -3.0,
+     "avgExcess": 6.64,
+     "beatPct": 100,
+     "t": 3.22,
+     "firstHalf": 7.28,
+     "secondHalf": 6.08,
+     "worstPeriod": -3.5
+    },
+    "since2026": {
+     "from": "2026-01-21",
+     "to": "2026-08-20",
+     "periods": 3,
+     "turnover": 5,
+     "annNet": 41.8,
+     "annMarket": 3.6,
+     "avgExcess": 7.56,
+     "beatPct": 75,
+     "t": 1.17,
+     "firstHalf": 12.75,
+     "secondHalf": 2.38,
+     "worstPeriod": 2.8
+    }
+   },
+   "top5_cross": {
+    "walk": {
+     "from": "2024-03-13",
+     "to": "2026-08-20",
+     "periods": 10,
+     "turnover": 55,
+     "annNet": 24.5,
+     "annMarket": 0.2,
+     "avgExcess": 5.73,
+     "beatPct": 73,
+     "t": 2.13,
+     "firstHalf": 5.05,
+     "secondHalf": 6.42,
+     "worstPeriod": -10.9
+    },
+    "common": {
+     "from": "2024-10-14",
+     "to": "2026-08-20",
+     "periods": 8,
+     "turnover": 49,
+     "annNet": 28.1,
+     "annMarket": -0.6,
+     "avgExcess": 6.63,
+     "beatPct": 78,
+     "t": 2.23,
+     "firstHalf": 6.59,
+     "secondHalf": 6.65,
+     "worstPeriod": -6.4
+    },
+    "pre2026": {
+     "from": "2024-10-14",
+     "to": "2025-12-18",
+     "periods": 5,
+     "turnover": 47,
+     "annNet": 25.3,
+     "annMarket": -3.0,
+     "avgExcess": 6.58,
+     "beatPct": 93,
+     "t": 3.51,
+     "firstHalf": 7.46,
+     "secondHalf": 5.82,
+     "worstPeriod": -1.2
+    },
+    "since2026": {
+     "from": "2026-01-21",
+     "to": "2026-08-20",
+     "periods": 3,
+     "turnover": 52,
+     "annNet": 37.0,
+     "annMarket": 3.6,
+     "avgExcess": 6.71,
+     "beatPct": 50,
+     "t": 0.82,
+     "firstHalf": 12.48,
+     "secondHalf": 0.93,
+     "worstPeriod": -6.4
+    }
+   },
+   "top5_cross_keep20": {
+    "walk": {
+     "from": "2024-03-13",
+     "to": "2026-08-20",
+     "periods": 10,
+     "turnover": 21,
+     "annNet": 32.8,
+     "annMarket": 0.2,
+     "avgExcess": 7.44,
+     "beatPct": 87,
+     "t": 2.64,
+     "firstHalf": 6.18,
+     "secondHalf": 8.71,
+     "worstPeriod": -10.4
+    },
+    "common": {
+     "from": "2024-10-14",
+     "to": "2026-08-20",
+     "periods": 8,
+     "turnover": 10,
+     "annNet": 37.2,
+     "annMarket": -0.6,
+     "avgExcess": 8.45,
+     "beatPct": 91,
+     "t": 2.6,
+     "firstHalf": 7.45,
+     "secondHalf": 9.37,
+     "worstPeriod": -2.6
+    },
+    "pre2026": {
+     "from": "2024-10-14",
+     "to": "2025-12-18",
+     "periods": 5,
+     "turnover": 13,
+     "annNet": 31.5,
+     "annMarket": -3.0,
+     "avgExcess": 7.99,
+     "beatPct": 100,
+     "t": 3.23,
+     "firstHalf": 8.4,
+     "secondHalf": 7.63,
+     "worstPeriod": -2.6
+    },
+    "since2026": {
+     "from": "2026-01-21",
+     "to": "2026-08-20",
+     "periods": 3,
+     "turnover": 5,
+     "annNet": 51.4,
+     "annMarket": 3.6,
+     "avgExcess": 9.31,
+     "beatPct": 75,
+     "t": 1.1,
+     "firstHalf": 15.82,
+     "secondHalf": 2.8,
+     "worstPeriod": 2.2
+    }
+   },
+   "top5_mid": {
+    "walk": {
+     "from": "2024-03-13",
+     "to": "2026-08-20",
+     "periods": 10,
+     "turnover": 55,
+     "annNet": 29.6,
+     "annMarket": 0.2,
+     "avgExcess": 6.77,
+     "beatPct": 83,
+     "t": 2.61,
+     "firstHalf": 6.26,
+     "secondHalf": 7.27,
+     "worstPeriod": -6.3
+    },
+    "common": {
+     "from": "2024-10-14",
+     "to": "2026-08-20",
+     "periods": 8,
+     "turnover": 49,
+     "annNet": 32.5,
+     "annMarket": -0.6,
+     "avgExcess": 7.5,
+     "beatPct": 91,
+     "t": 2.56,
+     "firstHalf": 7.22,
+     "secondHalf": 7.76,
+     "worstPeriod": -3.7
+    },
+    "pre2026": {
+     "from": "2024-10-14",
+     "to": "2025-12-18",
+     "periods": 5,
+     "turnover": 47,
+     "annNet": 28.5,
+     "annMarket": -3.0,
+     "avgExcess": 7.31,
+     "beatPct": 100,
+     "t": 3.42,
+     "firstHalf": 8.48,
+     "secondHalf": 6.28,
+     "worstPeriod": -1.0
+    },
+    "since2026": {
+     "from": "2026-01-21",
+     "to": "2026-08-20",
+     "periods": 3,
+     "turnover": 52,
+     "annNet": 43.2,
+     "annMarket": 3.6,
+     "avgExcess": 7.86,
+     "beatPct": 75,
+     "t": 1.01,
+     "firstHalf": 13.77,
+     "secondHalf": 1.95,
+     "worstPeriod": -3.7
+    }
+   },
+   "top5_mid_keep10": {
+    "walk": {
+     "from": "2024-03-13",
+     "to": "2026-08-20",
+     "periods": 10,
+     "turnover": 35,
+     "annNet": 30.9,
+     "annMarket": 0.2,
+     "avgExcess": 7.03,
+     "beatPct": 87,
+     "t": 2.95,
+     "firstHalf": 6.68,
+     "secondHalf": 7.38,
+     "worstPeriod": -6.3
+    },
+    "common": {
+     "from": "2024-10-14",
+     "to": "2026-08-20",
+     "periods": 8,
+     "turnover": 23,
+     "annNet": 33.6,
+     "annMarket": -0.6,
+     "avgExcess": 7.73,
+     "beatPct": 91,
+     "t": 2.85,
+     "firstHalf": 7.74,
+     "secondHalf": 7.73,
+     "worstPeriod": -2.0
+    },
+    "pre2026": {
+     "from": "2024-10-14",
+     "to": "2025-12-18",
+     "periods": 5,
+     "turnover": 24,
+     "annNet": 32.0,
+     "annMarket": -3.0,
+     "avgExcess": 8.05,
+     "beatPct": 100,
+     "t": 3.25,
+     "firstHalf": 8.83,
+     "secondHalf": 7.36,
+     "worstPeriod": -2.0
+    },
+    "since2026": {
+     "from": "2026-01-21",
+     "to": "2026-08-20",
+     "periods": 3,
+     "turnover": 22,
+     "annNet": 39.3,
+     "annMarket": 3.6,
+     "avgExcess": 7.15,
+     "beatPct": 75,
+     "t": 1.09,
+     "firstHalf": 11.41,
+     "secondHalf": 2.9,
+     "worstPeriod": 0.7
+    }
+   },
+   "top5_mid_keep15": {
+    "walk": {
+     "from": "2024-03-13",
+     "to": "2026-08-20",
+     "periods": 10,
+     "turnover": 23,
+     "annNet": 35.9,
+     "annMarket": 0.2,
+     "avgExcess": 8.09,
+     "beatPct": 87,
+     "t": 2.79,
+     "firstHalf": 6.81,
+     "secondHalf": 9.37,
+     "worstPeriod": -6.8
+    },
+    "common": {
+     "from": "2024-10-14",
+     "to": "2026-08-20",
+     "periods": 8,
+     "turnover": 11,
+     "annNet": 40.0,
+     "annMarket": -0.6,
+     "avgExcess": 9.04,
+     "beatPct": 91,
+     "t": 2.61,
+     "firstHalf": 7.78,
+     "secondHalf": 10.2,
+     "worstPeriod": -3.6
+    },
+    "pre2026": {
+     "from": "2024-10-14",
+     "to": "2025-12-18",
+     "periods": 5,
+     "turnover": 12,
+     "annNet": 34.0,
+     "annMarket": -3.0,
+     "avgExcess": 8.54,
+     "beatPct": 100,
+     "t": 3.09,
+     "firstHalf": 8.92,
+     "secondHalf": 8.21,
+     "worstPeriod": -3.6
+    },
+    "since2026": {
+     "from": "2026-01-21",
+     "to": "2026-08-20",
+     "periods": 3,
+     "turnover": 10,
+     "annNet": 54.7,
+     "annMarket": 3.6,
+     "avgExcess": 9.98,
+     "beatPct": 75,
+     "t": 1.12,
+     "firstHalf": 17.15,
+     "secondHalf": 2.81,
+     "worstPeriod": 1.6
+    }
+   },
+   "top5_mid_keep20": {
+    "walk": {
+     "from": "2024-03-13",
+     "to": "2026-08-20",
+     "periods": 10,
+     "turnover": 21,
+     "annNet": 36.6,
+     "annMarket": 0.2,
+     "avgExcess": 8.23,
+     "beatPct": 87,
+     "t": 2.92,
+     "firstHalf": 7.19,
+     "secondHalf": 9.26,
+     "worstPeriod": -6.8
+    },
+    "common": {
+     "from": "2024-10-14",
+     "to": "2026-08-20",
+     "periods": 8,
+     "turnover": 10,
+     "annNet": 40.5,
+     "annMarket": -0.6,
+     "avgExcess": 9.13,
+     "beatPct": 91,
+     "t": 2.73,
+     "firstHalf": 8.11,
+     "secondHalf": 10.07,
+     "worstPeriod": -3.6
+    },
+    "pre2026": {
+     "from": "2024-10-14",
+     "to": "2025-12-18",
+     "periods": 5,
+     "turnover": 13,
+     "annNet": 34.8,
+     "annMarket": -3.0,
+     "avgExcess": 8.72,
+     "beatPct": 100,
+     "t": 2.82,
+     "firstHalf": 9.44,
+     "secondHalf": 8.09,
+     "worstPeriod": -3.6
+    },
+    "since2026": {
+     "from": "2026-01-21",
+     "to": "2026-08-20",
+     "periods": 3,
+     "turnover": 5,
+     "annNet": 54.6,
+     "annMarket": 3.6,
+     "avgExcess": 9.9,
+     "beatPct": 75,
+     "t": 1.23,
+     "firstHalf": 16.18,
+     "secondHalf": 3.62,
+     "worstPeriod": 3.8
+    }
+   },
+   "top5_mid_keep25": {
+    "walk": {
+     "from": "2024-03-13",
+     "to": "2026-08-20",
+     "periods": 10,
+     "turnover": 18,
+     "annNet": 36.9,
+     "annMarket": 0.2,
+     "avgExcess": 8.26,
+     "beatPct": 87,
+     "t": 3.01,
+     "firstHalf": 7.29,
+     "secondHalf": 9.23,
+     "worstPeriod": -6.8
+    },
+    "common": {
+     "from": "2024-10-14",
+     "to": "2026-08-20",
+     "periods": 8,
+     "turnover": 7,
+     "annNet": 40.9,
+     "annMarket": -0.6,
+     "avgExcess": 9.18,
+     "beatPct": 91,
+     "t": 2.83,
+     "firstHalf": 8.3,
+     "secondHalf": 9.98,
+     "worstPeriod": -2.5
+    },
+    "pre2026": {
+     "from": "2024-10-14",
+     "to": "2025-12-18",
+     "periods": 5,
+     "turnover": 8,
+     "annNet": 34.9,
+     "annMarket": -3.0,
+     "avgExcess": 8.69,
+     "beatPct": 100,
+     "t": 3.15,
+     "firstHalf": 9.65,
+     "secondHalf": 7.84,
+     "worstPeriod": -2.5
+    },
+    "since2026": {
+     "from": "2026-01-21",
+     "to": "2026-08-20",
+     "periods": 3,
+     "turnover": 5,
+     "annNet": 56.3,
+     "annMarket": 3.6,
+     "avgExcess": 10.11,
+     "beatPct": 75,
+     "t": 1.25,
+     "firstHalf": 16.66,
+     "secondHalf": 3.55,
+     "worstPeriod": 3.9
+    }
+   },
+   "top5_mid_keep30": {
+    "walk": {
+     "from": "2024-03-13",
+     "to": "2026-08-20",
+     "periods": 10,
+     "turnover": 18,
+     "annNet": 36.9,
+     "annMarket": 0.2,
+     "avgExcess": 8.26,
+     "beatPct": 87,
+     "t": 3.01,
+     "firstHalf": 7.29,
+     "secondHalf": 9.23,
+     "worstPeriod": -6.8
+    },
+    "common": {
+     "from": "2024-10-14",
+     "to": "2026-08-20",
+     "periods": 8,
+     "turnover": 7,
+     "annNet": 40.9,
+     "annMarket": -0.6,
+     "avgExcess": 9.18,
+     "beatPct": 91,
+     "t": 2.83,
+     "firstHalf": 8.3,
+     "secondHalf": 9.98,
+     "worstPeriod": -2.5
+    },
+    "pre2026": {
+     "from": "2024-10-14",
+     "to": "2025-12-18",
+     "periods": 5,
+     "turnover": 8,
+     "annNet": 34.9,
+     "annMarket": -3.0,
+     "avgExcess": 8.69,
+     "beatPct": 100,
+     "t": 3.15,
+     "firstHalf": 9.65,
+     "secondHalf": 7.84,
+     "worstPeriod": -2.5
+    },
+    "since2026": {
+     "from": "2026-01-21",
+     "to": "2026-08-20",
+     "periods": 3,
+     "turnover": 5,
+     "annNet": 56.3,
+     "annMarket": 3.6,
+     "avgExcess": 10.11,
+     "beatPct": 75,
+     "t": 1.25,
+     "firstHalf": 16.66,
+     "secondHalf": 3.55,
+     "worstPeriod": 3.9
+    }
+   }
+  }
+ },
+ "ship": {
+  "name": "top5_mid_keep20",
+  "tried": 17,
+  "top": 5,
+  "keep": 20,
+  "fill": "mid",
+  "limitDays": 5,
+  "walk": {
+   "from": "2024-03-13",
+   "to": "2026-08-20",
+   "periods": 10,
+   "turnover": 21,
+   "annNet": 36.6,
+   "annMarket": 0.2,
+   "avgExcess": 8.23,
+   "beatPct": 87,
+   "t": 2.92,
+   "firstHalf": 7.19,
+   "secondHalf": 9.26,
+   "worstPeriod": -6.8
+  },
+  "common": {
+   "from": "2024-10-14",
+   "to": "2026-08-20",
+   "periods": 8,
+   "turnover": 10,
+   "annNet": 40.5,
+   "annMarket": -0.6,
+   "avgExcess": 9.13,
+   "beatPct": 91,
+   "t": 2.73,
+   "firstHalf": 8.11,
+   "secondHalf": 10.07,
+   "worstPeriod": -3.6
+  },
+  "pre2026": {
+   "from": "2024-10-14",
+   "to": "2025-12-18",
+   "periods": 5,
+   "turnover": 13,
+   "annNet": 34.8,
+   "annMarket": -3.0,
+   "avgExcess": 8.72,
+   "beatPct": 100,
+   "t": 2.82,
+   "firstHalf": 9.44,
+   "secondHalf": 8.09,
+   "worstPeriod": -3.6
+  },
+  "since2026": {
+   "from": "2026-01-21",
+   "to": "2026-08-20",
+   "periods": 3,
+   "turnover": 5,
+   "annNet": 54.6,
+   "annMarket": 3.6,
+   "avgExcess": 9.9,
+   "beatPct": 75,
+   "t": 1.23,
+   "firstHalf": 16.18,
+   "secondHalf": 3.62,
+   "worstPeriod": 3.8
+  },
+  "best": [
+   "CAR",
+   "TJH",
+   "CCC"
+  ],
+  "withoutBest": {
+   "walk": {
+    "from": "2024-03-13",
+    "to": "2026-08-20",
+    "periods": 10,
+    "turnover": 33,
+    "annNet": 7.9,
+    "annMarket": 0.2,
+    "avgExcess": 1.82,
+    "beatPct": 63,
+    "t": 1.54,
+    "firstHalf": 2.62,
+    "secondHalf": 1.02,
+    "worstPeriod": -4.5
+   },
+   "common": {
+    "from": "2024-10-14",
+    "to": "2026-08-20",
+    "periods": 8,
+    "turnover": 23,
+    "annNet": 6.0,
+    "annMarket": -0.6,
+    "avgExcess": 1.55,
+    "beatPct": 61,
+    "t": 1.13,
+    "firstHalf": 1.55,
+    "secondHalf": 1.55,
+    "worstPeriod": -3.7
+   },
+   "pre2026": {
+    "from": "2024-10-14",
+    "to": "2025-12-18",
+    "periods": 5,
+    "turnover": 28,
+    "annNet": 0.5,
+    "annMarket": -3.0,
+    "avgExcess": 0.87,
+    "beatPct": 53,
+    "t": 0.62,
+    "firstHalf": 2.98,
+    "secondHalf": -0.98,
+    "worstPeriod": -3.4
+   },
+   "since2026": {
+    "from": "2026-01-21",
+    "to": "2026-08-20",
+    "periods": 3,
+    "turnover": 12,
+    "annNet": 17.1,
+    "annMarket": 3.6,
+    "avgExcess": 2.84,
+    "beatPct": 75,
+    "t": 0.96,
+    "firstHalf": 6.11,
+    "secondHalf": -0.44,
+    "worstPeriod": -3.7
+   }
+  },
+  "oldScore": {
+   "walk": {
+    "from": "2022-12-08",
+    "to": "2026-08-20",
+    "periods": 15,
+    "turnover": 23,
+    "annNet": 28.5,
+    "annMarket": -0.6,
+    "avgExcess": 6.76,
+    "beatPct": 84,
+    "t": 3.16,
+    "firstHalf": 5.15,
+    "secondHalf": 8.29,
+    "worstPeriod": -4.7
+   },
+   "common": {
+    "from": "2024-10-14",
+    "to": "2026-08-20",
+    "periods": 8,
+    "turnover": 14,
+    "annNet": 36.6,
+    "annMarket": -0.6,
+    "avgExcess": 8.29,
+    "beatPct": 87,
+    "t": 2.27,
+    "firstHalf": 5.93,
+    "secondHalf": 10.46,
+    "worstPeriod": -2.0
+   },
+   "pre2026": {
+    "from": "2024-10-14",
+    "to": "2025-12-18",
+    "periods": 5,
+    "turnover": 16,
+    "annNet": 27.2,
+    "annMarket": -3.0,
+    "avgExcess": 7.05,
+    "beatPct": 93,
+    "t": 2.84,
+    "firstHalf": 7.88,
+    "secondHalf": 6.32,
+    "worstPeriod": -2.0
+   },
+   "since2026": {
+    "from": "2026-01-21",
+    "to": "2026-08-20",
+    "periods": 3,
+    "turnover": 10,
+    "annNet": 56.1,
+    "annMarket": 3.6,
+    "avgExcess": 10.62,
+    "beatPct": 75,
+    "t": 1.1,
+    "firstHalf": 18.17,
+    "secondHalf": 3.08,
+    "worstPeriod": 1.9
+   }
+  },
+  "fills": {
+   "orders": 8170,
+   "firstDayPct": 70,
+   "withinPct": 93,
+   "days": 5
   }
  },
  "forecastOrigins": 1071

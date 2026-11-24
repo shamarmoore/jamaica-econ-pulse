@@ -1,98 +1,98 @@
 {
  "w": [
-  -0.7648,
-  1.0001,
-  1.3426
+  -0.8202,
+  1.0356,
+  0.9494
  ],
  "inputs": [
-  "edge percentile (0\u20131)",
+  "Edge score (0\u20131, walk-forward)",
   "Timestral middle forecast (fraction)"
  ],
- "cases": 7184,
- "from": "2023-11-01",
- "to": "2026-08-05",
- "split": "2025-03-26",
- "baseUp": 43.5,
- "testAUC": 0.575,
+ "cases": 2975,
+ "from": "2024-03-13",
+ "to": "2026-07-21",
+ "split": "2025-05-16",
+ "baseUp": 42.5,
+ "testAUC": 0.567,
  "testCalib": [
   [
-   32,
-   34,
-   727
+   30,
+   36,
+   311
   ],
   [
-   40,
+   37,
    38,
-   727
+   311
   ],
   [
-   46,
+   44,
+   39,
+   310
+  ],
+  [
+   50,
    40,
-   726
+   311
   ],
   [
-   52,
-   41,
-   727
-  ],
-  [
-   58,
-   53,
-   727
+   57,
+   54,
+   311
   ]
  ],
- "top10UpRate": 58.6,
- "top10Mean": 5.3,
- "allMean": -0.0,
+ "top10UpRate": 66.7,
+ "top10Mean": 6.9,
+ "allMean": -0.2,
  "plus20": {
   "w": [
-   -2.5495,
-   0.2402,
-   1.1309
+   -2.3172,
+   -0.2413,
+   1.371
   ],
   "inputs": [
-   "edge percentile (0\u20131)",
+   "Edge score (0\u20131, walk-forward)",
    "Timestral middle forecast (fraction)"
   ],
   "threshold": 20,
-  "cases": 4493,
-  "from": "2022-12-08",
+  "cases": 2975,
+  "from": "2024-03-13",
   "to": "2026-07-21",
-  "split": "2024-10-14",
-  "baseRate": 8.1,
-  "testAUC": 0.538,
-  "testBrier": 0.0717,
-  "testBrierBase": 0.0718,
-  "skill": 0.001,
-  "show": true,
+  "split": "2025-05-16",
+  "baseRate": 7.9,
+  "testAUC": 0.469,
+  "testBrier": 0.0836,
+  "testBrierBase": 0.0837,
+  "skill": 0.0,
+  "show": false,
   "testCalib": [
    [
-    8,
-    9,
-    456
+    5,
+    14,
+    311
    ],
    [
+    6,
     8,
+    311
+   ],
+   [
     7,
-    455
+    6,
+    310
+   ],
+   [
+    7,
+    6,
+    311
    ],
    [
     8,
-    6,
-    455
-   ],
-   [
-    9,
-    6,
-    455
-   ],
-   [
-    9,
     12,
-    455
+    311
    ]
   ],
-  "top10Rate": 14.1,
-  "allRate": 7.8
+  "top10Rate": 15.3,
+  "allRate": 9.1
  }
 }
