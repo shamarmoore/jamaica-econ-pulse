@@ -673,6 +673,11 @@ function jseRows(d) {
   else rows.sort((a, b) => ((b[key] ?? -1e9) - (a[key] ?? -1e9)));
   return { L, r, rows, key };
 }
+// a reference card folds to its heading; render() keeps a fold the user opened open across refreshes
+function fold(k, html) {
+  const m = /^\s*<h2 class="sec">([\s\S]*?)<\/h2>/.exec(html);
+  return m ? `<details class="grp" data-k="${k}"><summary>${m[1]}</summary>${html.slice(m[0].length)}</details>` : html;
+}
 function viewTrade(d) {
   const L = d.jsequotes; if (L && !jseHist[L.date]) addJseToHist();
   const { r, rows, key } = jseRows(d); const F = d.forecasts;
@@ -706,20 +711,20 @@ function viewTrade(d) {
     </tbody></table></div>
     ${!jseAll && !jseQuery && rows.length > 20 ? `<button class="more" id="jse-all">Show all ${rows.length} stocks ›</button>` : ''}
     <p class="fine">Trend columns compare today’s close with saved closes (prices exclude dividends). In the latest tests (Mar 2023–Nov 2026, dividends included, buying the next day), 3- and 6-month trends on their own gave no reliable edge; being near the 52-week high and a positive 12-month trend helped a little and are part of the Edge score. ⚠ = more than 35% below its 52-week high. Thinly traded stocks can be hard to buy at the quoted close. Research shortlist, not advice.</p>`}
-    ${asymCard(F)}
-    ${trackCard(F)}
-    ${edgeCard(F)}
-    ${recoveryCard(F)}
-    ${popCard(F)}
-    ${aiCallsCard(F)}
-    ${regimeCard(F)}
-    ${sizingCard(F)}
+    ${fold('t-asym', asymCard(F))}
+    ${fold('t-track', trackCard(F))}
+    ${fold('t-edge', edgeCard(F))}
+    ${fold('t-recovery', recoveryCard(F))}
+    ${fold('t-pop', popCard(F))}
+    ${fold('t-aicalls', aiCallsCard(F))}
+    ${fold('t-regime', regimeCard(F))}
+    ${fold('t-sizing', sizingCard(F))}
     ${F?.ideas ? '<button class="more" id="ideas-btn">Every idea we tested — results & explanations ›</button>' : ''}
-    <h2 class="sec">US & global stocks <small>live TradingView chart</small></h2>
+    <details class="grp" data-k="t-tv"><summary>US & global stocks <small>live TradingView chart</small></summary>
     <div class="chips wrap">${TV_SYMBOLS.map(([l, sy]) => `<button data-tv="${sy}" class="${tvSym === sy ? 'on' : ''}">${l}</button>`).join('')}</div>
     <div class="calc2"><label>Any ticker (e.g. NASDAQ:AMD or NYSE:KO)<input id="tv-sym" value="${esc(tvSym)}" autocapitalize="characters" autocomplete="off"></label></div>
     <iframe class="tv" src="${tvUrl(tvSym, 'D', dark() ? 'dark' : 'light')}" title="TradingView chart" loading="lazy" allowtransparency="true"></iframe>
-    <p class="fine">Daily candles with RSI and an exponential moving average, streamed live from TradingView (needs data). JSE stocks aren’t on TradingView, so the table above uses the JSE’s own quotes.</p>`;
+    <p class="fine">Daily candles with RSI and an exponential moving average, streamed live from TradingView (needs data). JSE stocks aren’t on TradingView, so the table above uses the JSE’s own quotes.</p></details>`;
 }
 const pts = (v) => `${v >= 0.05 ? '+' : v <= -0.05 ? '−' : ''}${fmt(Math.abs(v), 1)} pts`;
 function tradeLesson(F) {
@@ -1520,7 +1525,8 @@ function eventsCard(d) {
   const key = `ai-plan-${d.forecasts.asof}-${E.length}-${positions.filter((p) => !p.exit).map((p) => p.sym).join('.')}`;
   return `<h2 class="sec">Opportunities from announcements <small>tested on JSE history</small></h2>
     ${aiButton('ai-plan', 'What should I do this week?', key)}${aiOut('ai-plan-out', key)}
-    <div class="sigs">${main.map(evRow).join('') || `<p class="fine">${d.forecasts.events ? 'Nothing actionable from recent announcements.' : 'This saved copy of the forecasts is from before announcements were added — tap ↻ at the top to refresh.'}</p>`}</div>
+    <div class="sigs">${main.slice(0, 3).map(evRow).join('') || `<p class="fine">${d.forecasts.events ? 'Nothing actionable from recent announcements.' : 'This saved copy of the forecasts is from before announcements were added — tap ↻ at the top to refresh.'}</p>`}</div>
+    ${main.length > 3 ? `<details data-k="ev-main"><summary>${main.length - 3} more tested opportunities</summary><div class="sigs">${main.slice(3).map(evRow).join('')}</div></details>` : ''}
     ${info.length ? `<details data-k="ev-info"><summary>${info.length} more — dividend meetings, splits, other notices</summary><div class="sigs">${info.map(evRow).join('')}</div></details>` : ''}
     <p class="fine">Labels come from back-tests of each event type since 2018 (after 1.5% costs each way, vs the average JSE stock). The one event with a consistent edge so far: buying high-yield dividends (≥3% of the price) before the ex-date — a small sample, so size it modestly.</p>`;
 }
@@ -1529,7 +1535,8 @@ function newsCard(d) {
   const R = relevantNews(d); if (!R.length) return '';
   const shown = withSums(d, R.slice(0, 10)); const key = `ai-dig-${R.slice(0, 25).map((p) => p.id).join('.')}`;
   return `<h2 class="sec">Announcements <small>your stocks, Edge top 20, insider trades</small></h2>
-    <div class="news">${shown.map((p) => newsItem(p, true)).join('')}</div>
+    <div class="news">${shown.slice(0, 4).map((p) => newsItem(p, true)).join('')}</div>
+    ${shown.length > 4 ? `<details data-k="news-more"><summary>${shown.length - 4} more announcements</summary><div class="news">${shown.slice(4).map((p) => newsItem(p, true)).join('')}</div></details>` : ''}
     ${aiButton('ai-digest', 'Digest the latest news', key)}${aiOut('ai-digest-out', key)}
     <p class="fine">From the JSE’s own announcements, refreshed nightly. Tap one to read it. ${insiderNote(d.forecasts)}</p>`;
 }
