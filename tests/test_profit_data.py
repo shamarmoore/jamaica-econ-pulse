@@ -149,6 +149,23 @@ class ProfitDataTests(unittest.TestCase):
                 early.append((s, end, months, pub, str(q[0].date())))
         self.assertEqual(early, [])
 
+    def test_a_filed_quarter_counts_from_its_filing_not_the_companys_usual_delay(self):
+        # TJH filed its third quarter of 2026 on 12 November 2026. One slow filing gave it a 120-day usual delay, which
+        # held the quarter back to 28 January 2027
+        self.assertEqual(counted(self.F['TJH'], 2026, 2)[0], pd.Timestamp('2026-11-12'))
+
+    def test_every_filed_quarter_counts_from_the_day_it_was_filed(self):
+        off = []
+        for (s, end, months), pub in first_filings().items():
+            f = self.F.get(s)
+            fy, month = balance.fy_end(end, months)
+            if not f or month != ((f.get('fye') or {}).get('month') or 12):
+                continue
+            q = counted(f, fy, months // 3 - 1)
+            if q and q[0] != pd.Timestamp(pub):
+                off.append((s, end, months, pub, str(q[0].date())))
+        self.assertEqual(off, [])
+
     def test_a_late_filer_counts_from_the_day_it_filed(self):
         # LEARN filed its second quarter to 30 June 2025 (J$445,292 profit for the owners) on 4 December 2025, 157 days later
         self.assertEqual([d for d, v in tslib._quarter_events(self.F['LEARN']) if v == 445_292], [pd.Timestamp('2025-12-04')])
