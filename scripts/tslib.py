@@ -276,6 +276,19 @@ def load_fundamentals(path='data/jse_fundamentals.json'):
     return F
 
 
+def quarter_end(fy, qi, fye_month):
+    """Last day of quarter qi (0-3) of the financial year fy that ends in fye_month."""
+    end = (pd.Timestamp(year=fy, month=fye_month, day=1) + pd.offsets.MonthEnd(0)) - pd.DateOffset(months=3 * (3 - qi))
+    return end + pd.offsets.MonthEnd(0)
+
+
+def report_currency(f):
+    """Currency the company's profit figures are in: its latest read report's, else that of its dividends."""
+    cur = ((f or {}).get('report') or {}).get('currency')
+    divs = [d for d in (f or {}).get('dividends', []) if d.get('cur')]
+    return cur or (divs[-1]['cur'] if divs else 'JMD')
+
+
 def fx_rate(f, price):
     """J$ per unit of the company's reporting/dividend currency, relative to how its SHARE PRICE is quoted.
     If dividends are in USD/TTD but converting them would give an absurd yield, the share itself is quoted in that
@@ -334,8 +347,7 @@ def _quarter_events(f):
         for qi, v in enumerate(qs[:4]):
             if v in (0, None):
                 continue
-            end = (pd.Timestamp(year=fyi, month=m, day=1) + pd.offsets.MonthEnd(0)) - pd.DateOffset(months=3 * (3 - qi))
-            end = end + pd.offsets.MonthEnd(0)
+            end = quarter_end(fyi, qi, m)
             day = (filed.get(fy) or [None] * 4)[qi]
             avail = pd.Timestamp(day) if day else end + pd.Timedelta(days=max(90, lag) if qi == 3 else lag)
             if ev:
