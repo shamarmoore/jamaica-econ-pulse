@@ -471,6 +471,10 @@ class CommitteeBacktestTests(unittest.TestCase):
         self.assertEqual(t['withinDates63']['verdict'], 'edge')
         self.assertEqual(t['beyondEdge63']['verdict'], 'edge')
 
+    def test_sell_calls_are_an_edge_when_those_stocks_lag_the_market(self):
+        self.assertEqual(C.summarize(self.rows(0.2))['tests']['underweightSell63']['verdict'], 'edge')
+        self.assertEqual(C.summarize(self.rows(-0.2))['tests']['underweightSell63']['verdict'], 'negative edge (avoid)')
+
     def test_ratings_unrelated_to_returns_are_no_reliable_edge(self):
         t = C.summarize(self.rows(0.0))['tests']
         self.assertEqual({v['verdict'] for v in t.values()}, {'no reliable edge'})
