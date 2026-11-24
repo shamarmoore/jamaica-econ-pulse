@@ -43,6 +43,16 @@ R = ((P + D) / P.shift(1) - 1).where(P.shift(1) > 0)
 R = R.clip(-0.6, 1.5)  # guard against bad prints
 TRI = (1 + R.fillna(0)).cumprod()
 
+
+def outcome(s, t, h, cost):
+    """What buying stock s at the close after day t (position t) and holding h trading days returned after `cost` each way,
+    and by how much that beat the average stock (stocks that traded on 20%+ of the last 60 days, equal weight)."""
+    r = float(np.clip(TRI[s].iloc[t + 1 + h] / TRI[s].iloc[t + 1], 0.05, 4) * (1 - cost) ** 2 - 1)
+    m = (V.iloc[max(0, t - 59):t + 1] > 0).mean() >= 0.2
+    u = m.values & (P.iloc[t].values > 0) & (TRI.iloc[t + 1].values > 0)
+    mk = float(np.nanmean(np.clip(TRI.iloc[t + 1 + h].values[u] / TRI.iloc[t + 1].values[u] - 1, -0.9, 3)))
+    return r, r - mk
+
 # ---- fundamentals as daily point-in-time series ----
 def fund_frames():
     out = {k: pd.DataFrame(np.nan, index=idx, columns=syms) for k in
