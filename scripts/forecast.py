@@ -4,7 +4,7 @@ import json, os, sys, time
 import numpy as np
 import pandas as pd
 sys.path.insert(0, 'scripts')
-from tslib import is_pref, load_history, load_fundamentals, fundamental_series, forecast, hype, health, LEVELS, MODEL_ID, FEATS, FEAT_NAMES
+from tslib import is_pref, load_history, load_fundamentals, fundamental_series, forecast, hype, health, report_currency, LEVELS, MODEL_ID, FEATS, FEAT_NAMES
 
 H = 63
 STEPS = list(range(2, H, 3)) + [H - 1]  # every 3rd trading day, 0-based step index, always incl. the last
@@ -43,7 +43,7 @@ def fund_summary(f):
     qs = sorted(f.get('quarters', {}).items())
     flat = [(fy, i + 1, v) for fy, vs in qs for i, v in enumerate(vs) if v]
     divs = f.get('dividends', [])[-4:]
-    return {'name': f.get('name'), 'fyeMonth': (f.get('fye') or {}).get('month'), 'shares': f.get('shares'),
+    return {'name': f.get('name'), 'fyeMonth': (f.get('fye') or {}).get('month'), 'shares': f.get('shares'), 'cur': report_currency(f),
             'lastQuarters': [[f'FY{fy} Q{q}', v] for fy, q, v in flat[-8:]], 'dividends': divs}
 
 
@@ -67,6 +67,16 @@ for i, s in enumerate(syms):
         'pref': is_pref(s),
         'fund': fund_summary(FUND.get(s)),
     }
+# ---- next quarter's profit for each company, and how such forecasts did on past quarters ----
+try:
+    import next_quarter as nq
+    companies = {s: FUND[s] for s in syms if FUND.get(s) and not is_pref(s)}
+    for s, e in nq.estimates(companies, forecast, last).items():
+        out['stocks'][s]['nextQ'] = e
+    out['nextQInfo'] = nq.backtest(companies, forecast, last)
+    print('NEXT QUARTER', sum('nextQ' in st for st in out['stocks'].values()), 'stocks;', json.dumps(out['nextQInfo']))
+except Exception as e:
+    print('next quarter skipped:', repr(e)[:200])
 # ---- Edge: the one stock score (scripts/edge_v2.py); also logs tonight's buy list for the live track record ----
 try:
     import factor_study as fs

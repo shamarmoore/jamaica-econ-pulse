@@ -123,13 +123,13 @@ function gaugeCard(name, gauge, prev, blurb, key = '') {
     <div class="segs">${segs}</div><div class="gblurb">${blurb}${moved}</div></div>`;
 }
 
-function insightCard(x, i) {
+function insightCard(x) {
   const [lab, ic] = LEVEL[x.level];
   return `<article class="ins ${x.level}">
     <div class="ins-h"><span class="chip ${x.level}">${ic} ${lab}</span><span class="scope">${x.scope}</span></div>
     <h3>${esc(x.title)}</h3>
     <p class="sig">${esc(x.signal)}</p>
-    <details data-k="ins-${esc(x.title.slice(0, 30))}" ${i < 2 ? 'open' : ''}><summary>How it could affect Jamaica</summary>
+    <details data-k="ins-${esc(x.title.slice(0, 30))}"><summary>How it could affect Jamaica</summary>
       <ul>${x.effects.map((e) => `<li>${esc(e)}</li>`).join('')}</ul>
       <p class="watch"><b>Watch:</b> ${esc(x.watch)}</p>
       <p class="src">Data: ${x.sources.map((s) => esc(SOURCES.find((z) => z.id === s)?.name || s)).join(' · ')}</p>
@@ -143,6 +143,8 @@ function viewPulse(d, a) {
   if (!a.insights.length) return empty(running.size ? 'Gathering the latest numbers…' : 'No data yet. Check your connection and tap refresh.');
   const pg = prevGauges?.g || {};
   const c = a.consider;
+  const loud = a.insights.filter((x) => x.level === 'pressure' || x.level === 'watch');
+  const calm = a.insights.filter((x) => !loud.includes(x));
   return `
   <section class="lede"><p>${esc(a.headline)}</p></section>
   ${movesStrip(d)}
@@ -153,13 +155,14 @@ function viewPulse(d, a) {
     ${gaugeCard('Shock risk', a.gauges.shock, pg.shock, 'Storms & disruptions', 'g_shock')}
   </section>
   <h2 class="sec">What’s moving the economy</h2>
-  ${a.insights.map(insightCard).join('')}
-  <h2 class="sec">Things to consider</h2>
+  ${loud.map(insightCard).join('')}
+  ${calm.length ? `<details class="grp" data-k="pulse-calm" ${loud.length ? '' : 'open'}><summary>Easing or steady <span class="cnt">${calm.length}</span></summary>${calm.map(insightCard).join('')}</details>` : ''}
+  <details class="grp" data-k="pulse-consider"><summary>Things to consider</summary>
   <section class="consider">
     ${[['Households', c.households], ['Businesses', c.businesses], ['Investors', c.investors]].map(([t, l]) => `
       <div><h4>${t}</h4><ul>${l.map((x) => `<li>${esc(x)}</li>`).join('')}</ul></div>`).join('')}
-    <p class="fine">Rule-based readings of public data, not forecasts or financial advice.</p>
-  </section>`;
+  </section></details>
+  <p class="fine">Rule-based readings of public data, not forecasts or financial advice.</p>`;
 }
 
 function stat(label, value, sub, extra = '', key = '') {
@@ -670,6 +673,11 @@ function jseRows(d) {
   else rows.sort((a, b) => ((b[key] ?? -1e9) - (a[key] ?? -1e9)));
   return { L, r, rows, key };
 }
+// a reference card folds to its heading; render() keeps a fold the user opened open across refreshes
+function fold(k, html) {
+  const m = /^\s*<h2 class="sec">([\s\S]*?)<\/h2>/.exec(html);
+  return m ? `<details class="grp" data-k="${k}"><summary>${m[1]}</summary>${html.slice(m[0].length)}</details>` : html;
+}
 function viewTrade(d) {
   const L = d.jsequotes; if (L && !jseHist[L.date]) addJseToHist();
   const { r, rows, key } = jseRows(d); const F = d.forecasts;
@@ -703,20 +711,20 @@ function viewTrade(d) {
     </tbody></table></div>
     ${!jseAll && !jseQuery && rows.length > 20 ? `<button class="more" id="jse-all">Show all ${rows.length} stocks ›</button>` : ''}
     <p class="fine">Trend columns compare today’s close with saved closes (prices exclude dividends). In the latest tests (Mar 2023–Nov 2026, dividends included, buying the next day), 3- and 6-month trends on their own gave no reliable edge; being near the 52-week high and a positive 12-month trend helped a little and are part of the Edge score. ⚠ = more than 35% below its 52-week high. Thinly traded stocks can be hard to buy at the quoted close. Research shortlist, not advice.</p>`}
-    ${asymCard(F)}
-    ${trackCard(F)}
-    ${edgeCard(F)}
-    ${recoveryCard(F)}
-    ${popCard(F)}
-    ${aiCallsCard(F)}
-    ${regimeCard(F)}
-    ${sizingCard(F)}
+    ${fold('t-asym', asymCard(F))}
+    ${fold('t-track', trackCard(F))}
+    ${fold('t-edge', edgeCard(F))}
+    ${fold('t-recovery', recoveryCard(F))}
+    ${fold('t-pop', popCard(F))}
+    ${fold('t-aicalls', aiCallsCard(F))}
+    ${fold('t-regime', regimeCard(F))}
+    ${fold('t-sizing', sizingCard(F))}
     ${F?.ideas ? '<button class="more" id="ideas-btn">Every idea we tested — results & explanations ›</button>' : ''}
-    <h2 class="sec">US & global stocks <small>live TradingView chart</small></h2>
+    <details class="grp" data-k="t-tv"><summary>US & global stocks <small>live TradingView chart</small></summary>
     <div class="chips wrap">${TV_SYMBOLS.map(([l, sy]) => `<button data-tv="${sy}" class="${tvSym === sy ? 'on' : ''}">${l}</button>`).join('')}</div>
     <div class="calc2"><label>Any ticker (e.g. NASDAQ:AMD or NYSE:KO)<input id="tv-sym" value="${esc(tvSym)}" autocapitalize="characters" autocomplete="off"></label></div>
     <iframe class="tv" src="${tvUrl(tvSym, 'D', dark() ? 'dark' : 'light')}" title="TradingView chart" loading="lazy" allowtransparency="true"></iframe>
-    <p class="fine">Daily candles with RSI and an exponential moving average, streamed live from TradingView (needs data). JSE stocks aren’t on TradingView, so the table above uses the JSE’s own quotes.</p>`;
+    <p class="fine">Daily candles with RSI and an exponential moving average, streamed live from TradingView (needs data). JSE stocks aren’t on TradingView, so the table above uses the JSE’s own quotes.</p></details>`;
 }
 const pts = (v) => `${v >= 0.05 ? '+' : v <= -0.05 ? '−' : ''}${fmt(Math.abs(v), 1)} pts`;
 function tradeLesson(F) {
@@ -766,6 +774,7 @@ function stockSheet(sym) {
     ${recoveryBlock(d, sym)}
     ${popBlock(d, sym)}
     ${signalsBlock(d.forecasts, sym)}
+    ${nextQBlock(d.forecasts, sym)}
     ${bsBlock(d.forecasts, sym)}
     ${holdersBlock(d.forecasts, sym)}
     ${forecastBlock(d.forecasts, sym)}
@@ -808,7 +817,16 @@ const recLabel = (k) => REC_GROUPS.find(([g]) => g === k)?.[1] || k;
 const AI_CALLS = 'ep_aicalls_v1';
 const aiCalls = { get() { try { return JSON.parse(localStorage.getItem(AI_CALLS)) || []; } catch (_) { return []; } },
   add(c) { const v = aiCalls.get().filter((x) => !(x.sym === c.sym && x.date === c.date)); v.push(c); try { localStorage.setItem(AI_CALLS, JSON.stringify(v.slice(-200))); } catch (_) { /* full */ } } };
-const quarterLine = (fund) => (fund?.lastQuarters || []).map(([q, v]) => `${q} ${v < 0 ? '−' : '+'}J$${fmt(Math.abs(v) / 1e6, 0)}M`).join(', ');
+const CUR = { JMD: 'J$', USD: 'US$', TTD: 'TT$', BBD: 'BB$' };
+const money = (v, cur) => { const a = Math.abs(v); return `${v < 0 ? '−' : ''}${CUR[cur] || 'J$'}${a >= 1e9 ? `${fmt(a / 1e9, 2)}B` : a >= 1e6 ? `${fmt(a / 1e6, 1)}M` : `${fmt(a / 1e3, 0)}K`}`; };
+const quarterLine = (fund) => (fund?.lastQuarters || []).map(([q, v]) => `${q} ${v < 0 ? '' : '+'}${money(v, fund.cur)}`).join(', ');
+function nextQBlock(F, sym) {
+  const e = F?.stocks?.[sym]?.nextQ; if (!e) return '';
+  const I = F.nextQInfo; const pc = (x) => `${Math.round(x * 100)}%`;
+  return `<h4>Next quarter estimate</h4>
+    <p>Profit for ${esc(e.label)}: about <b>${money(e.mid, e.cur)}</b>, likely between ${money(e.lo, e.cur)} and ${money(e.hi, e.cur)}.${e.lastYear != null ? ` The same quarter last year: ${money(e.lastYear, e.cur)}.` : ''}</p>
+    ${I ? `<p class="fine">Timestral’s forecast from this company’s own past quarters. Tested on ${I.cases.toLocaleString('en-US')} past quarters (${fd(I.from)} to ${fd(I.to)}): it missed by ${pc(I.error.timestral)} of a typical quarter, against ${pc(I.error.lastYear)} for “same as last year”. It called profit up or down on the year right ${I.direction.timestral}% of the time (last quarter’s trend: ${I.direction.lastQuarterTrend}%), and the actual figure landed inside the range ${I.inRange}% of the time. It estimates profit, not the share price: in a November 2026 test, buying the stocks with the strongest estimates did no better than the rest.</p>` : ''}`;
+}
 function recoveryBlock(d, sym) {
   const F = d.forecasts; const st = F?.stocks?.[sym]; const R = st?.recovery; const H = F?.ideas?.recovery; if (!R || !H) return '';
   const rows = R.groups.map((k) => [k, H[k]]).filter(([, h]) => h?.bigWin != null);
@@ -1507,7 +1525,8 @@ function eventsCard(d) {
   const key = `ai-plan-${d.forecasts.asof}-${E.length}-${positions.filter((p) => !p.exit).map((p) => p.sym).join('.')}`;
   return `<h2 class="sec">Opportunities from announcements <small>tested on JSE history</small></h2>
     ${aiButton('ai-plan', 'What should I do this week?', key)}${aiOut('ai-plan-out', key)}
-    <div class="sigs">${main.map(evRow).join('') || `<p class="fine">${d.forecasts.events ? 'Nothing actionable from recent announcements.' : 'This saved copy of the forecasts is from before announcements were added — tap ↻ at the top to refresh.'}</p>`}</div>
+    <div class="sigs">${main.slice(0, 3).map(evRow).join('') || `<p class="fine">${d.forecasts.events ? 'Nothing actionable from recent announcements.' : 'This saved copy of the forecasts is from before announcements were added — tap ↻ at the top to refresh.'}</p>`}</div>
+    ${main.length > 3 ? `<details data-k="ev-main"><summary>${main.length - 3} more tested opportunities</summary><div class="sigs">${main.slice(3).map(evRow).join('')}</div></details>` : ''}
     ${info.length ? `<details data-k="ev-info"><summary>${info.length} more — dividend meetings, splits, other notices</summary><div class="sigs">${info.map(evRow).join('')}</div></details>` : ''}
     <p class="fine">Labels come from back-tests of each event type since 2018 (after 1.5% costs each way, vs the average JSE stock). The one event with a consistent edge so far: buying high-yield dividends (≥3% of the price) before the ex-date — a small sample, so size it modestly.</p>`;
 }
@@ -1516,7 +1535,8 @@ function newsCard(d) {
   const R = relevantNews(d); if (!R.length) return '';
   const shown = withSums(d, R.slice(0, 10)); const key = `ai-dig-${R.slice(0, 25).map((p) => p.id).join('.')}`;
   return `<h2 class="sec">Announcements <small>your stocks, Edge top 20, insider trades</small></h2>
-    <div class="news">${shown.map((p) => newsItem(p, true)).join('')}</div>
+    <div class="news">${shown.slice(0, 4).map((p) => newsItem(p, true)).join('')}</div>
+    ${shown.length > 4 ? `<details data-k="news-more"><summary>${shown.length - 4} more announcements</summary><div class="news">${shown.slice(4).map((p) => newsItem(p, true)).join('')}</div></details>` : ''}
     ${aiButton('ai-digest', 'Digest the latest news', key)}${aiOut('ai-digest-out', key)}
     <p class="fine">From the JSE’s own announcements, refreshed nightly. Tap one to read it. ${insiderNote(d.forecasts)}</p>`;
 }
