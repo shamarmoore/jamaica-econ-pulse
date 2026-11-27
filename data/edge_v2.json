@@ -1,5 +1,5 @@
 {
- "made": "2026-11-26",
+ "made": "2026-11-27",
  "hold": 63,
  "fee": 0.005,
  "step": 21,
@@ -24,8 +24,6 @@
    "lowvol": 1,
    "lottery": 1,
    "bs_roe": 1,
-   "bs_lowdebt": 1,
-   "bs_netcash": 1,
    "bs_margin": 1,
    "bs_eq_assets": 1,
    "small": -1,
@@ -37,40 +35,40 @@
    "fcast": 1
   },
   "weights": {
-   "trend": 0.133,
-   "value": 0.1616,
-   "earnings": 0.1488,
-   "quality": 0.1546,
-   "trading": 0.13,
-   "events": 0.1424,
-   "forecast": 0.1296
+   "trend": 0.1327,
+   "value": 0.1611,
+   "earnings": 0.1484,
+   "quality": 0.1567,
+   "trading": 0.1297,
+   "events": 0.142,
+   "forecast": 0.1293
   },
-  "slope": 0.0987,
+  "slope": 0.0975,
   "buckets": [
    [
     0,
     20,
-    -4.14
+    -4.25
    ],
    [
     20,
     40,
-    -1.55
+    -1.5
    ],
    [
     40,
     60,
-    0.27
+    0.57
    ],
    [
     60,
     80,
-    1.06
+    1.14
    ],
    [
     80,
     100,
-    4.17
+    3.87
    ]
   ],
   "stats": {
@@ -130,19 +128,19 @@
     "n": 45
    },
    "bs_bp": {
-    "ic": 0.048,
-    "t": 1.33,
+    "ic": 0.041,
+    "t": 1.19,
     "n": 37
    },
    "bs_fcfy": {
-    "ic": 0.05,
-    "t": 1.47,
-    "n": 36
+    "ic": 0.068,
+    "t": 1.91,
+    "n": 37
    },
    "bs_ocfy": {
-    "ic": 0.056,
-    "t": 1.43,
-    "n": 36
+    "ic": 0.066,
+    "t": 1.7,
+    "n": 37
    },
    "growth": {
     "ic": 0.101,
@@ -195,34 +193,34 @@
     "n": 45
    },
    "bs_roe": {
-    "ic": 0.116,
-    "t": 3.03,
+    "ic": 0.111,
+    "t": 3.13,
     "n": 37
    },
    "bs_lowdebt": {
-    "ic": 0.106,
-    "t": 2.74,
-    "n": 36
+    "ic": 0.071,
+    "t": 1.78,
+    "n": 37
    },
    "bs_netcash": {
-    "ic": 0.078,
-    "t": 2.05,
-    "n": 36
+    "ic": 0.059,
+    "t": 1.4,
+    "n": 37
    },
    "bs_cashq": {
-    "ic": -0.056,
-    "t": -1.63,
-    "n": 36
+    "ic": -0.035,
+    "t": -1.0,
+    "n": 37
    },
    "bs_margin": {
-    "ic": 0.158,
-    "t": 4.81,
+    "ic": 0.154,
+    "t": 4.74,
     "n": 37
    },
    "bs_eq_assets": {
-    "ic": 0.088,
-    "t": 2.38,
-    "n": 36
+    "ic": 0.069,
+    "t": 2.14,
+    "n": 37
    },
    "small": {
     "ic": -0.09,
@@ -255,8 +253,8 @@
     "n": 30
    },
    "div_notice": {
-    "ic": 0.042,
-    "t": 1.87,
+    "ic": 0.044,
+    "t": 1.94,
     "n": 41
    },
    "share_issue": {
@@ -341,53 +339,53 @@
     "from": "2024-11-13",
     "to": "2026-08-20",
     "periods": 7,
-    "annNet": 19.0,
+    "annNet": 23.5,
     "annMarket": -1.0,
-    "avgExcess": 4.65,
-    "beatPct": 77,
-    "t": 1.93,
-    "firstHalf": 3.03,
-    "secondHalf": 6.27,
-    "worstPeriod": -5.5
+    "avgExcess": 5.65,
+    "beatPct": 86,
+    "t": 2.45,
+    "firstHalf": 3.98,
+    "secondHalf": 7.31,
+    "worstPeriod": -2.6
    },
    "honest": {
     "from": "2024-11-13",
     "to": "2026-08-20",
     "periods": 7,
-    "annNet": 14.6,
+    "annNet": 17.2,
     "annMarket": -0.5,
-    "avgExcess": 3.57,
-    "beatPct": 71,
-    "t": 1.49,
-    "firstHalf": 2.05,
-    "secondHalf": 4.96,
-    "worstPeriod": -7.2
+    "avgExcess": 4.13,
+    "beatPct": 86,
+    "t": 1.9,
+    "firstHalf": 2.88,
+    "secondHalf": 5.26,
+    "worstPeriod": -2.7
    },
    "honestSkipDay": {
     "from": "2024-11-13",
     "to": "2026-08-20",
     "periods": 7,
-    "annNet": 17.6,
+    "annNet": 20.7,
     "annMarket": -0.6,
-    "avgExcess": 4.25,
-    "beatPct": 73,
-    "t": 1.84,
-    "firstHalf": 2.23,
-    "secondHalf": 6.26,
-    "worstPeriod": -7.8
+    "avgExcess": 4.9,
+    "beatPct": 86,
+    "t": 2.35,
+    "firstHalf": 3.04,
+    "secondHalf": 6.76,
+    "worstPeriod": -2.8
    },
    "since2026": {
     "from": "2026-01-21",
     "to": "2026-08-20",
     "periods": 2,
-    "annNet": 31.2,
+    "annNet": 33.1,
     "annMarket": 7.0,
-    "avgExcess": 5.22,
-    "beatPct": 71,
-    "t": 0.78,
-    "firstHalf": 9.28,
-    "secondHalf": 2.18,
-    "worstPeriod": 0.6
+    "avgExcess": 5.83,
+    "beatPct": 86,
+    "t": 0.95,
+    "firstHalf": 9.76,
+    "secondHalf": 2.89,
+    "worstPeriod": 1.8
    }
   },
   "full": {
@@ -395,66 +393,66 @@
     "from": "2024-03-13",
     "to": "2026-08-20",
     "periods": 10,
-    "annNet": 15.7,
+    "annNet": 14.0,
     "annMarket": 0.6,
-    "avgExcess": 3.62,
+    "avgExcess": 3.26,
     "beatPct": 79,
-    "t": 2.02,
-    "firstHalf": 3.54,
-    "secondHalf": 3.7,
-    "worstPeriod": -4.7
+    "t": 1.78,
+    "firstHalf": 2.91,
+    "secondHalf": 3.6,
+    "worstPeriod": -5.6
    },
    "common": {
     "from": "2024-11-13",
     "to": "2026-08-20",
     "periods": 7,
-    "annNet": 15.7,
+    "annNet": 14.0,
     "annMarket": -0.5,
-    "avgExcess": 3.79,
+    "avgExcess": 3.41,
     "beatPct": 86,
-    "t": 1.75,
-    "firstHalf": 3.61,
-    "secondHalf": 3.95,
-    "worstPeriod": -4.7
+    "t": 1.49,
+    "firstHalf": 2.49,
+    "secondHalf": 4.25,
+    "worstPeriod": -5.6
    },
    "honestSkipDay": {
     "from": "2024-11-13",
     "to": "2026-08-20",
     "periods": 7,
-    "annNet": 18.3,
+    "annNet": 17.1,
     "annMarket": -0.6,
-    "avgExcess": 4.37,
+    "avgExcess": 4.1,
     "beatPct": 82,
-    "t": 2.18,
-    "firstHalf": 2.98,
-    "secondHalf": 5.77,
-    "worstPeriod": -5.5
+    "t": 1.89,
+    "firstHalf": 2.0,
+    "secondHalf": 6.19,
+    "worstPeriod": -6.1
    },
    "top5": {
     "from": "2024-11-13",
     "to": "2026-08-20",
     "periods": 7,
-    "annNet": 23.4,
+    "annNet": 22.9,
     "annMarket": -0.5,
-    "avgExcess": 5.48,
+    "avgExcess": 5.45,
     "beatPct": 76,
-    "t": 1.96,
-    "firstHalf": 5.1,
-    "secondHalf": 5.83,
-    "worstPeriod": -1.8
+    "t": 1.64,
+    "firstHalf": 4.48,
+    "secondHalf": 6.32,
+    "worstPeriod": -5.8
    },
    "since2026": {
     "from": "2026-01-21",
     "to": "2026-08-20",
     "periods": 2,
-    "annNet": 25.7,
+    "annNet": 28.8,
     "annMarket": 7.0,
-    "avgExcess": 4.17,
+    "avgExcess": 5.08,
     "beatPct": 71,
-    "t": 0.65,
-    "firstHalf": 9.14,
-    "secondHalf": 0.45,
-    "worstPeriod": -1.1
+    "t": 0.76,
+    "firstHalf": 9.21,
+    "secondHalf": 1.99,
+    "worstPeriod": 1.3
    }
   },
   "no_forecast": {
@@ -462,14 +460,42 @@
     "from": "2024-03-13",
     "to": "2026-08-20",
     "periods": 10,
-    "annNet": 13.4,
+    "annNet": 13.9,
     "annMarket": 0.6,
-    "avgExcess": 3.1,
-    "beatPct": 79,
-    "t": 1.65,
-    "firstHalf": 2.78,
-    "secondHalf": 3.4,
+    "avgExcess": 3.22,
+    "beatPct": 76,
+    "t": 1.63,
+    "firstHalf": 3.23,
+    "secondHalf": 3.21,
     "worstPeriod": -6.5
+   },
+   "common": {
+    "from": "2024-11-13",
+    "to": "2026-08-20",
+    "periods": 7,
+    "annNet": 13.5,
+    "annMarket": -0.5,
+    "avgExcess": 3.28,
+    "beatPct": 81,
+    "t": 1.36,
+    "firstHalf": 3.0,
+    "secondHalf": 3.54,
+    "worstPeriod": -4.4
+   }
+  },
+  "no_events": {
+   "walk": {
+    "from": "2024-03-13",
+    "to": "2026-08-20",
+    "periods": 10,
+    "annNet": 13.9,
+    "annMarket": 0.6,
+    "avgExcess": 3.22,
+    "beatPct": 79,
+    "t": 1.74,
+    "firstHalf": 2.92,
+    "secondHalf": 3.51,
+    "worstPeriod": -5.6
    },
    "common": {
     "from": "2024-11-13",
@@ -479,38 +505,10 @@
     "annMarket": -0.5,
     "avgExcess": 3.35,
     "beatPct": 86,
-    "t": 1.43,
-    "firstHalf": 2.51,
-    "secondHalf": 4.11,
-    "worstPeriod": -5.7
-   }
-  },
-  "no_events": {
-   "walk": {
-    "from": "2024-03-13",
-    "to": "2026-08-20",
-    "periods": 10,
-    "annNet": 15.7,
-    "annMarket": 0.6,
-    "avgExcess": 3.63,
-    "beatPct": 79,
-    "t": 2.03,
-    "firstHalf": 3.54,
-    "secondHalf": 3.71,
-    "worstPeriod": -4.7
-   },
-   "common": {
-    "from": "2024-11-13",
-    "to": "2026-08-20",
-    "periods": 7,
-    "annNet": 15.8,
-    "annMarket": -0.5,
-    "avgExcess": 3.8,
-    "beatPct": 86,
-    "t": 1.76,
-    "firstHalf": 3.61,
-    "secondHalf": 3.98,
-    "worstPeriod": -4.7
+    "t": 1.45,
+    "firstHalf": 2.54,
+    "secondHalf": 4.09,
+    "worstPeriod": -5.6
    }
   },
   "no_spread": {
@@ -518,27 +516,27 @@
     "from": "2024-03-13",
     "to": "2026-08-20",
     "periods": 10,
-    "annNet": 9.8,
+    "annNet": 10.6,
     "annMarket": 0.6,
-    "avgExcess": 2.25,
-    "beatPct": 72,
-    "t": 1.37,
-    "firstHalf": 3.19,
-    "secondHalf": 1.37,
-    "worstPeriod": -5.2
+    "avgExcess": 2.46,
+    "beatPct": 76,
+    "t": 1.41,
+    "firstHalf": 3.13,
+    "secondHalf": 1.84,
+    "worstPeriod": -5.7
    },
    "common": {
     "from": "2024-11-13",
     "to": "2026-08-20",
     "periods": 7,
-    "annNet": 9.0,
+    "annNet": 10.0,
     "annMarket": -0.5,
-    "avgExcess": 2.21,
-    "beatPct": 71,
-    "t": 1.1,
-    "firstHalf": 2.64,
-    "secondHalf": 1.82,
-    "worstPeriod": -3.2
+    "avgExcess": 2.46,
+    "beatPct": 76,
+    "t": 1.13,
+    "firstHalf": 2.44,
+    "secondHalf": 2.48,
+    "worstPeriod": -5.7
    }
   },
   "last_trade_pullback": {
@@ -546,26 +544,26 @@
     "from": "2024-03-13",
     "to": "2026-08-20",
     "periods": 10,
-    "annNet": 13.5,
+    "annNet": 12.7,
     "annMarket": 0.6,
-    "avgExcess": 3.11,
+    "avgExcess": 2.92,
     "beatPct": 79,
-    "t": 1.93,
-    "firstHalf": 3.64,
-    "secondHalf": 2.62,
+    "t": 1.9,
+    "firstHalf": 3.39,
+    "secondHalf": 2.48,
     "worstPeriod": -4.5
    },
    "common": {
     "from": "2024-11-13",
     "to": "2026-08-20",
     "periods": 7,
-    "annNet": 12.0,
+    "annNet": 11.4,
     "annMarket": -0.5,
-    "avgExcess": 2.94,
+    "avgExcess": 2.78,
     "beatPct": 81,
-    "t": 1.53,
-    "firstHalf": 2.85,
-    "secondHalf": 3.01,
+    "t": 1.5,
+    "firstHalf": 2.94,
+    "secondHalf": 2.64,
     "worstPeriod": -4.5
    }
   },
@@ -574,26 +572,26 @@
     "from": "2024-03-13",
     "to": "2026-08-20",
     "periods": 10,
-    "annNet": 13.4,
+    "annNet": 13.7,
     "annMarket": 0.6,
-    "avgExcess": 3.13,
+    "avgExcess": 3.19,
     "beatPct": 79,
-    "t": 1.76,
-    "firstHalf": 2.76,
-    "secondHalf": 3.47,
+    "t": 1.7,
+    "firstHalf": 2.91,
+    "secondHalf": 3.46,
     "worstPeriod": -4.8
    },
    "common": {
     "from": "2024-11-13",
     "to": "2026-08-20",
     "periods": 7,
-    "annNet": 13.5,
+    "annNet": 14.2,
     "annMarket": -0.5,
-    "avgExcess": 3.3,
+    "avgExcess": 3.44,
     "beatPct": 86,
-    "t": 1.53,
-    "firstHalf": 2.62,
-    "secondHalf": 3.91,
+    "t": 1.48,
+    "firstHalf": 2.51,
+    "secondHalf": 4.28,
     "worstPeriod": -4.8
    }
   },
@@ -602,27 +600,27 @@
     "from": "2024-03-13",
     "to": "2026-08-20",
     "periods": 10,
-    "annNet": 13.2,
+    "annNet": 15.2,
     "annMarket": 0.6,
-    "avgExcess": 3.08,
-    "beatPct": 76,
-    "t": 1.71,
-    "firstHalf": 2.69,
-    "secondHalf": 3.45,
+    "avgExcess": 3.51,
+    "beatPct": 86,
+    "t": 1.98,
+    "firstHalf": 2.82,
+    "secondHalf": 4.16,
     "worstPeriod": -7.1
    },
    "common": {
     "from": "2024-11-13",
     "to": "2026-08-20",
     "periods": 7,
-    "annNet": 13.0,
+    "annNet": 16.1,
     "annMarket": -0.5,
-    "avgExcess": 3.21,
-    "beatPct": 76,
-    "t": 1.44,
-    "firstHalf": 1.69,
-    "secondHalf": 4.6,
-    "worstPeriod": -5.6
+    "avgExcess": 3.88,
+    "beatPct": 90,
+    "t": 1.76,
+    "firstHalf": 2.74,
+    "secondHalf": 4.92,
+    "worstPeriod": -5.2
    }
   }
  },
