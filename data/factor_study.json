@@ -1,7 +1,7 @@
 {
  "period": [
   "2022-11-15",
-  "2026-11-25"
+  "2026-11-26"
  ],
  "basis": "next-day entry, dividends included, prefs excluded, traded \u226520% of days",
  "h21": {
@@ -69,7 +69,7 @@
     },
     "second": {
      "ic": -0.016,
-     "t": -0.98,
+     "t": -0.97,
      "top3": 0.05,
      "hit": 49,
      "n": 71
@@ -85,7 +85,7 @@
     },
     "first": {
      "ic": 0.012,
-     "t": 1.08,
+     "t": 1.07,
      "top3": 0.11,
      "hit": 51,
      "n": 71
@@ -115,7 +115,7 @@
     },
     "second": {
      "ic": 0.056,
-     "t": 3.51,
+     "t": 3.5,
      "top3": 0.35,
      "hit": 52,
      "n": 71
@@ -193,7 +193,7 @@
    "illiq": {
     "all": {
      "ic": -0.045,
-     "t": -4.56,
+     "t": -4.57,
      "top3": 0.17,
      "hit": 53,
      "n": 142
@@ -208,7 +208,7 @@
     "second": {
      "ic": -0.063,
      "t": -4.78,
-     "top3": 0.17,
+     "top3": 0.16,
      "hit": 51,
      "n": 71
     }
@@ -330,17 +330,17 @@
    },
    "dy": {
     "all": {
-     "ic": 0.079,
-     "t": 8.66,
+     "ic": 0.08,
+     "t": 8.7,
      "top3": 0.56,
      "hit": 63,
      "n": 142
     },
     "first": {
-     "ic": 0.073,
-     "t": 5.16,
+     "ic": 0.074,
+     "t": 5.21,
      "top3": 0.58,
-     "hit": 59,
+     "hit": 61,
      "n": 71
     },
     "second": {
@@ -368,7 +368,7 @@
     },
     "second": {
      "ic": 0.058,
-     "t": 4.55,
+     "t": 4.54,
      "top3": 0.52,
      "hit": 69,
      "n": 71
@@ -376,7 +376,7 @@
    },
    "q_yoy": {
     "all": {
-     "ic": 0.067,
+     "ic": 0.066,
      "t": 7.9,
      "top3": 0.77,
      "hit": 68,
@@ -391,7 +391,7 @@
     },
     "second": {
      "ic": 0.077,
-     "t": 7.7,
+     "t": 7.69,
      "top3": 0.99,
      "hit": 76,
      "n": 71
@@ -446,7 +446,7 @@
    "noloss": {
     "all": {
      "ic": 0.084,
-     "t": 7.9,
+     "t": 7.89,
      "top3": 0.39,
      "hit": 58,
      "n": 142
@@ -460,7 +460,7 @@
     },
     "second": {
      "ic": 0.102,
-     "t": 6.56,
+     "t": 6.55,
      "top3": 0.47,
      "hit": 66,
      "n": 71
@@ -543,15 +543,15 @@
    "iv_ddm": {
     "all": {
      "ic": 0.105,
-     "t": 8.66,
-     "top3": 0.95,
+     "t": 8.67,
+     "top3": 0.96,
      "hit": 72,
      "n": 142
     },
     "first": {
      "ic": 0.123,
-     "t": 7.0,
-     "top3": 0.86,
+     "t": 7.02,
+     "top3": 0.87,
      "hit": 75,
      "n": 71
     },
@@ -580,7 +580,7 @@
     },
     "second": {
      "ic": 0.046,
-     "t": 3.99,
+     "t": 4.0,
      "top3": 0.47,
      "hit": 63,
      "n": 71
@@ -593,18 +593,18 @@
    },
    "bs_bp": {
     "all": {
-     "ic": 0.038,
-     "t": 3.46,
-     "top3": 0.87,
-     "hit": 62,
-     "n": 112
+     "ic": 0.036,
+     "t": 3.33,
+     "top3": 0.76,
+     "hit": 61,
+     "n": 115
     },
     "first": {
-     "ic": 0.056,
-     "t": 2.72,
-     "top3": 0.64,
-     "hit": 61,
-     "n": 41
+     "ic": 0.05,
+     "t": 2.52,
+     "top3": 0.35,
+     "hit": 57,
+     "n": 44
     },
     "second": {
      "ic": 0.027,
@@ -616,18 +616,18 @@
    },
    "bs_roe": {
     "all": {
-     "ic": 0.063,
-     "t": 5.66,
-     "top3": 0.39,
+     "ic": 0.068,
+     "t": 6.22,
+     "top3": 0.44,
      "hit": 59,
-     "n": 112
+     "n": 115
     },
     "first": {
-     "ic": 0.036,
-     "t": 1.83,
-     "top3": 0.08,
-     "hit": 56,
-     "n": 41
+     "ic": 0.051,
+     "t": 2.67,
+     "top3": 0.24,
+     "hit": 57,
+     "n": 44
     },
     "second": {
      "ic": 0.078,
@@ -639,18 +639,18 @@
    },
    "bs_lowdebt": {
     "all": {
-     "ic": 0.062,
-     "t": 4.86,
-     "top3": 0.76,
-     "hit": 64,
-     "n": 110
+     "ic": 0.069,
+     "t": 5.4,
+     "top3": 0.75,
+     "hit": 63,
+     "n": 115
     },
     "first": {
-     "ic": 0.103,
-     "t": 3.92,
-     "top3": 1.29,
-     "hit": 74,
-     "n": 39
+     "ic": 0.116,
+     "t": 4.71,
+     "top3": 1.22,
+     "hit": 73,
+     "n": 44
     },
     "second": {
      "ic": 0.04,
@@ -662,18 +662,18 @@
    },
    "bs_netcash": {
     "all": {
-     "ic": 0.042,
-     "t": 3.17,
-     "top3": 0.33,
-     "hit": 58,
-     "n": 110
+     "ic": 0.046,
+     "t": 3.45,
+     "top3": 0.28,
+     "hit": 57,
+     "n": 115
     },
     "first": {
-     "ic": 0.045,
-     "t": 1.79,
-     "top3": 0.86,
-     "hit": 64,
-     "n": 39
+     "ic": 0.053,
+     "t": 2.24,
+     "top3": 0.69,
+     "hit": 61,
+     "n": 44
     },
     "second": {
      "ic": 0.041,
@@ -685,18 +685,18 @@
    },
    "bs_cashq": {
     "all": {
-     "ic": -0.024,
-     "t": -1.74,
-     "top3": -0.19,
-     "hit": 43,
-     "n": 111
+     "ic": -0.026,
+     "t": -1.85,
+     "top3": -0.3,
+     "hit": 41,
+     "n": 115
     },
     "first": {
-     "ic": -0.01,
-     "t": -0.44,
-     "top3": 0.21,
-     "hit": 52,
-     "n": 40
+     "ic": -0.017,
+     "t": -0.71,
+     "top3": -0.1,
+     "hit": 45,
+     "n": 44
     },
     "second": {
      "ic": -0.032,
@@ -708,18 +708,18 @@
    },
    "bs_ocfy": {
     "all": {
-     "ic": 0.049,
-     "t": 3.22,
-     "top3": 0.65,
-     "hit": 62,
-     "n": 110
+     "ic": 0.04,
+     "t": 2.45,
+     "top3": 0.52,
+     "hit": 61,
+     "n": 115
     },
     "first": {
-     "ic": 0.063,
-     "t": 2.11,
-     "top3": 0.56,
-     "hit": 59,
-     "n": 39
+     "ic": 0.036,
+     "t": 1.14,
+     "top3": 0.23,
+     "hit": 57,
+     "n": 44
     },
     "second": {
      "ic": 0.042,
@@ -731,18 +731,18 @@
    },
    "bs_fcfy": {
     "all": {
-     "ic": 0.047,
-     "t": 3.41,
+     "ic": 0.042,
+     "t": 2.98,
      "top3": 0.51,
-     "hit": 57,
-     "n": 110
+     "hit": 56,
+     "n": 115
     },
     "first": {
-     "ic": 0.072,
-     "t": 3.07,
-     "top3": 0.84,
-     "hit": 67,
-     "n": 39
+     "ic": 0.057,
+     "t": 2.28,
+     "top3": 0.82,
+     "hit": 61,
+     "n": 44
     },
     "second": {
      "ic": 0.032,
@@ -754,18 +754,18 @@
    },
    "bs_margin": {
     "all": {
-     "ic": 0.087,
-     "t": 7.54,
-     "top3": 0.55,
-     "hit": 61,
-     "n": 112
+     "ic": 0.089,
+     "t": 8.06,
+     "top3": 0.5,
+     "hit": 59,
+     "n": 115
     },
     "first": {
-     "ic": 0.07,
-     "t": 3.06,
-     "top3": 0.25,
-     "hit": 56,
-     "n": 41
+     "ic": 0.076,
+     "t": 3.69,
+     "top3": 0.15,
+     "hit": 52,
+     "n": 44
     },
     "second": {
      "ic": 0.097,
@@ -777,18 +777,18 @@
    },
    "bs_eq_assets": {
     "all": {
-     "ic": 0.051,
-     "t": 4.11,
-     "top3": 0.51,
-     "hit": 58,
-     "n": 111
+     "ic": 0.057,
+     "t": 4.55,
+     "top3": 0.56,
+     "hit": 59,
+     "n": 115
     },
     "first": {
-     "ic": 0.096,
-     "t": 4.06,
-     "top3": 0.93,
-     "hit": 68,
-     "n": 40
+     "ic": 0.109,
+     "t": 4.68,
+     "top3": 1.03,
+     "hit": 70,
+     "n": 44
     },
     "second": {
      "ic": 0.025,
@@ -820,60 +820,61 @@
    "iv_ddm": 1,
    "turn_surge": 1,
    "bs_bp": 1,
+   "bs_roe": 1,
    "bs_lowdebt": 1,
-   "bs_ocfy": 1,
+   "bs_netcash": 1,
    "bs_fcfy": 1,
    "bs_margin": 1,
    "bs_eq_assets": 1
   },
   "blends": {
    "edge": {
-    "oosIC": 0.157,
-    "oosT": 12.81,
+    "oosIC": 0.154,
+    "oosT": 12.15,
     "portfolio_oos_cost1pct": {
      "periodsPerRun": 23,
      "runs": 3,
-     "annNet": 16.3,
+     "annNet": 17.5,
      "annMarket": 4.0,
-     "beatPct": 65,
+     "beatPct": 63,
      "worstPeriod": -5.8,
-     "turnover": 43,
-     "singlePickBeatPct": 61,
+     "turnover": 46,
+     "singlePickBeatPct": 67,
      "singlePickMedian": 1.4,
-     "singlePickAnn": 35.9
+     "singlePickAnn": 48.6
     },
     "portfolio_oos_cost2pct": {
      "periodsPerRun": 23,
      "runs": 3,
-     "annNet": 4.4,
+     "annNet": 4.7,
      "annMarket": 4.0,
-     "beatPct": 46,
+     "beatPct": 49,
      "worstPeriod": -6.4,
-     "turnover": 43,
-     "singlePickBeatPct": 61,
+     "turnover": 46,
+     "singlePickBeatPct": 67,
      "singlePickMedian": 1.4,
-     "singlePickAnn": 35.9
+     "singlePickAnn": 48.6
     },
     "portfolio_all_cost1pct": {
      "periodsPerRun": 47,
      "runs": 3,
-     "annNet": 13.9,
+     "annNet": 14.7,
      "annMarket": 2.8,
-     "beatPct": 63,
+     "beatPct": 65,
      "worstPeriod": -5.8,
-     "turnover": 46,
-     "singlePickBeatPct": 66,
-     "singlePickMedian": 1.7,
-     "singlePickAnn": 35.1
+     "turnover": 47,
+     "singlePickBeatPct": 69,
+     "singlePickMedian": 1.8,
+     "singlePickAnn": 38.9
     }
    },
    "health_like": {
     "oosIC": 0.124,
-    "oosT": 10.13,
+    "oosT": 10.12,
     "portfolio_oos_cost1pct": {
      "periodsPerRun": 23,
      "runs": 3,
-     "annNet": 16.2,
+     "annNet": 16.3,
      "annMarket": 4.0,
      "beatPct": 61,
      "worstPeriod": -6.5,
@@ -915,7 +916,7 @@
     "all": {
      "ic": 0.053,
      "t": 2.93,
-     "top3": 1.05,
+     "top3": 1.06,
      "hit": 76,
      "n": 46
     },
@@ -929,7 +930,7 @@
     "second": {
      "ic": 0.054,
      "t": 2.38,
-     "top3": 1.07,
+     "top3": 1.08,
      "hit": 78,
      "n": 23
     }
@@ -952,7 +953,7 @@
     "second": {
      "ic": 0.018,
      "t": 0.8,
-     "top3": 0.94,
+     "top3": 0.95,
      "hit": 57,
      "n": 23
     }
@@ -1021,7 +1022,7 @@
     "second": {
      "ic": 0.076,
      "t": 2.18,
-     "top3": 1.05,
+     "top3": 1.04,
      "hit": 65,
      "n": 23
     }
@@ -1067,7 +1068,7 @@
     "second": {
      "ic": 0.113,
      "t": 3.93,
-     "top3": 0.59,
+     "top3": 0.6,
      "hit": 61,
      "n": 23
     }
@@ -1076,7 +1077,7 @@
     "all": {
      "ic": 0.073,
      "t": 3.96,
-     "top3": 0.54,
+     "top3": 0.55,
      "hit": 63,
      "n": 46
     },
@@ -1182,7 +1183,7 @@
     "second": {
      "ic": 0.037,
      "t": 1.75,
-     "top3": 0.57,
+     "top3": 0.56,
      "hit": 61,
      "n": 23
     }
@@ -1235,22 +1236,22 @@
    },
    "dy": {
     "all": {
-     "ic": 0.138,
-     "t": 9.11,
+     "ic": 0.139,
+     "t": 9.13,
      "top3": 2.21,
      "hit": 89,
      "n": 46
     },
     "first": {
-     "ic": 0.128,
-     "t": 6.47,
+     "ic": 0.129,
+     "t": 6.48,
      "top3": 2.16,
      "hit": 87,
      "n": 23
     },
     "second": {
      "ic": 0.148,
-     "t": 6.51,
+     "t": 6.52,
      "top3": 2.26,
      "hit": 91,
      "n": 23
@@ -1297,7 +1298,7 @@
     "second": {
      "ic": 0.167,
      "t": 9.17,
-     "top3": 2.97,
+     "top3": 2.98,
      "hit": 87,
      "n": 23
     }
@@ -1343,7 +1344,7 @@
     "second": {
      "ic": 0.149,
      "t": 5.33,
-     "top3": 1.48,
+     "top3": 1.47,
      "hit": 83,
      "n": 23
     }
@@ -1403,7 +1404,7 @@
     "all": {
      "ic": 0.094,
      "t": 6.28,
-     "top3": 1.3,
+     "top3": 1.31,
      "hit": 72,
      "n": 46
     },
@@ -1417,7 +1418,7 @@
     "second": {
      "ic": 0.113,
      "t": 6.0,
-     "top3": 1.71,
+     "top3": 1.72,
      "hit": 78,
      "n": 23
     }
@@ -1449,14 +1450,14 @@
     "all": {
      "ic": 0.173,
      "t": 8.94,
-     "top3": 2.42,
+     "top3": 2.45,
      "hit": 89,
      "n": 46
     },
     "first": {
      "ic": 0.214,
      "t": 8.02,
-     "top3": 2.62,
+     "top3": 2.67,
      "hit": 91,
      "n": 23
     },
@@ -1486,7 +1487,7 @@
     "second": {
      "ic": 0.038,
      "t": 2.16,
-     "top3": 0.3,
+     "top3": 0.31,
      "hit": 57,
      "n": 23
     }
@@ -1498,41 +1499,41 @@
    },
    "bs_bp": {
     "all": {
-     "ic": 0.054,
-     "t": 2.72,
-     "top3": 1.77,
-     "hit": 67,
-     "n": 36
+     "ic": 0.056,
+     "t": 2.84,
+     "top3": 1.65,
+     "hit": 68,
+     "n": 37
     },
     "first": {
-     "ic": 0.075,
-     "t": 2.39,
-     "top3": 0.96,
-     "hit": 54,
-     "n": 13
+     "ic": 0.077,
+     "t": 2.58,
+     "top3": 0.69,
+     "hit": 57,
+     "n": 14
     },
     "second": {
      "ic": 0.043,
      "t": 1.68,
-     "top3": 2.22,
+     "top3": 2.23,
      "hit": 74,
      "n": 23
     }
    },
    "bs_roe": {
     "all": {
-     "ic": 0.113,
-     "t": 5.06,
-     "top3": 0.93,
-     "hit": 61,
-     "n": 36
+     "ic": 0.117,
+     "t": 5.31,
+     "top3": 1.19,
+     "hit": 65,
+     "n": 37
     },
     "first": {
-     "ic": 0.067,
-     "t": 2.01,
-     "top3": 0.42,
-     "hit": 46,
-     "n": 13
+     "ic": 0.083,
+     "t": 2.42,
+     "top3": 1.16,
+     "hit": 57,
+     "n": 14
     },
     "second": {
      "ic": 0.138,
@@ -1544,18 +1545,18 @@
    },
    "bs_lowdebt": {
     "all": {
-     "ic": 0.101,
-     "t": 4.24,
-     "top3": 1.49,
-     "hit": 63,
-     "n": 35
+     "ic": 0.125,
+     "t": 4.5,
+     "top3": 1.72,
+     "hit": 68,
+     "n": 37
     },
     "first": {
-     "ic": 0.149,
-     "t": 3.13,
-     "top3": 2.59,
-     "hit": 67,
-     "n": 12
+     "ic": 0.206,
+     "t": 3.76,
+     "top3": 3.02,
+     "hit": 79,
+     "n": 14
     },
     "second": {
      "ic": 0.076,
@@ -1567,18 +1568,18 @@
    },
    "bs_netcash": {
     "all": {
-     "ic": 0.085,
-     "t": 3.1,
-     "top3": 0.45,
-     "hit": 43,
-     "n": 35
+     "ic": 0.094,
+     "t": 3.52,
+     "top3": 0.39,
+     "hit": 41,
+     "n": 37
     },
     "first": {
-     "ic": 0.072,
-     "t": 1.51,
-     "top3": 1.98,
-     "hit": 58,
-     "n": 12
+     "ic": 0.098,
+     "t": 2.19,
+     "top3": 1.61,
+     "hit": 50,
+     "n": 14
     },
     "second": {
      "ic": 0.091,
@@ -1590,18 +1591,18 @@
    },
    "bs_cashq": {
     "all": {
-     "ic": -0.035,
-     "t": -1.57,
-     "top3": -1.0,
-     "hit": 29,
-     "n": 35
+     "ic": -0.053,
+     "t": -2.13,
+     "top3": -1.16,
+     "hit": 27,
+     "n": 37
     },
     "first": {
-     "ic": 0.031,
-     "t": 1.05,
-     "top3": 0.3,
-     "hit": 50,
-     "n": 12
+     "ic": -0.027,
+     "t": -0.57,
+     "top3": -0.31,
+     "hit": 43,
+     "n": 14
     },
     "second": {
      "ic": -0.07,
@@ -1613,18 +1614,18 @@
    },
    "bs_ocfy": {
     "all": {
-     "ic": 0.092,
-     "t": 3.5,
-     "top3": 1.26,
-     "hit": 66,
-     "n": 35
+     "ic": 0.078,
+     "t": 3.18,
+     "top3": 1.06,
+     "hit": 65,
+     "n": 37
     },
     "first": {
-     "ic": 0.153,
-     "t": 2.61,
-     "top3": 1.89,
-     "hit": 67,
-     "n": 12
+     "ic": 0.107,
+     "t": 2.09,
+     "top3": 1.26,
+     "hit": 64,
+     "n": 14
     },
     "second": {
      "ic": 0.061,
@@ -1636,18 +1637,18 @@
    },
    "bs_fcfy": {
     "all": {
-     "ic": 0.081,
-     "t": 4.07,
-     "top3": 1.31,
-     "hit": 63,
-     "n": 35
+     "ic": 0.075,
+     "t": 3.88,
+     "top3": 1.43,
+     "hit": 65,
+     "n": 37
     },
     "first": {
-     "ic": 0.13,
-     "t": 3.73,
-     "top3": 2.85,
-     "hit": 92,
-     "n": 12
+     "ic": 0.107,
+     "t": 3.18,
+     "top3": 2.94,
+     "hit": 93,
+     "n": 14
     },
     "second": {
      "ic": 0.056,
@@ -1659,18 +1660,18 @@
    },
    "bs_margin": {
     "all": {
-     "ic": 0.162,
-     "t": 7.36,
-     "top3": 1.69,
-     "hit": 75,
-     "n": 36
+     "ic": 0.164,
+     "t": 8.11,
+     "top3": 1.62,
+     "hit": 76,
+     "n": 37
     },
     "first": {
-     "ic": 0.146,
-     "t": 3.49,
-     "top3": 1.48,
-     "hit": 62,
-     "n": 13
+     "ic": 0.152,
+     "t": 4.45,
+     "top3": 1.32,
+     "hit": 64,
+     "n": 14
     },
     "second": {
      "ic": 0.171,
@@ -1682,18 +1683,18 @@
    },
    "bs_eq_assets": {
     "all": {
-     "ic": 0.085,
-     "t": 4.0,
-     "top3": 1.4,
-     "hit": 66,
-     "n": 35
+     "ic": 0.114,
+     "t": 4.05,
+     "top3": 1.83,
+     "hit": 68,
+     "n": 37
     },
     "first": {
-     "ic": 0.146,
-     "t": 4.36,
-     "top3": 2.32,
-     "hit": 92,
-     "n": 12
+     "ic": 0.213,
+     "t": 4.1,
+     "top3": 3.32,
+     "hit": 93,
+     "n": 14
     },
     "second": {
      "ic": 0.053,
@@ -1724,6 +1725,7 @@
    "bs_bp": 1,
    "bs_roe": 1,
    "bs_lowdebt": 1,
+   "bs_netcash": 1,
    "bs_ocfy": 1,
    "bs_fcfy": 1,
    "bs_margin": 1,
@@ -1732,42 +1734,42 @@
   "blends": {
    "edge": {
     "oosIC": 0.209,
-    "oosT": 7.7,
+    "oosT": 7.41,
     "portfolio_oos_cost1pct": {
      "periodsPerRun": 7,
      "runs": 3,
-     "annNet": 22.2,
-     "annMarket": -0.2,
+     "annNet": 24.9,
+     "annMarket": -0.1,
      "beatPct": 88,
-     "worstPeriod": -4.6,
-     "turnover": 32,
-     "singlePickBeatPct": 74,
-     "singlePickMedian": 3.8,
-     "singlePickAnn": 19.9
+     "worstPeriod": -4.4,
+     "turnover": 35,
+     "singlePickBeatPct": 70,
+     "singlePickMedian": 2.8,
+     "singlePickAnn": 18.8
     },
     "portfolio_oos_cost2pct": {
      "periodsPerRun": 7,
      "runs": 3,
-     "annNet": 18.4,
-     "annMarket": -0.2,
-     "beatPct": 83,
-     "worstPeriod": -5.0,
-     "turnover": 32,
-     "singlePickBeatPct": 74,
-     "singlePickMedian": 3.8,
-     "singlePickAnn": 19.9
+     "annNet": 20.8,
+     "annMarket": -0.1,
+     "beatPct": 88,
+     "worstPeriod": -5.2,
+     "turnover": 35,
+     "singlePickBeatPct": 70,
+     "singlePickMedian": 2.8,
+     "singlePickAnn": 18.8
     },
     "portfolio_all_cost1pct": {
      "periodsPerRun": 15,
      "runs": 3,
-     "annNet": 18.2,
+     "annNet": 19.3,
      "annMarket": -1.0,
      "beatPct": 89,
-     "worstPeriod": -4.6,
-     "turnover": 35,
+     "worstPeriod": -4.4,
+     "turnover": 37,
      "singlePickBeatPct": 80,
-     "singlePickMedian": 8.0,
-     "singlePickAnn": 29.4
+     "singlePickMedian": 8.7,
+     "singlePickAnn": 30.2
     }
    },
    "health_like": {
@@ -1776,8 +1778,8 @@
     "portfolio_oos_cost1pct": {
      "periodsPerRun": 7,
      "runs": 3,
-     "annNet": 12.0,
-     "annMarket": -0.2,
+     "annNet": 12.1,
+     "annMarket": -0.1,
      "beatPct": 66,
      "worstPeriod": -9.2,
      "turnover": 30,
@@ -1788,8 +1790,8 @@
     "portfolio_oos_cost2pct": {
      "periodsPerRun": 7,
      "runs": 3,
-     "annNet": 8.6,
-     "annMarket": -0.2,
+     "annNet": 8.7,
+     "annMarket": -0.1,
      "beatPct": 66,
      "worstPeriod": -9.6,
      "turnover": 30,
@@ -1800,7 +1802,7 @@
     "portfolio_all_cost1pct": {
      "periodsPerRun": 15,
      "runs": 3,
-     "annNet": 13.2,
+     "annNet": 13.3,
      "annMarket": -1.0,
      "beatPct": 81,
      "worstPeriod": -9.2,
@@ -1816,34 +1818,34 @@
   "all": {
    "periodsPerRun": 15,
    "runs": 3,
-   "annNet": 27.1,
+   "annNet": 29.4,
    "annMarket": -1.0,
-   "beatPct": 87,
+   "beatPct": 91,
    "worstPeriod": -9.9,
-   "turnover": 44,
+   "turnover": 42,
    "singlePickBeatPct": 80,
-   "singlePickMedian": 8.0,
-   "singlePickAnn": 29.4
+   "singlePickMedian": 8.7,
+   "singlePickAnn": 30.2
   },
   "oos": {
    "periodsPerRun": 7,
    "runs": 3,
-   "annNet": 33.5,
-   "annMarket": -0.2,
+   "annNet": 37.0,
+   "annMarket": -0.1,
    "beatPct": 92,
-   "worstPeriod": -2.0,
+   "worstPeriod": -2.7,
    "turnover": 40,
-   "singlePickBeatPct": 74,
-   "singlePickMedian": 3.8,
-   "singlePickAnn": 19.9
+   "singlePickBeatPct": 70,
+   "singlePickMedian": 2.8,
+   "singlePickAnn": 18.8
   },
   "cost": 0.015
  },
  "byYear": {
   "2022": 2.3,
-  "2023": 3.6,
-  "2024": 6.7,
-  "2025": 5.1,
-  "2026": 7.4
+  "2023": 3.9,
+  "2024": 6.4,
+  "2025": 5.2,
+  "2026": 8.9
  }
 }
