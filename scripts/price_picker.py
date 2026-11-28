@@ -29,7 +29,9 @@ def case_arrays(df, h):
     c0 = df['c0'].to_numpy(float)
     R = np.column_stack([np.sort(q / c0[:, None], axis=1), np.ones(len(df))])
     y = df[f'act{h}'].to_numpy(float) / c0
-    X = np.column_stack([df[FEATS].to_numpy(float), np.log(q[:, 18] / q[:, 2]), np.log(q[:, MIDDLE] / c0)])
+    with np.errstate(divide='ignore', invalid='ignore'):
+        X = np.column_stack([df[FEATS].to_numpy(float), np.log(q[:, 18] / q[:, 2]), np.log(q[:, MIDDLE] / c0)])
+    X[~np.isfinite(X)] = np.nan  # a 0 quantile makes the width infinite; the model takes NaN, not inf
     return R, X, y
 
 
