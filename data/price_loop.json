@@ -1,0 +1,325 @@
+{
+ "holdoutFrom": "2025-01-01",
+ "development": {
+  "21": {
+   "blend": {
+    "mean": 6.759,
+    "median": 4.485,
+    "n": 4443,
+    "origins": 44,
+    "vsMiddle": -0.003,
+    "t": -0.08,
+    "firstHalf": -0.04,
+    "secondHalf": 0.033,
+    "verdict": "not proven"
+   },
+   "direct_median": {
+    "mean": 6.904,
+    "median": 4.625,
+    "n": 4443,
+    "origins": 44,
+    "vsMiddle": 0.142,
+    "t": 2.21,
+    "firstHalf": 0.186,
+    "secondHalf": 0.099,
+    "verdict": "not proven"
+   },
+   "middle": {
+    "mean": 6.762,
+    "median": 4.473,
+    "n": 4443,
+    "origins": 44
+   },
+   "pit": {
+    "mean": 6.823,
+    "median": 4.487,
+    "n": 4443,
+    "origins": 44,
+    "vsMiddle": 0.061,
+    "t": 0.95,
+    "firstHalf": 0.077,
+    "secondHalf": 0.045,
+    "verdict": "not proven"
+   },
+   "pit_liquidity": {
+    "mean": 6.834,
+    "median": 4.503,
+    "n": 4443,
+    "origins": 44,
+    "vsMiddle": 0.073,
+    "t": 1.2,
+    "firstHalf": 0.075,
+    "secondHalf": 0.071,
+    "verdict": "not proven"
+   },
+   "pit_recent": {
+    "mean": 6.776,
+    "median": 4.495,
+    "n": 4443,
+    "origins": 44,
+    "vsMiddle": 0.014,
+    "t": 0.27,
+    "firstHalf": 0.026,
+    "secondHalf": 0.002,
+    "verdict": "not proven"
+   },
+   "shrink": {
+    "mean": 6.732,
+    "median": 4.464,
+    "n": 4443,
+    "origins": 44,
+    "vsMiddle": -0.03,
+    "t": -1.15,
+    "firstHalf": -0.059,
+    "secondHalf": -0.001,
+    "verdict": "not proven"
+   },
+   "stock_bias": {
+    "mean": 6.87,
+    "median": 4.553,
+    "n": 4443,
+    "origins": 44,
+    "vsMiddle": 0.108,
+    "t": 2.65,
+    "firstHalf": 0.085,
+    "secondHalf": 0.132,
+    "verdict": "not proven"
+   },
+   "clip_move": {
+    "mean": 6.77,
+    "median": 4.498,
+    "n": 4443,
+    "origins": 44,
+    "vsMiddle": 0.008,
+    "t": 0.25,
+    "firstHalf": -0.003,
+    "secondHalf": 0.019,
+    "verdict": "not proven"
+   },
+   "reversal": {
+    "mean": 6.763,
+    "median": 4.479,
+    "n": 4443,
+    "origins": 44,
+    "vsMiddle": 0.001,
+    "t": 0.61,
+    "firstHalf": 0.003,
+    "secondHalf": 0.0,
+    "verdict": "not proven"
+   },
+   "shrink_liquidity": {
+    "mean": 6.729,
+    "median": 4.468,
+    "n": 4443,
+    "origins": 44,
+    "vsMiddle": -0.033,
+    "t": -1.18,
+    "firstHalf": -0.062,
+    "secondHalf": -0.003,
+    "verdict": "not proven"
+   },
+   "dividend": {
+    "mean": 6.764,
+    "median": 4.479,
+    "n": 4443,
+    "origins": 44,
+    "vsMiddle": 0.002,
+    "t": 0.43,
+    "firstHalf": -0.002,
+    "secondHalf": 0.005,
+    "verdict": "not proven"
+   },
+   "shrink_dividend": {
+    "mean": 6.734,
+    "median": 4.468,
+    "n": 4443,
+    "origins": 44,
+    "vsMiddle": -0.028,
+    "t": -1.06,
+    "firstHalf": -0.061,
+    "secondHalf": 0.005,
+    "verdict": "not proven"
+   }
+  },
+  "63": {
+   "blend": {
+    "mean": 10.564,
+    "median": 7.612,
+    "n": 4042,
+    "origins": 40,
+    "vsMiddle": -0.24,
+    "t": -2.73,
+    "firstHalf": -0.238,
+    "secondHalf": -0.242,
+    "verdict": "not proven"
+   },
+   "direct_median": {
+    "mean": 11.005,
+    "median": 7.783,
+    "n": 4042,
+    "origins": 40,
+    "vsMiddle": 0.201,
+    "t": 0.61,
+    "firstHalf": 0.299,
+    "secondHalf": 0.102,
+    "verdict": "not proven"
+   },
+   "middle": {
+    "mean": 10.804,
+    "median": 7.742,
+    "n": 4042,
+    "origins": 40
+   },
+   "pit": {
+    "mean": 11.045,
+    "median": 7.703,
+    "n": 4042,
+    "origins": 40,
+    "vsMiddle": 0.239,
+    "t": 0.72,
+    "firstHalf": 0.345,
+    "secondHalf": 0.133,
+    "verdict": "not proven"
+   },
+   "pit_liquidity": {
+    "mean": 11.096,
+    "median": 7.64,
+    "n": 4042,
+    "origins": 40,
+    "vsMiddle": 0.291,
+    "t": 1.01,
+    "firstHalf": 0.355,
+    "secondHalf": 0.226,
+    "verdict": "not proven"
+   },
+   "pit_recent": {
+    "mean": 10.887,
+    "median": 7.621,
+    "n": 4042,
+    "origins": 40,
+    "vsMiddle": 0.082,
+    "t": 0.33,
+    "firstHalf": 0.158,
+    "secondHalf": 0.006,
+    "verdict": "not proven"
+   },
+   "shrink": {
+    "mean": 10.57,
+    "median": 7.63,
+    "n": 4042,
+    "origins": 40,
+    "vsMiddle": -0.234,
+    "t": -2.26,
+    "firstHalf": -0.228,
+    "secondHalf": -0.24,
+    "verdict": "not proven"
+   },
+   "stock_bias": {
+    "mean": 11.379,
+    "median": 8.122,
+    "n": 4042,
+    "origins": 40,
+    "vsMiddle": 0.575,
+    "t": 2.96,
+    "firstHalf": 0.827,
+    "secondHalf": 0.322,
+    "verdict": "not proven"
+   },
+   "clip_move": {
+    "mean": 10.642,
+    "median": 7.65,
+    "n": 4042,
+    "origins": 40,
+    "vsMiddle": -0.162,
+    "t": -1.18,
+    "firstHalf": -0.14,
+    "secondHalf": -0.183,
+    "verdict": "not proven"
+   },
+   "reversal": {
+    "mean": 10.799,
+    "median": 7.697,
+    "n": 4042,
+    "origins": 40,
+    "vsMiddle": -0.005,
+    "t": -0.16,
+    "firstHalf": 0.014,
+    "secondHalf": -0.024,
+    "verdict": "not proven"
+   },
+   "shrink_liquidity": {
+    "mean": 10.596,
+    "median": 7.642,
+    "n": 4042,
+    "origins": 40,
+    "vsMiddle": -0.207,
+    "t": -1.97,
+    "firstHalf": -0.176,
+    "secondHalf": -0.239,
+    "verdict": "not proven"
+   },
+   "dividend": {
+    "mean": 10.813,
+    "median": 7.749,
+    "n": 4042,
+    "origins": 40,
+    "vsMiddle": 0.009,
+    "t": 1.1,
+    "firstHalf": 0.011,
+    "secondHalf": 0.006,
+    "verdict": "not proven"
+   },
+   "shrink_dividend": {
+    "mean": 10.574,
+    "median": 7.63,
+    "n": 4042,
+    "origins": 40,
+    "vsMiddle": -0.23,
+    "t": -2.23,
+    "firstHalf": -0.221,
+    "secondHalf": -0.24,
+    "verdict": "not proven"
+   }
+  }
+ },
+ "final": {
+  "21": {
+   "blend": {
+    "mean": 7.723,
+    "median": 4.733,
+    "n": 4672,
+    "origins": 45,
+    "vsMiddle": 0.041,
+    "t": 1.07,
+    "firstHalf": 0.053,
+    "secondHalf": 0.029,
+    "verdict": "not proven"
+   },
+   "middle": {
+    "mean": 7.682,
+    "median": 4.726,
+    "n": 4672,
+    "origins": 45
+   }
+  },
+  "63": {
+   "blend": {
+    "mean": 12.151,
+    "median": 8.179,
+    "n": 4257,
+    "origins": 41,
+    "vsMiddle": -0.152,
+    "t": -1.29,
+    "firstHalf": -0.196,
+    "secondHalf": -0.111,
+    "verdict": "not proven"
+   },
+   "middle": {
+    "mean": 12.303,
+    "median": 8.051,
+    "n": 4257,
+    "origins": 41
+   }
+  }
+ }
+}
